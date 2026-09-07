@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="Roles edge y control-plane">
 </p>
 
-> **Estado: v0.0.6, scaffolding - Entregas 1-5 de 6 (evidencia,
+> **Estado: v0.0.7, scaffolding - Entregas 1-5 de 6 (evidencia,
 > diagnóstico, cambio aprobado por una persona, despliegue canario,
 > verificación).** Cada subcomando es real y está probado de extremo a
 > extremo - `control diagnose` contra un proveedor de IA simulado
