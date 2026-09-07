@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="エッジとコントロールプレーンの役割">
 </p>
 
-> **ステータス: v0.0.6、scaffolding - 6 件の納品のうち第 1-5 弾(証拠、
+> **ステータス: v0.0.7、scaffolding - 6 件の納品のうち第 1-5 弾(証拠、
 > 診断、人による承認済みの変更、カナリアデプロイ、検証)。** すべての
 > サブコマンドが本物であり、エンドツーエンドでテスト済みです——
 > `control diagnose` は模擬の AI プロバイダーに対して(本物のプロバイ

@@ -13,6 +13,7 @@ import sys
 import tempfile
 import unittest
 from dataclasses import replace as _replace
+from unittest import mock
 from pathlib import Path
 
 from hydra_umc_ops_agent.canary_deploy import (
@@ -289,6 +290,40 @@ class DeployCanaryFailureModesTests(unittest.TestCase):
             self.assertIn('"retries": 0', (live_root / "config.json").read_text(encoding="utf-8"))
             self.assertEqual(list(tmp_path.glob("live-project.backup-*")), [])
             self.assertEqual(list(tmp_path.glob("ops-agent-canary-*")), [])
+
+    def test_promotion_self_heals_when_the_second_rename_fails(self):
+        # V07-004: a real regression this exact self-heal path never had
+        # (HYDRA-UMC-UPDATER's own sibling fix - the same real gap in
+        # install.py's own clone_or_pull() - got this same test; this
+        # module's own self-heal code already existed but was untested).
+        # Injects a real failure into exactly the second promotion
+        # rename (staging clone into place) and confirms the previous
+        # checkout is restored rather than silently lost.
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            live_root = _make_live_repo(tmp_path)
+            proposal = _make_approved_proposal(_GOOD_DIFF)
+
+            original_rename = Path.rename
+
+            def flaky_rename(self, target):
+                # Only the staging clone's own rename (the second, real
+                # promotion rename) fails - the first rename (live
+                # checkout -> backup) must go through normally so this
+                # test actually reaches the self-heal path.
+                if self.name.startswith("ops-agent-canary-"):
+                    raise OSError("synthetic failure injected by test")
+                return original_rename(self, target)
+
+            with mock.patch.object(Path, "rename", flaky_rename):
+                with self.assertRaises(CanaryDeployError) as ctx:
+                    deploy_canary(proposal, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+
+            self.assertIn("restored the previous checkout", str(ctx.exception))
+            self.assertTrue(live_root.is_dir())
+            self.assertIn('"retries": 0', (live_root / "config.json").read_text(encoding="utf-8"))
+            # Self-heal renamed the backup back - no orphaned backup left behind.
+            self.assertEqual(list(tmp_path.glob("live-project.backup-*")), [])
 
 
 if __name__ == "__main__":

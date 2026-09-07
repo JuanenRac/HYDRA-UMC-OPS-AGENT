@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="Rôles edge et control-plane">
 </p>
 
-> **État : v0.0.6, scaffolding - Livraisons 1-5 sur 6 (preuve,
+> **État : v0.0.7, scaffolding - Livraisons 1-5 sur 6 (preuve,
 > diagnostic, changement approuvé par une personne, déploiement canari,
 > vérification).** Chaque sous-commande est réelle et testée de bout en
 > bout - `control diagnose` contre un fournisseur d'IA simulé (tout

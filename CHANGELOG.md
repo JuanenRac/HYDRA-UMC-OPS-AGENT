@@ -9,6 +9,20 @@ bumped manually only. See `bump_version.py`.
 
 (nothing yet)
 
+## [0.0.7] - V07-004: a real regression test for a self-heal that had none
+
+`canary_deploy.py`'s own best-effort self-heal for a failed second
+promotion rename (added alongside HYDRA-UMC-UPDATER's own sibling fix)
+had no real regression test proving it actually works - only this
+module's own code comment claimed the behavior. New
+`test_promotion_self_heals_when_the_second_rename_fails`
+(`tests/test_canary_deploy.py`) injects a real `Path.rename` failure on
+exactly the second promotion rename and confirms the previous checkout
+is restored, matching the equivalent new test HYDRA-UMC-UPDATER's own
+`tests/test_install.py` just added for its own identical gap. No
+production code changed here - the self-heal itself was already real;
+only its own test coverage was missing. 133/133 tests pass.
+
 ## [0.0.6] - Docs-only: closes 2 real staleness gaps + a real packaging demo
 
 No functional code changed. `pyproject.toml`'s own `description` and the
