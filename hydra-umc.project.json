@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "ecosystem": "HYDRA-UMC",
+  "name": "HYDRA-UMC-OPS-AGENT",
+  "version": "0.0.6",
+  "role": "service",
+  "stack": "python",
+  "technologies": [
+    "Python 3.11+",
+    "JSON Schema",
+    "systemd (edge role, Linux only)",
+    "Anthropic API and/or OpenAI API (optional, provider-agnostic diagnosis)",
+    "git (staging clone + git apply for the real canary deploy path)"
+  ],
+  "deployment_target": "cm5",
+  "maturity": "scaffolding",
+  "family": "Ecosystem Operations",
+  "parent": null,
+  "native_version": {
+    "file": "pyproject.toml",
+    "pattern": "^version\\s*=\\s*\"(\\d+)\\.(\\d+)\\.(\\d+)\""
+  },
+  "build": "Two roles in one package: the edge role (deployed on a CM5) collects a real, sanitized inventory (installed project versions, service health checks, redacted logs) and derives read-only observations; the control-plane role (deployed on a development host, e.g. a Raspberry Pi 5) renders a saved snapshot, asks a provider-agnostic AI provider (Anthropic and/or OpenAI, optional `[ai-anthropic]`/`[ai-openai]` extras) to propose a root-cause explanation, manages a human-approved change proposal, applies an approved change to a staged clone and promotes it only if that project's own real build-test passes, and re-verifies the original check. Delivery 6 (voice/notification via HYDRA-UMC-VOICE-UI) is explicitly blocked, not merely deferred - see notes. Real build: python -m build (see pyproject.toml).",
+  "notes": "Scaffolding v0.0.4 - Deliveries 1-5 of the 6-delivery plan (\"Observabilidad read-only\" + \"Diagnostico\" + \"Cambio aprobado\" + \"Despliegue canario\" + \"Verificacion\") from the ecosystem-wide software-improvements audit's own recommended-new-project proposal. Coordinates existing pieces (HYDRA-UMC-OS, COGNITIVE-NODE, VOICE-UI, SERVER/SDK, NODE-HEALING, UPDATER, SUITE/STUDIO) rather than reimplementing any of them - this repo owns the maintenance-incident lifecycle (evidence -> diagnosis -> human-approved change -> canary deploy via the same atomic-by-verification pattern HYDRA-UMC-UPDATER's own install.py uses -> verification), not inference, updates, or MCU safety themselves. Complementary to the proposal's other recommended project, HYDRA-UMC-CONNECTOR-HUB (external machine/adapter capabilities) - this one operates the health and changes of the ecosystem's own components instead. diagnosis.py is genuinely provider-agnostic (a minimal AIProvider Protocol, two real concrete implementations - Anthropic and OpenAI - either optional); canary_deploy.py never touches a live checkout until an independent staging clone with the approved diff applied has already proven it builds, verified end-to-end against a real throwaway git repository in this project's own test suite (not a mock of subprocess/git). Delivery 6 (voice/notification via HYDRA-UMC-VOICE-UI) was investigated and found genuinely blocked, not just postponed: VOICE-UI's own real contract (gateway.py) is a bounded, INBOUND transcript-to-intent gateway (a Watch sends text, gets a reply) with no real outbound-notification/push surface an external service like this one could honestly integrate with today - inventing one here would violate this project's own no-fabrication standard. Real end-to-end calls against the live Anthropic/OpenAI APIs have not been exercised in this development session (no API key available here); every other real path (missing key, provider error, malformed response, diff-apply failure, build failure, promotion) is real and tested, including a live local git clone+apply+build+promote cycle."
+}
