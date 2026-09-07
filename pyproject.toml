@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hydra-umc-ops-agent"
+version = "0.0.6"
+description = "Maintenance-incident coordinator for the HYDRA-UMC/URTC ecosystem: a low-privilege edge role that collects a sanitized inventory/health snapshot, a control-plane role that renders it read-only, an optional AI-assisted diagnosis suggestion for one incident, a human-approved change proposal, a canary deploy that promotes an approved change only once a staged clone's own real build-test passes (via HYDRA-UMC-UPDATER's own atomic-by-verification pattern), and a re-verification of the original check. Voice/notification integration was investigated and found genuinely blocked (see README) - not later work, a real, closed architectural finding."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE.md" }
+authors = [
+    { name = "JuanenRac (Electro Hobby 3D)", email = "electrohobby3d@gmail.com" },
+]
+keywords = ["hydra-umc", "urtc", "ops-agent", "maintenance", "observability", "fleet-management"]
+# Deliberately stdlib-only for the core (edge collect / control show /
+# log redaction / manifest+health scanning) - the optional "ai" extra
+# below is Delivery 2's own real, separate addition, added only once
+# that delivery's own code actually needed it. A web framework for a
+# real control-plane UI is still separate, later work.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+# Delivery 2 (diagnosis) only - each lazily imported by diagnosis.py's
+# own provider classes, never required by the Delivery-1 core (edge
+# collect / control show / log redaction / manifest+health scanning all
+# stay dependency-free). diagnosis.py is provider-agnostic (AIProvider
+# Protocol) - install only the extra for the provider you actually use.
+ai-anthropic = ["anthropic>=0.40.0"]
+ai-openai = ["openai>=1.40.0"]
+
+[project.urls]
+Homepage = "https://github.com/JuanenRac/HYDRA-UMC-OPS-AGENT"
+
+[project.scripts]
+hydra-umc-ops-agent = "hydra_umc_ops_agent.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
