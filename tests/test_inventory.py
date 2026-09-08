@@ -81,6 +81,26 @@ class ScanProjectManifestsTests(unittest.TestCase):
         self.assertIn("missing/empty required field(s)", result.issues[0].reason)
         self.assertIn("version", result.issues[0].reason)
 
+    # F08 (found 2026-09-08 building a real end-to-end incident-lifecycle
+    # test): a retired `.backup-<uuid>` checkout - canary_deploy.py's own
+    # (and HYDRA-UMC-UPDATER's own, exact same convention) real, never-
+    # deleted rename-aside of the PREVIOUS checkout on every promotion -
+    # must never be scanned as if it were a live project. Without this,
+    # an already-fixed incident reappears forever, every scan, from its
+    # own retired backup.
+    def test_a_backup_directory_from_a_real_promotion_is_never_scanned(self):
+        _write_manifest(self.root / "real-project", name="real-project", version="1.0.0", maturity="functional")
+        # A backup left behind by a real promotion carries the manifest
+        # exactly as it was the moment it was retired - broken, on purpose,
+        # to prove this is skipped for real, not just coincidentally valid.
+        (self.root / "real-project.backup-ded2a77e").mkdir()
+        (self.root / "real-project.backup-ded2a77e" / "hydra-umc.project.json").write_text(
+            '{"name": "real-project"}', encoding="utf-8"
+        )
+        result = scan_project_manifests(self.root)
+        self.assertEqual([p.name for p in result.projects], ["real-project"])
+        self.assertEqual(result.issues, ())
+
     def test_a_manifest_that_is_a_json_array_not_object_is_a_real_reported_issue(self):
         project_dir = self.root / "wrong-shape"
         project_dir.mkdir()

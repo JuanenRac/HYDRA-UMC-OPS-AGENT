@@ -91,6 +91,19 @@ def scan_project_manifests(root: Path) -> ManifestScanResult:
     for entry in sorted(root.iterdir()):
         if not entry.is_dir():
             continue
+        # Real gap found 2026-09-08 while building a real end-to-end
+        # incident-lifecycle test (F08): canary_deploy.py's own
+        # deploy_canary() (and HYDRA-UMC-UPDATER's own install.py,
+        # exact same convention) renames the PREVIOUS checkout aside to
+        # `<name>.backup-<uuid>` on every real promotion, by design,
+        # never deleted. Without this skip, a re-scan of the same
+        # projects_root after a real promotion picks the retired,
+        # never-updated backup back up as if it were a live project -
+        # its manifest is whatever it was the moment it was retired, so
+        # a real, already-fixed incident would falsely reappear forever,
+        # every single scan, from that point on.
+        if ".backup-" in entry.name:
+            continue
         manifest_path = entry / _MANIFEST_FILENAME
         if not manifest_path.is_file():
             continue

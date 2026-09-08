@@ -9,6 +9,31 @@ bumped manually only. See `bump_version.py`.
 
 (nothing yet)
 
+## [0.0.8] - F08: a real, single diagnose-to-closure chain test + a real bug it found
+
+Every F08 stage already had its own isolated real CLI round-trip test,
+but no single test threaded ONE real incident through diagnose ->
+propose -> approve -> deploy-canary -> re-verified closure in order -
+the private plan's own explicit F08 gap. New
+`tests/test_full_incident_lifecycle.py`: a real manifest-scan incident
+(a project missing its required `version` field), diagnosed (LLM call
+mocked, everything else real), proposed with a real diff, approved,
+canary-deployed against a real git repo, then re-collected to prove
+the incident is genuinely resolved - plus a rollback-shaped
+counterpart proving a fix that doesn't actually work is never promoted
+and the original incident survives, reopened.
+
+Writing that real chain surfaced a real bug: `inventory.py`'s
+`scan_project_manifests()` had no concept of `canary_deploy.py`'s (and
+HYDRA-UMC-UPDATER's own, identical convention) real `<name>.backup-
+<uuid>` retired-checkout directories - a re-scan after a real promotion
+picked the retired backup back up as if it were a live project, so an
+already-fixed incident would reappear forever, every scan, from its own
+backup. Fixed: `.backup-` directories are now skipped.
+
+Verified: full pytest suite (136/136, 8 new), `tools/ci_validate.py`
+PASS (incl. a 7-language README version-string fix this surfaced).
+
 ## [0.0.7] - V07-004: a real regression test for a self-heal that had none
 
 `canary_deploy.py`'s own best-effort self-heal for a failed second
