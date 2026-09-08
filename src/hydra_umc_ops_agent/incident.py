@@ -3,8 +3,8 @@
 # Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
 # GPL-3.0 - see LICENSE
 # =============================================================================
-"""The real MaintenanceIncident contract from the ecosystem-wide proposal's
-own "CONTRATO MINIMO" section, plus the Delivery-1 (read-only observation)
+"""The real MaintenanceIncident contract this repo's own Delivery 1
+defines, plus the Delivery-1 (read-only observation)
 derivation logic: turning a real inventory scan's own findings into real,
 typed incidents - never a diagnosis, a proposed fix, or an AI call, all of
 which are explicitly later deliveries this version does not implement.
@@ -42,12 +42,11 @@ def _utc_now_iso() -> str:
 
 @dataclass(frozen=True)
 class MaintenanceIncident:
-    """Mirrors the ecosystem-wide proposal's own MaintenanceIncident
-    contract field-for-field (incidentId, sourceNode, detectedAt, severity,
-    component, symptom, evidenceRefs, redactionLevel, requestedBy,
-    correlationId) - a future JSON Schema for this contract should
-    validate exactly these fields, this dataclass is its real, current
-    definition."""
+    """This repo's own real MaintenanceIncident contract, field-for-field
+    (incidentId, sourceNode, detectedAt, severity, component, symptom,
+    evidenceRefs, redactionLevel, requestedBy, correlationId) - a future
+    JSON Schema for this contract should validate exactly these fields,
+    this dataclass is its real, current definition."""
     incident_id: str
     source_node: str
     detected_at: str
