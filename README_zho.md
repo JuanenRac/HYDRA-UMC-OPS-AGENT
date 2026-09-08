@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="边缘与控制面角色">
 </p>
 
-> **状态：v0.0.7，脚手架阶段——6 项交付中的第 1-5 项(证据、诊断、经人工批准的变更、金丝雀部署、验证)。**
+> **状态：v0.0.8，脚手架阶段——6 项交付中的第 1-5 项(证据、诊断、经人工批准的变更、金丝雀部署、验证)。**
 > 每一个子命令都是真实功能，并已进行端到端测试——`control diagnose` 针对模拟的 AI 提供方测试(任何真实提供方都可用，见 [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md))；`control deploy-canary` 针对一个真实的、用后即弃的本地 git 仓库测试(见 [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md))。没有任何事先经过明确人工批准的内容会被部署。交付 6(语音/通知)经过真实调研后被确认为确实受阻，而非只是推迟——见下方的路线图部分。关于当前真实存在的确切命令面，见 [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md)。
 
 ---

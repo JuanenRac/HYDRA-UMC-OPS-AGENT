@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="Edge and control-plane roles">
 </p>
 
-> **Status: v0.0.7, scaffolding - Deliveries 1-5 of 6 (evidence,
+> **Status: v0.0.8, scaffolding - Deliveries 1-5 of 6 (evidence,
 > diagnosis, human-approved change, canary deploy, verification).**
 > Every subcommand is real and tested end to end - `control diagnose`
 > against a fake AI provider (any real provider works, see
