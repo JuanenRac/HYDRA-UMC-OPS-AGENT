@@ -4,7 +4,7 @@
 # GPL-3.0 - see LICENSE
 # =============================================================================
 """Real, read-only inventory collection for the edge role - Delivery 1
-("Observabilidad read-only") of the ecosystem-wide proposal's own 6-delivery
+("Observabilidad read-only") of this repo's own 6-delivery
 plan: "edge-agent inventaria versiones, servicios, health checks y logs
 saneados". Nothing in this module mutates anything - it only ever reads a
 manifest file, asks systemd/an HTTP endpoint for its own current state, or
