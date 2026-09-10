@@ -139,7 +139,7 @@ command surface.
   though every caller already redacted it upstream - defense in depth
   for the one field most likely to carry a copy-pasted log line.
 - **The `MaintenanceIncident`/`NodeSnapshot` contract is fixed on
-  purpose, field-for-field, to the audit proposal's own "CONTRATO
+  purpose, field-for-field, to an explicit "CONTRATO
   MINIMO".** See [docs/INCIDENT_CONTRACT.md](docs/INCIDENT_CONTRACT.md).
   A later delivery that talks to a real AI provider or ticketing system
   should never need to translate between two incompatible shapes.

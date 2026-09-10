@@ -149,7 +149,7 @@ superficie de comandos completa y real.
   campo con más probabilidad de llevar una línea de log copiada y
   pegada.
 - **El contrato `MaintenanceIncident`/`NodeSnapshot` está fijado a
-  propósito, campo a campo, al "CONTRATO MINIMO" de la propia auditoría.**
+  propósito, campo a campo, a un "CONTRATO MINIMO" explícito.**
   Ver [docs/INCIDENT_CONTRACT.md](docs/INCIDENT_CONTRACT.md). Una
   entrega futura que hable con un proveedor de IA real o un sistema de
   tickets nunca debería tener que traducir entre dos formas

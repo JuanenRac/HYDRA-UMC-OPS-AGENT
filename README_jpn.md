@@ -144,7 +144,7 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-...
   ていたとしても、シリアライズ時に `symptom` に対して再度
   `redact_secrets()` を実行します——コピー&ペーストされたログ行を運ぶ
   可能性が最も高いフィールドに対する多層防御です。
-- **`MaintenanceIncident`/`NodeSnapshot` 契約は、監査自身の「CONTRATO
+- **`MaintenanceIncident`/`NodeSnapshot` 契約は、明示的な「CONTRATO
   MINIMO(最小契約)」に意図的にフィールド単位で固定されています。**
   [docs/INCIDENT_CONTRACT.md](docs/INCIDENT_CONTRACT.md) を参照してく
   ださい。本物の AI プロバイダーやチケットシステムと話す将来の納品は、

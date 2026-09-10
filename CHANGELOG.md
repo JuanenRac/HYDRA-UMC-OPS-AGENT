@@ -65,9 +65,9 @@ end - confirms the packaging itself (not just an editable install or
 project's own README/ROADMAP honesty note about install/deploy
 guarantees.
 
-## [0.0.5] - V07-002/003/004/005/010/011/020/021: 7 real regressions found by independent revalidation
+## [0.0.5] - V07-002/003/004/005/010/011/020/021: 7 real regressions found in a second review pass
 
-An independent revalidation audit (Codex) reproduced 7 real, distinct gaps
+A second review pass (Codex) reproduced 7 real, distinct gaps
 in this project's own maintenance-incident lifecycle, before it has ever
 been used against a real installation:
 
@@ -125,9 +125,9 @@ been used against a real installation:
 `PYTHONPATH=src python -m pytest tests -q`: 132 passed (was 107).
 `tools/ci_validate.py` PASS.
 
-## [0.0.4] - Real regressions found by independent revalidation
+## [0.0.4] - Real regressions found in a second review pass
 
-An independent ecosystem-wide revalidation audit reproduced 5 real
+A second review pass reproduced 5 real
 issues against this project's own v0.0.2/v0.0.3 code (each with a real
 fixture/probe, no hardware/network involved). All 5 are fixed here,
 each with a new regression test:
@@ -161,7 +161,7 @@ each with a new regression test:
   for the test suite: `build-test.sh` only ever compiles (Python
   syntax), it never runs `pytest`; CI runs `pytest` as its own,
   separate, later step. Wording corrected in all 7 languages.
-- 10 new regression tests (107 total), each reproducing the audit's own
+- 10 new regression tests (107 total), each reproducing its
   exact scenario before the fix and passing after it.
 
 ## [0.0.3] - Deliveries 3-5: human-approved change, canary deploy, verification
@@ -252,8 +252,8 @@ deploys anything.
 ## [0.0.1] - Delivery 1: read-only observability
 
 First real scaffolding version - Delivery 1 of the 6-delivery plan
-("Observabilidad read-only") from the ecosystem-wide software-improvements
-audit's own recommended-new-project proposal. This version can only ever
+("Observabilidad read-only") from an explicit recommended-new-project
+proposal. This version can only ever
 **observe and record** - it never invokes an AI provider, never proposes or
 applies a patch, and never deploys or mutates anything on any host.
 

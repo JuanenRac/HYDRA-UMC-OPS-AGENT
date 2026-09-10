@@ -149,7 +149,7 @@ surface de commandes complète et réelle.
   rédigé en amont - défense en profondeur pour le champ le plus
   susceptible de porter une ligne de log copiée-collée.
 - **Le contrat `MaintenanceIncident`/`NodeSnapshot` est figé à dessein,
-  champ par champ, sur le propre "CONTRATO MINIMO" de l'audit.** Voir
+  champ par champ, sur un "CONTRATO MINIMO" explicite.** Voir
   [docs/INCIDENT_CONTRACT.md](docs/INCIDENT_CONTRACT.md). Une livraison
   future qui parle à un vrai fournisseur d'IA ou à un système de tickets
   ne devrait jamais avoir à traduire entre deux formes incompatibles.

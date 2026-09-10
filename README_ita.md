@@ -151,8 +151,8 @@ comandi completa e reale.
   già redatto a monte - difesa in profondità per il campo con più
   probabilità di contenere una riga di log copiata e incollata.
 - **Il contratto `MaintenanceIncident`/`NodeSnapshot` è fissato
-  intenzionalmente, campo per campo, al "CONTRATO MINIMO" della stessa
-  audit.** Vedi [docs/INCIDENT_CONTRACT.md](docs/INCIDENT_CONTRACT.md).
+  intenzionalmente, campo per campo, a un "CONTRATO MINIMO" esplicito.**
+  Vedi [docs/INCIDENT_CONTRACT.md](docs/INCIDENT_CONTRACT.md).
   Una consegna futura che parla con un vero provider di IA o un sistema
   di ticket non dovrebbe mai dover tradurre tra due forme incompatibili.
 - **La diagnosi è indipendente dal provider per design.**

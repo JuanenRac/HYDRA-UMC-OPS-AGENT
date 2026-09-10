@@ -73,7 +73,7 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-...
 - **事件是被推导出来的，而不是被声明出来的。** `IncidentBatch` 的 `add_*` 方法在检查对象实际健康时返回 `None`。没有任何代码路径会从一次干净的观测中凭空捏造事件，也没有任何路径会悄悄丢弃一个真实事件。
 - **协议边界诚实地降级，而绝不猜测。** `check_systemd_unit_health()` 会在 `systemctl` 不在 `PATH` 中的那一刻立即抛出专门的 `SystemdUnavailableError`——在这台开发机上每次都是如此，在任何没有 systemd 的主机上也是如此——而不是报告一个凭空捏造的"inactive"状态。`check_http_health()` 让真正的网络故障(`status_code is None`)与一个真实但不健康的 HTTP 响应保持可区分。
 - **脱敏处理是这里对安全最为关键的一段代码。** `log_redaction.py` 是纯粹、无依赖的文本变换，在被其他任何代码使用之前，已由自身的测试覆盖。键名匹配必须把秘密名称当作真实标识符 token 的子串来查找(如 `DB_PASSWORD`、`api-key`)，而不是当作一个由 `\b` 界定的单词——在正则表达式中 `_` 是单词字符，因此天真的 `\bpassword\b` 永远不会匹配 `DB_PASSWORD`。`MaintenanceIncident.to_dict()` 在序列化时会对 `symptom` 再次执行 `redact_secrets()`，即便调用方早已在上游脱敏过——这是对最有可能携带一段被复制粘贴的日志行的字段所做的纵深防御。
-- **`MaintenanceIncident`/`NodeSnapshot` 契约被有意地、逐字段地固定为审计自身"最小契约(CONTRATO MINIMO)"的样子。** 见 [docs/INCIDENT_CONTRACT.md](docs/INCIDENT_CONTRACT.md)。未来某次交付若要对接真实的 AI 提供方或工单系统，理应永远不必在两种不兼容的形状之间做转换。
+- **`MaintenanceIncident`/`NodeSnapshot` 契约被有意地、逐字段地固定为一份明确的"最小契约(CONTRATO MINIMO)"的样子。** 见 [docs/INCIDENT_CONTRACT.md](docs/INCIDENT_CONTRACT.md)。未来某次交付若要对接真实的 AI 提供方或工单系统，理应永远不必在两种不兼容的形状之间做转换。
 - **诊断在设计上就与具体提供方无关。** `diagnose_incident()` 只依赖一个最小的 `AIProvider` Protocol——核心代码中从不硬编码任何具名的真实 AI 供应商。Anthropic 与 OpenAI 这两个真实提供方作为可选 extra 内置；调用方也可以传入实现同一单方法契约的任何其他对象。
 - **金丝雀部署在真实构建已经证明变更可行之前，绝不会触碰真实检出。** `deploy_canary()` 会拒绝在给定提案的 `status` 尚未变为 `approved` 时执行；随后把 diff 暂存到一个独立的本地克隆中，只有当该项目自身真实的 build-test 命令确实以退出码 `0` 结束时才会提升(两次改名的交换操作，先前的检出以真实备份形式保留)——这与 HYDRA-UMC-UPDATER 自身 `install.py` 已经使用的"经验证后原子化"模式完全一致。
 - **一份提案恰好只被裁决一次。** `approve_change()`/`reject_change()` 会对任何非 `pending` 状态的对象抛出 `InvalidTransitionError`——第二次裁决绝不会悄悄覆盖第一次，且每一次裁决都归属于一个真实的、非空的姓名。
