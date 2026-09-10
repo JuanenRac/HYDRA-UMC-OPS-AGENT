@@ -8,8 +8,8 @@ that produces the camelCase field names below, and (for
 
 ## `MaintenanceIncident`
 
-Field-for-field, this mirrors the ecosystem-wide software-improvements
-audit's own "CONTRATO MINIMO" proposal for a maintenance incident -
+Field-for-field, this mirrors an explicit "CONTRATO MINIMO"
+proposal for a maintenance incident -
 deliberately, so a later delivery that talks to a real AI provider or a
 real ticketing system never has to translate between two incompatible
 shapes.

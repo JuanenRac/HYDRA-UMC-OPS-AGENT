@@ -32,8 +32,8 @@ HYDRA-UMC platform.
    README "Architecture & Design Decisions" section on why that is
    deliberately deferred to a specific later delivery, and updating the
    Roadmap there to match.
-4. **`MaintenanceIncident`'s field names mirror the ecosystem-wide
-   proposal's own contract exactly** (`incidentId`, `sourceNode`, etc.) -
+4. **`MaintenanceIncident`'s field names mirror an explicit
+   contract exactly** (`incidentId`, `sourceNode`, etc.) -
    don't rename a field for Python-style convenience; `to_dict()`/
    `from_dict()` exist specifically so the Python-internal
    `snake_case` dataclass and the real wire contract's `camelCase` never

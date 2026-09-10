@@ -151,7 +151,7 @@ echte Befehlsoberfläche.
   bereits vorher redigiert hat - Tiefenverteidigung für das Feld, das
   am ehesten eine kopierte Log-Zeile trägt.
 - **Der `MaintenanceIncident`/`NodeSnapshot`-Vertrag ist absichtlich
-  Feld für Feld auf das eigene "CONTRATO MINIMO" der Audit festgelegt.**
+  Feld für Feld auf ein ausdrückliches "CONTRATO MINIMO" festgelegt.**
   Siehe [docs/INCIDENT_CONTRACT.md](docs/INCIDENT_CONTRACT.md). Eine
   spätere Lieferung, die mit einem echten KI-Anbieter oder
   Ticket-System spricht, sollte niemals zwischen zwei inkompatiblen
