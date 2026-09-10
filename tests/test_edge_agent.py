@@ -27,7 +27,7 @@ class CollectSnapshotTests(unittest.TestCase):
         self._tmp.cleanup()
 
     def test_a_clean_root_with_no_checks_requested_yields_an_empty_but_valid_snapshot(self):
-        # V07-020 (found in an independent revalidation audit, P2):
+        # V07-020 (P2):
         # systemd_available used to default to True and this test
         # asserted exactly that stale default as if it were correct -
         # but "no unit was ever configured" is a genuinely different,
@@ -72,7 +72,7 @@ class CollectSnapshotTests(unittest.TestCase):
         self.assertEqual(reloaded["sourceNode"], "cm5-test")
         self.assertEqual(len(reloaded["projects"]), 1)
 
-    # REV-013 regression: a real audit found manifestIssues[].reason,
+    # REV-013 regression: found while auditing the code: manifestIssues[].reason,
     # serviceHealth[].detail and httpHealth[].detail/url (all real,
     # free-text fields that can carry a copy-pasted secret, same as an
     # incident's own symptom) leaving to_dict() completely unredacted -

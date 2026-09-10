@@ -7,7 +7,7 @@
 to a real project checkout through the same atomic-by-verification pattern
 HYDRA-UMC-UPDATER's own install.py already uses for updates.
 
-V07-002 (found in an independent revalidation audit, P1): this docstring
+V07-002 (P1): this docstring
 used to make that "same pattern" claim while the module underneath only
 copied the STRUCTURE (clone/verify/promote) and never the actual
 data-safety logic - no real-local-data carryover, no upstream-remote
@@ -80,7 +80,7 @@ class ApprovalInvalidError(CanaryDeployError):
 
 
 class TargetProjectMismatchError(CanaryDeployError):
-    """V07-003 (found in an independent revalidation audit, P1, the
+    """V07-003 (P1, the
     finding's own exact reproduction: "a proposal approved for
     OTHER_PROJECT applied cleanly to a checkout whose manifest says
     HYDRA-UMC-EXAMPLE"): `deploy_canary()` used to never check that the
@@ -160,7 +160,7 @@ def _tracked_dirty_paths(path: Path) -> list[str]:
     `??`/`!!`, real untracked/ignored data `_carry_over_local_data()`
     already owns).
 
-    V07-002 (found in an independent revalidation audit, P1): this
+    V07-002 (P1): this
     module's own docstring claims it uses "the same atomic-by-
     verification pattern HYDRA-UMC-UPDATER's own install.py already
     uses" - but never actually checked for this. `git clone --local`

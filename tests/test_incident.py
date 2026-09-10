@@ -40,8 +40,7 @@ class MaintenanceIncidentRoundTripTests(unittest.TestCase):
         self.assertNotIn("hunter2", incident.to_dict()["symptom"])
 
     def test_to_dict_redacts_a_secret_that_ended_up_in_component_or_evidence_refs(self):
-        # V07-010 (found in an independent revalidation audit, P1,
-        # residual outside REV-013's own three original examples):
+        # V07-010 (P1, residual outside REV-013's own three original examples):
         # component/evidenceRefs (often a real URL, e.g. a configured
         # http_health_urls entry with embedded userinfo credentials)
         # were never redacted here, while redactionLevel unconditionally

@@ -58,7 +58,7 @@ class VerificationResult:
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> "VerificationResult":
-        # V07-021 (found in an independent revalidation audit, P2): this
+        # V07-021 (P2): this
         # is a real public loading boundary (whatever produced `data`
         # need not be this module's own to_dict()) - `bool(data["resolved"])`
         # used to coerce ANY non-empty value, including the literal
