@@ -315,6 +315,7 @@ Dieses Projekt ist Teil des HYDRA-UMC-Robotik-Ökosystems desselben Autors (Juan
 **Direkt verwandt**
 - **[HYDRA-UMC-UPDATER](https://github.com/JuanenRac/HYDRA-UMC-UPDATER)** — erkennt, installiert und aktualisiert jeden Checkout des Ökosystems; ein Canary-Deployment der Lieferung 4 wendet eine genehmigte Änderung über den eigenen, bereits existierenden atomar-durch-Verifizierung-Update-Pfad dieses Projekts an, statt einer zweiten Implementierung.
 - **[HYDRA-UMC-OS-REBUILDER](https://github.com/JuanenRac/HYDRA-UMC-OS-REBUILDER)** — ein weiterer "Ecosystem Operations"-Verwandter: baut ein neues, vollständig aktuelles CM5-Image, statt ein bereits laufendes zu beobachten.
+- **[HYDRA-UMC-DEV-SERVER](https://github.com/JuanenRac/HYDRA-UMC-DEV-SERVER)** — reproduzierbarer Entwicklungshost, der Kandidaten baut und seine dauerhafte Aufgaben-Warteschlange mit dem Vorfall-Lebenszyklus dieses Projekts abstimmt; er genehmigt seine eigenen Aufgaben nie.
 - **[HYDRA-UMC-NODE-HEALING](https://github.com/JuanenRac/HYDRA-UMC-NODE-HEALING)** — ein echter gRPC-basierter Flotten-Health-Watchdog mit eigenem Retry/Backoff und Identitäts-Mismatch-Erkennung - ein verwandtes, aber eigenständiges Thema (Live-Gesundheit von Flottenknoten via gRPC) gegenüber der eigenen Manifest-/systemd-/HTTP-Beweissammlung und dem Vorfall-Lebenszyklus dieses Projekts.
 
 **Ebenfalls Teil des Ökosystems**
