@@ -160,6 +160,7 @@ ANTHROPIC_API_KEY=sk-ant-... ./run.sh control diagnose snapshot.json --incident-
 **直接相关**
 - **[HYDRA-UMC-UPDATER](https://github.com/JuanenRac/HYDRA-UMC-UPDATER)** — 检测、安装并更新生态系统中的每一个检出目录；交付 4 中的金丝雀部署正是通过本项目自身已经存在的"经验证后原子化"更新路径来应用已批准的变更，而不是另建一套实现。
 - **[HYDRA-UMC-OS-REBUILDER](https://github.com/JuanenRac/HYDRA-UMC-OS-REBUILDER)** — 另一个"Ecosystem Operations"同族项目：构建一份全新、完全最新的 CM5 镜像,而不是观测一台已经在运行的机器。
+- **[HYDRA-UMC-DEV-SERVER](https://github.com/JuanenRac/HYDRA-UMC-DEV-SERVER)** — 可复现的开发主机，构建候选版本，并将其持久任务队列与本项目自身的事件生命周期相协调；它从不批准自己的任务。
 - **[HYDRA-UMC-NODE-HEALING](https://github.com/JuanenRac/HYDRA-UMC-NODE-HEALING)** — 具备自身重试/退避与身份不匹配检测能力的真实基于 gRPC 的车队健康看门狗——这是一个与本项目自身基于清单/systemd/HTTP 的证据收集及事件生命周期相关但截然不同的课题(通过 gRPC 实时监测车队节点健康)。
 
 **生态系统中的其他项目**

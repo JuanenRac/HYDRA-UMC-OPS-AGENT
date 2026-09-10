@@ -308,6 +308,7 @@ Windows では: 先に `build.bat`、その後 `run.bat`(引数なしの場合�
 **直接関連**
 - **[HYDRA-UMC-UPDATER](https://github.com/JuanenRac/HYDRA-UMC-UPDATER)** — エコシステムのすべてのチェックアウトを検出・インストール・更新する。納品 4 のカナリアデプロイは、第二の実装ではなく、本プロジェクト自身の既存の「検証を経てからの原子的」更新パスを通じて承認済みの変更を適用する。
 - **[HYDRA-UMC-OS-REBUILDER](https://github.com/JuanenRac/HYDRA-UMC-OS-REBUILDER)** — もう一つの「Ecosystem Operations」の兄弟プロジェクト: 既に稼働中のものを観測するのではなく、新しく完全に最新の CM5 イメージを構築する。
+- **[HYDRA-UMC-DEV-SERVER](https://github.com/JuanenRac/HYDRA-UMC-DEV-SERVER)** — 再現可能な開発ホスト。候補をビルドし、その永続タスクキューを本プロジェクト自身のインシデントライフサイクルと協調させる。自分自身のタスクを承認することは決してない。
 - **[HYDRA-UMC-NODE-HEALING](https://github.com/JuanenRac/HYDRA-UMC-NODE-HEALING)** — 独自のリトライ/バックオフとアイデンティティ不一致検出を備えた、実際の gRPC ベースのフリートヘルスウォッチドッグ——本プロジェクト自身のマニフェスト/systemd/HTTP による証拠収集とインシデントライフサイクルとは関連するが別個の課題(gRPC 経由のフリートノードのライブ健全性)。
 
 **エコシステムの他のプロジェクト**
