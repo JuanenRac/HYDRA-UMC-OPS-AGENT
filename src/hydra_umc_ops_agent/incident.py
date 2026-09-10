@@ -59,8 +59,7 @@ class MaintenanceIncident:
     correlation_id: str
 
     def to_dict(self) -> dict[str, object]:
-        # V07-010 (found in an independent revalidation audit, P1,
-        # residual outside REV-013's own three original examples):
+        # V07-010 (P1, residual outside REV-013's own three original examples):
         # `component` (often a URL or systemd unit name) and
         # `evidenceRefs` (often a URL or a real command line) were
         # never redacted here - only `symptom` was, since REV-013's own

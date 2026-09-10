@@ -92,8 +92,7 @@ class RenderSnapshotReportTests(unittest.TestCase):
         self.assertLess(report.index("[CRITICAL]"), report.index("[WARNING]"))
 
     def test_an_unhashable_severity_never_crashes_the_sort(self):
-        # V07-011 (found in an independent revalidation audit, P2,
-        # residual of REV-014): `severity` is real, publicly-loaded
+        # V07-011 (P2, residual of REV-014): `severity` is real, publicly-loaded
         # data - a real `[]`/`{}` used to raise TypeError straight out
         # of the sort key's own dict.get() (unhashable types can't be
         # looked up in a dict at all), crashing the entire report.
@@ -126,7 +125,7 @@ class RenderSnapshotReportTests(unittest.TestCase):
         self.assertIn("x.service: NOT ACTIVE", report)
         self.assertIn("http://x: UNREACHABLE", report)
 
-    # REV-014 regression: a real audit found `projects=[null]` (JSON-valid,
+    # REV-014 regression: found while auditing the code: `projects=[null]` (JSON-valid,
     # structurally malformed) crashing this renderer with AttributeError -
     # `null.get(...)` - deep inside the loop below. A malformed entry must
     # be skipped and counted, never crash an otherwise-valid report.

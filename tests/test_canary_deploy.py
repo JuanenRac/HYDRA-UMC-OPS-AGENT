@@ -132,7 +132,7 @@ class DeployCanaryHappyPathTests(unittest.TestCase):
 
 
 class DeployCanaryDataPreservationTests(unittest.TestCase):
-    """V07-002 (found in an independent revalidation audit, P1): this
+    """V07-002 (P1): this
     module's own docstring claims it uses "the same atomic-by-
     verification pattern HYDRA-UMC-UPDATER's own install.py already
     uses" - but never actually carried over real local data, never
@@ -147,7 +147,7 @@ class DeployCanaryDataPreservationTests(unittest.TestCase):
             live_root = _make_live_repo(tmp_path)
             # A real, genuinely untracked file - never added/committed -
             # the exact shape a real project's own local operational
-            # data (private-local.json in the audit's own reproduction)
+            # data (private-local.json in the review's own reproduction)
             # takes inside a live checkout.
             (live_root / "private-local.json").write_text('{"real": "local state"}', encoding="utf-8")
             proposal = _make_approved_proposal(_GOOD_DIFF)
@@ -198,8 +198,8 @@ class DeployCanaryDataPreservationTests(unittest.TestCase):
 
 
 class DeployCanaryApprovalBindingTests(unittest.TestCase):
-    """V07-003 (found in an independent revalidation audit, P1): the
-    audit's own exact reproduction - an approval for OTHER_PROJECT
+    """V07-003 (P1): the
+    review pass's own exact reproduction - an approval for OTHER_PROJECT
     applied cleanly to a checkout whose real manifest names a
     completely different project, because deploy_canary() only ever
     checked `status == "approved"`."""

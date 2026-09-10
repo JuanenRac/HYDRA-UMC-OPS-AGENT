@@ -87,8 +87,8 @@ class ApproveRejectTests(unittest.TestCase):
         approved.verify_approval_content()  # must not raise
 
     def test_editing_the_diff_after_approval_invalidates_it(self):
-        # V07-003 (found in an independent revalidation audit, P1): the
-        # audit's own exact reproduction - a saved, approved proposal
+        # V07-003 (P1): the
+        # review pass's own exact reproduction - a saved, approved proposal
         # file is real, mutable JSON on disk. Editing its diff (or
         # project) after approval while leaving status: "approved"
         # untouched used to let deploy_canary() apply completely
@@ -144,7 +144,7 @@ class SerializationTests(unittest.TestCase):
         self.assertEqual(restored, proposal)
 
     def test_a_secret_shape_in_the_diff_is_refused_at_proposal_time(self):
-        # V07-005 (found in an independent revalidation audit, P1): this
+        # V07-005 (P1): this
         # test used to assert that to_dict() REDACTED a secret-shaped
         # diff on serialization - but that redaction is exactly the bug:
         # save_proposal()/load_proposal() round-trip through to_dict(),

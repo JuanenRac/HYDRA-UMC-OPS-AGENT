@@ -90,7 +90,7 @@ class VerifyUnrecognizedIncidentTests(unittest.TestCase):
 
 
 class VerificationResultFromDictTests(unittest.TestCase):
-    """V07-021 (found in an independent revalidation audit, P2):
+    """V07-021 (P2):
     from_dict() is a real public loading boundary - whatever produced
     `data` need not be this module's own to_dict(). `bool(data["resolved"])`
     used to coerce ANY non-empty value, including the literal textual
@@ -112,7 +112,7 @@ class VerificationResultFromDictTests(unittest.TestCase):
         self.assertIs(result.resolved, True)
 
     def test_the_textual_string_false_is_rejected_not_coerced_to_true(self):
-        # The audit's own exact reproduction: bool("false") is True.
+        # The review pass's own exact reproduction: bool("false") is True.
         with self.assertRaises(VerificationError):
             VerificationResult.from_dict(self._payload(resolved="false"))
 

@@ -12,7 +12,7 @@ A systemd-unavailable host (this development machine included) is a real,
 honestly-reported state (`systemd_available=False`, a real reason string),
 not silently skipped or faked as "all units healthy".
 
-V07-020 (found in an independent revalidation audit, P2, a real residual
+V07-020 (P2, a real residual
 of REV-015): `systemd_available` used to default to `True` and only ever
 flip to `False` on a real, observed failure - if zero `--systemd-unit`
 flags were configured at all, it stayed `True` forever, having never

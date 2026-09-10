@@ -98,7 +98,7 @@ def _content_digest(project_name: str, diff: str) -> str:
 
 
 class ApprovalContentMismatchError(ChangeProposalError):
-    """V07-003 (found in an independent revalidation audit, P1): an
+    """V07-003 (P1): an
     approval's own `status == "approved"` used to be the ONLY thing
     deploy_canary() checked - nothing tied that approval to the exact
     project or diff a human actually reviewed. A saved proposal file is
@@ -158,7 +158,7 @@ class ChangeProposal:
             )
 
     def to_dict(self) -> dict[str, object]:
-        # V07-005 (found in an independent revalidation audit, P1): this
+        # V07-005 (P1): this
         # dict is not just a display view - save_proposal()/load_proposal()
         # round-trip THROUGH it, and canary_deploy.py's own _apply_diff()
         # later runs `git apply` on whatever `.diff` comes back out.
