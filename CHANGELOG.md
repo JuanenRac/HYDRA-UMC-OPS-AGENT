@@ -13,8 +13,8 @@ bumped manually only. See `bump_version.py`.
 
 Every F08 stage already had its own isolated real CLI round-trip test,
 but no single test threaded ONE real incident through diagnose ->
-propose -> approve -> deploy-canary -> re-verified closure in order -
-the private plan's own explicit F08 gap. New
+propose -> approve -> deploy-canary -> re-verified closure in order.
+New
 `tests/test_full_incident_lifecycle.py`: a real manifest-scan incident
 (a project missing its required `version` field), diagnosed (LLM call
 mocked, everything else real), proposed with a real diff, approved,

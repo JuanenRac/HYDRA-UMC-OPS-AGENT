@@ -3,9 +3,9 @@
 # Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
 # GPL-3.0 - see LICENSE
 # =============================================================================
-"""F08 (private plan's own flow: "Diagnostico OPS -> incidente saneado ->
-propuesta ligada a hash/revision -> pruebas -> aprobacion -> staging
-UPDATER -> verificacion -> cierre o rollback") - found 2026-09-08 with a
+"""F08 ("Diagnostico OPS -> incidente saneado -> propuesta ligada a
+hash/revision -> pruebas -> aprobacion -> staging UPDATER ->
+verificacion -> cierre o rollback") - found while auditing the code, with a
 real gap: every stage already had its own real CLI round-trip test
 (test_cli.py's own Delivery345CliTests), but no single test threaded ONE
 real incident through every stage in order, ending in a real, re-verified
