@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="Edge- und Control-Plane-Rollen">
 </p>
 
-> **Status: v0.0.8, Scaffolding - Lieferungen 1-5 von 6 (Beweis,
+> **Status: v0.0.9, Scaffolding - Lieferungen 1-5 von 6 (Beweis,
 > Diagnose, von einer Person genehmigte Änderung, Canary-Deployment,
 > Verifizierung).** Jeder Unterbefehl ist echt und Ende-zu-Ende getestet
 > - `control diagnose` gegen einen simulierten KI-Anbieter (jeder echte
@@ -29,6 +29,8 @@
 > aufgeschoben - siehe den FAHRPLAN-Abschnitt unten. Siehe
 > [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md) für die genaue
 > Befehlsoberfläche, die es heute gibt.
+
+**Ehrlichkeitscheck - was heute wirklich läuft:** alle fünf bereits ausgelieferten Deliveries - Evidenz (`inventory.py`, `edge_agent.py`, `incident.py`), Diagnose (`diagnosis.py`), von einem Menschen genehmigte Änderung (`change_proposal.py`), Canary-Deployment (`canary_deploy.py`) und Verifikation (`verification.py`), plus die Schwärzungsgrenze (`log_redaction.py`) und die CLI (`cli.py`) - sind real und Ende-zu-Ende getestet (136 bestandene Tests plus 6 Subtests über alle 11 Testdateien). Die Canary-Deploy-Stufe wird tatsächlich gegen ein echtes, einmal verwendetes lokales Git-Repository geprüft, kein Mock. Die Diagnose wird ausschließlich gegen einen simulierten `AIProvider` getestet - `AnthropicProvider`/`OpenAIProvider` sind echte Implementierungen desselben Protokolls, aber keine der beiden wurde in dieser Testsuite gegen einen echten, live laufenden Anthropic- oder OpenAI-API-Aufruf geprüft (in dieser Umgebung ist kein Schlüssel verfügbar). Die Edge- und Control-Plane-Rollen kommunizieren heute nur über eine gespeicherte Snapshot-Datei - es gibt noch keinen Netzwerktransport zwischen ihnen. Delivery 6 (Sprache/Benachrichtigung) ist tatsächlich blockiert, nicht bloß aufgeschoben: HYDRA-UMC-VOICE-UI hat heute keine echte ausgehende Benachrichtigungsoberfläche, mit der man sich integrieren könnte. Siehe `CHANGELOG.md` für das, was bisher genau ausgeliefert wurde.
 
 ---
 

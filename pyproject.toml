@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydra-umc-ops-agent"
-version = "0.0.8"
+version = "0.0.9"
 description = "Maintenance-incident coordinator for the HYDRA-UMC/URTC ecosystem: a low-privilege edge role that collects a sanitized inventory/health snapshot, a control-plane role that renders it read-only, an optional AI-assisted diagnosis suggestion for one incident, a human-approved change proposal, a canary deploy that promotes an approved change only once a staged clone's own real build-test passes (via HYDRA-UMC-UPDATER's own atomic-by-verification pattern), and a re-verification of the original check. Voice/notification integration was investigated and found genuinely blocked (see README) - not later work, a real, closed architectural finding."
 readme = "README.md"
 requires-python = ">=3.11"

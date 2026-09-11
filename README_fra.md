@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="Rôles edge et control-plane">
 </p>
 
-> **État : v0.0.8, scaffolding - Livraisons 1-5 sur 6 (preuve,
+> **État : v0.0.9, scaffolding - Livraisons 1-5 sur 6 (preuve,
 > diagnostic, changement approuvé par une personne, déploiement canari,
 > vérification).** Chaque sous-commande est réelle et testée de bout en
 > bout - `control diagnose` contre un fournisseur d'IA simulé (tout
@@ -29,6 +29,8 @@
 > ROUTE ci-dessous. Voir
 > [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md) pour la surface de
 > commandes exacte qui existe aujourd'hui.
+
+**Vérification d'honnêteté - ce qui fonctionne réellement aujourd'hui :** les cinq livraisons déjà publiées - preuves (`inventory.py`, `edge_agent.py`, `incident.py`), diagnostic (`diagnosis.py`), changement approuvé par un humain (`change_proposal.py`), déploiement canari (`canary_deploy.py`), et vérification (`verification.py`), plus la frontière de rédaction (`log_redaction.py`) et la CLI (`cli.py`) - sont réelles et testées de bout en bout (136 tests plus 6 sous-tests passants dans les 11 fichiers de test). L'étape de déploiement canari est réellement exercée contre un vrai dépôt git local jetable, pas un mock. Le diagnostic n'est jamais testé que contre un `AIProvider` simulé - `AnthropicProvider`/`OpenAIProvider` sont de vraies implémentations du même protocole, mais aucune n'a été exercée contre un vrai appel en direct à l'API Anthropic ou OpenAI dans cette suite de tests (aucune clé disponible dans cet environnement). Les rôles edge et control-plane ne communiquent aujourd'hui qu'au travers d'un fichier snapshot sauvegardé - il n'y a pas encore de transport réseau entre eux. La Livraison 6 (voix/notification) est authentiquement bloquée, pas simplement reportée : HYDRA-UMC-VOICE-UI n'a aujourd'hui aucune vraie surface de notification sortante avec laquelle s'intégrer. Voir `CHANGELOG.md` pour ce qui a été livré exactement jusqu'à présent.
 
 ---
 
