@@ -15,8 +15,10 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="边缘与控制面角色">
 </p>
 
-> **状态：v0.0.8，脚手架阶段——6 项交付中的第 1-5 项(证据、诊断、经人工批准的变更、金丝雀部署、验证)。**
+> **状态：v0.0.9，脚手架阶段——6 项交付中的第 1-5 项(证据、诊断、经人工批准的变更、金丝雀部署、验证)。**
 > 每一个子命令都是真实功能，并已进行端到端测试——`control diagnose` 针对模拟的 AI 提供方测试(任何真实提供方都可用，见 [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md))；`control deploy-canary` 针对一个真实的、用后即弃的本地 git 仓库测试(见 [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md))。没有任何事先经过明确人工批准的内容会被部署。交付 6(语音/通知)经过真实调研后被确认为确实受阻，而非只是推迟——见下方的路线图部分。关于当前真实存在的确切命令面，见 [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md)。
+
+**诚实核查 - 今天真正能运行的部分：** 已经交付的五项内容——证据(`inventory.py`、`edge_agent.py`、`incident.py`)、诊断(`diagnosis.py`)、人工批准的变更(`change_proposal.py`)、金丝雀部署(`canary_deploy.py`)以及验证(`verification.py`),外加脱敏边界(`log_redaction.py`)和命令行界面(`cli.py`)——都是真实的，并且经过了端到端测试(11 个测试文件中共 136 个测试外加 6 个子测试全部通过)。金丝雀部署阶段是针对一个真实的、用后即弃的本地 git 仓库进行的真实测试，而不是模拟对象。诊断功能只针对一个模拟的 `AIProvider` 进行过测试——`AnthropicProvider`/`OpenAIProvider` 是同一协议的真实实现，但在本测试套件中，两者都从未针对真实的、实时的 Anthropic 或 OpenAI API 调用进行过测试(本环境中没有可用的密钥)。edge 和 control-plane 这两个角色目前只能通过一个保存下来的快照文件进行通信——它们之间尚不存在网络传输。交付 6(语音/通知)是真正被阻塞的，而不仅仅是被推迟：HYDRA-UMC-VOICE-UI 今天没有任何真实的出站通知接口可供集成。具体已交付的内容请见 `CHANGELOG.md`。
 
 ---
 

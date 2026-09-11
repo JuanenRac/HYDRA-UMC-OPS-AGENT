@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="Roles edge y control-plane">
 </p>
 
-> **Estado: v0.0.8, scaffolding - Entregas 1-5 de 6 (evidencia,
+> **Estado: v0.0.9, scaffolding - Entregas 1-5 de 6 (evidencia,
 > diagnóstico, cambio aprobado por una persona, despliegue canario,
 > verificación).** Cada subcomando es real y está probado de extremo a
 > extremo - `control diagnose` contra un proveedor de IA simulado
@@ -28,6 +28,8 @@
 > bloqueada, no simplemente pospuesta - ver la sección HOJA DE RUTA más
 > abajo. Ver [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md) para la
 > superficie de comandos exacta que existe hoy.
+
+**Comprobación de honestidad - qué funciona realmente hoy:** las cinco entregas ya lanzadas - evidencia (`inventory.py`, `edge_agent.py`, `incident.py`), diagnóstico (`diagnosis.py`), cambio aprobado por un humano (`change_proposal.py`), despliegue canario (`canary_deploy.py`), y verificación (`verification.py`), más el límite de redacción (`log_redaction.py`) y la CLI (`cli.py`) - son reales y están testeadas de extremo a extremo (136 tests más 6 subtests pasando entre los 11 archivos de test). La etapa de despliegue canario se ejercita genuinamente contra un repositorio git local real y desechable, no un mock. El diagnóstico solo se testea contra un `AIProvider` simulado - `AnthropicProvider`/`OpenAIProvider` son implementaciones reales del mismo protocolo, pero ninguna se ha ejercitado contra una llamada real y en vivo a la API de Anthropic u OpenAI en esta suite de tests (no hay clave disponible en este entorno). Los roles edge y control-plane hoy solo se comunican a través de un archivo de snapshot guardado - todavía no hay transporte de red entre ellos. La Entrega 6 (voz/notificación) está genuinamente bloqueada, no simplemente pospuesta: HYDRA-UMC-VOICE-UI no tiene hoy ninguna superficie real de notificación saliente con la que integrarse. Ver `CHANGELOG.md` para lo que se ha entregado exactamente hasta ahora.
 
 ---
 

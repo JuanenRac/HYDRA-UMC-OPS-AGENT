@@ -9,6 +9,20 @@ bumped manually only. See `bump_version.py`.
 
 (nothing yet)
 
+## [0.0.9] - Honesty check section in every README
+
+Added a "Honesty check" paragraph right after the status blockquote in
+`README.md` and all 6 translated READMEs, naming all five shipped
+deliveries' real modules and the real test count (136 tests plus 6
+subtests passing across all 11 test files). States plainly that
+diagnosis is only ever tested against a fake `AIProvider` - neither
+`AnthropicProvider` nor `OpenAIProvider` has been exercised against a
+real, live API call in this test suite - and that the edge/control-plane
+roles currently talk only through a saved snapshot file, with no network
+transport between them yet. Also refreshed the stale v0.0.8 status line
+to the current v0.0.9 in every README. Documents the real, current
+state of what's implemented vs. planned; no behavior changed.
+
 ## [0.0.8] - F08: a real, single diagnose-to-closure chain test + a real bug it found
 
 Every F08 stage already had its own isolated real CLI round-trip test,
