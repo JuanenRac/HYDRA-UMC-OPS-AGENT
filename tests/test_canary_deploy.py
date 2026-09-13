@@ -21,6 +21,7 @@ from hydra_umc_ops_agent.canary_deploy import (
     CanaryDeployError,
     ChangeNotApprovedError,
     DiffApplyError,
+    DirtyCheckError,
     TargetProjectMismatchError,
     deploy_canary,
 )
@@ -33,6 +34,16 @@ _GOOD_DIFF = (
     " {\n"
     '-  "retries": 0\n'
     '+  "retries": 3\n'
+    " }\n"
+)
+
+_SECOND_DIFF = (
+    "--- a/config.json\n"
+    "+++ b/config.json\n"
+    "@@ -1,3 +1,3 @@\n"
+    " {\n"
+    '-  "retries": 3\n'
+    '+  "retries": 5\n'
     " }\n"
 )
 
@@ -129,6 +140,59 @@ class DeployCanaryHappyPathTests(unittest.TestCase):
             self.assertIn('"retries": 0', (backups[0] / "config.json").read_text(encoding="utf-8"))
             # No leftover staging directory.
             self.assertEqual(list(tmp_path.glob("ops-agent-canary-*")), [])
+
+
+class DeployCanaryConsecutiveDeploysTests(unittest.TestCase):
+    """H022: a genuinely successful canary used to leave the newly-
+    promoted live checkout with an uncommitted `git apply` still sitting
+    in its working tree - the very next deploy's own TrackedDirtyError
+    safety gate would then refuse to run at all, unable to tell that
+    leftover apart from someone's genuine unrelated local edit. Two
+    different, consecutive, approved deploys against the same live
+    checkout is the finding's own acceptance criterion."""
+
+    def test_the_new_live_checkout_is_a_clean_git_working_tree_after_a_successful_canary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            live_root = _make_live_repo(tmp_path)
+            proposal = _make_approved_proposal(_GOOD_DIFF)
+
+            result = deploy_canary(proposal, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+            self.assertTrue(result.promoted)
+
+            status = subprocess.run(
+                ["git", "status", "--porcelain"], cwd=str(live_root), capture_output=True, text=True, check=True,
+            )
+            self.assertEqual(status.stdout, "", "the newly-promoted live checkout must be a clean git working tree")
+
+    def test_a_second_approved_canary_deploys_cleanly_right_after_the_first_one_succeeded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            live_root = _make_live_repo(tmp_path)
+
+            first = _make_approved_proposal(_GOOD_DIFF)
+            first_result = deploy_canary(first, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+            self.assertTrue(first_result.promoted)
+
+            second = _make_approved_proposal(_SECOND_DIFF)
+            second_result = deploy_canary(second, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+
+            self.assertTrue(second_result.promoted)
+            self.assertIn('"retries": 5', (live_root / "config.json").read_text(encoding="utf-8"))
+
+    def test_the_applied_diff_becomes_a_real_git_commit_in_the_new_live_checkout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            live_root = _make_live_repo(tmp_path)
+            proposal = _make_approved_proposal(_GOOD_DIFF)
+
+            deploy_canary(proposal, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+
+            log = subprocess.run(
+                ["git", "log", "-1", "--format=%s"], cwd=str(live_root), capture_output=True, text=True, check=True,
+            )
+            self.assertIn("canary deploy", log.stdout)
+            self.assertIn(proposal.proposal_id, log.stdout)
 
 
 class DeployCanaryDataPreservationTests(unittest.TestCase):
@@ -260,6 +324,28 @@ class DeployCanarySafetyGateTests(unittest.TestCase):
                 deploy_canary(pending, live_root=live_root, build_test_command=[sys.executable, "check.py"])
             # Nothing was touched - original content untouched, no backup created.
             self.assertIn('"retries": 0', (live_root / "config.json").read_text(encoding="utf-8"))
+
+    # H049 (P0, shared with HYDRA-UMC-UPDATER's own sibling helper): a
+    # `git status` that fails to even run must never be read as "found
+    # nothing dirty" - that silently defeats the one safety check this
+    # whole path exists for. live_root here is a real directory that is
+    # deliberately NOT a git repository at all, so `git status` itself
+    # fails (exit 128, "not a git repository") rather than succeeding
+    # with no output.
+    def test_a_git_status_failure_refuses_the_deploy_instead_of_treating_it_as_clean(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            live_root = tmp_path / "live-project"
+            live_root.mkdir()
+            (live_root / "config.json").write_text('{\n  "retries": 0\n}\n', encoding="utf-8")
+            (live_root / "check.py").write_text(_CHECK_SCRIPT, encoding="utf-8")
+            proposal = _make_approved_proposal(_GOOD_DIFF)
+
+            with self.assertRaises(DirtyCheckError):
+                deploy_canary(proposal, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+            # Nothing was touched - not even a staging clone left behind.
+            self.assertIn('"retries": 0', (live_root / "config.json").read_text(encoding="utf-8"))
+            self.assertEqual(list(tmp_path.glob("live-project.backup-*")), [])
 
 
 class DeployCanaryFailureModesTests(unittest.TestCase):

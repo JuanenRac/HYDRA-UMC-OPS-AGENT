@@ -120,6 +120,14 @@ class DiffApplyError(CanaryDeployError):
     clone - the live checkout was never touched."""
 
 
+class DiffCommitError(CanaryDeployError):
+    """H022: `git add`/`git commit` failed while turning the applied diff
+    into a real commit inside the staging clone - see
+    `_commit_applied_diff()`'s own docstring for why that commit exists
+    at all. The live checkout was never touched; this staging clone is
+    discarded like any other failed stage."""
+
+
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -153,6 +161,14 @@ class RemoteRestoreError(CanaryDeployError):
     touched."""
 
 
+class DirtyCheckError(CanaryDeployError):
+    """H049 (shared with HYDRA-UMC-UPDATER's own install.py): `git
+    status` itself failed to run against the live checkout (not a git
+    repository, git missing from PATH, a permissions/IO error, ...) - see
+    `_tracked_dirty_paths()`'s own docstring for why this must never be
+    read as "no dirty files found". The live checkout was never touched."""
+
+
 def _tracked_dirty_paths(path: Path) -> list[str]:
     """Returns every real path (relative to `path`) this checkout's own
     git considers a TRACKED file with a real uncommitted change - staged
@@ -173,12 +189,28 @@ def _tracked_dirty_paths(path: Path) -> list[str]:
     HYDRA-UMC-UPDATER/src/hydra_umc_updater/install.py's own
     `_tracked_dirty_paths()` (V07-001) exactly - same real gap, same
     real fix, in the sibling implementation this module's own docstring
-    already claimed shared UPDATER's pattern."""
+    already claimed shared UPDATER's pattern.
+
+    H049 (P0, shared with UPDATER's own sibling helper): a `git status`
+    that fails to even RUN (returncode != 0 - not a git repository, git
+    missing from PATH, a permissions/IO error, an unrelated real fault)
+    used to be treated exactly like "ran fine, found nothing dirty" -
+    the one case this whole function exists to catch (a real uncommitted
+    edit) became silently invisible the moment the check that looks for
+    it broke, and deploy_canary() would then proceed as if the live
+    checkout were genuinely clean. Failing closed here (raising, never
+    returning `[]`) is the only reading consistent with what "dirty
+    check" is supposed to mean: unable to verify clean is not clean."""
     result = subprocess.run(
         ["git", "status", "--porcelain", "-z"],
         cwd=str(path), check=False, capture_output=True, text=True,
     )
-    if result.returncode != 0 or not result.stdout:
+    if result.returncode != 0:
+        raise DirtyCheckError(
+            f"could not verify {path} has no uncommitted changes - `git status` itself failed "
+            f"(exit {result.returncode}): {result.stderr.strip() or '(no stderr)'}"
+        )
+    if not result.stdout:
         return []
     paths: list[str] = []
     for entry_text in result.stdout.split("\0"):
@@ -291,10 +323,24 @@ def _create_staging_clone(live_root: Path, staging_parent: Path) -> Path:
     return staging_path
 
 
-def _apply_diff(staging_path: Path, diff_text: str) -> None:
+def _apply_diff(staging_path: Path, diff_text: str) -> list[str]:
+    """Applies `diff_text` and returns exactly the paths it touches
+    (added, modified or deleted - both `git apply --numstat`'s own tab-
+    separated columns and its `-\t-\tpath` binary-file form end in the
+    real path, so a plain split on tabs and taking the last field covers
+    both), read via a dry `--numstat` pass before the real apply. H022's
+    own `_commit_applied_diff()` needs this exact list - not `git add -A`/
+    `git add -u` - to commit only what this diff itself changed, never
+    `_carry_over_local_data()`'s own untracked local data alongside it."""
     patch_file = staging_path / f".ops-agent-canary-{uuid.uuid4().hex[:8]}.patch"
     patch_file.write_text(diff_text, encoding="utf-8")
     try:
+        numstat_code, numstat_output = _run(
+            ["git", "apply", "--numstat", patch_file.name], cwd=staging_path, timeout_s=30.0
+        )
+        if numstat_code != 0:
+            raise DiffApplyError(f"git apply failed against the staging clone (exit {numstat_code}): {numstat_output}")
+        touched_paths = [line.rsplit("\t", 1)[-1] for line in numstat_output.splitlines() if line.strip()]
         returncode, output = _run(["git", "apply", "--whitespace=nowarn", patch_file.name], cwd=staging_path, timeout_s=30.0)
     finally:
         try:
@@ -303,6 +349,37 @@ def _apply_diff(staging_path: Path, diff_text: str) -> None:
             pass  # best-effort cleanup only - never mask the real apply result below
     if returncode != 0:
         raise DiffApplyError(f"git apply failed against the staging clone (exit {returncode}): {output}")
+    return touched_paths
+
+
+def _commit_applied_diff(staging_path: Path, touched_paths: list[str], *, deploy_id: str, proposal_id: str) -> None:
+    """H022: `_apply_diff()` only ever ran `git apply` - it left the
+    staging clone with a real, uncommitted working-tree change. Promoting
+    that clone as-is (the rename swap below) made the new live checkout
+    dirty from the moment it went live, and the very next canary deploy's
+    own `_tracked_dirty_paths()` check (a real, deliberate safety gate -
+    see V07-002) would then correctly refuse to run at all, unable to
+    tell that real uncommitted change apart from someone's genuine
+    unrelated local edit - a genuinely SUCCESSFUL canary locking itself
+    out of ever deploying again.
+
+    Stages EXACTLY the paths `_apply_diff()` reported this diff itself
+    touched - never `git add -A`/`git add -u`, either of which risks
+    sweeping `_carry_over_local_data()`'s own untracked local data (real
+    config/certs that must stay untracked, unchanged) into this commit
+    too - then commits them as one real, immutable, identifiable
+    deployment commit."""
+    if not touched_paths:
+        return  # an empty diff (already-applied no-op) has nothing to commit
+    add_code, add_output = _run(["git", "add", "--", *touched_paths], cwd=staging_path, timeout_s=30.0)
+    if add_code != 0:
+        raise DiffCommitError(f"git add failed against the staging clone (exit {add_code}): {add_output}")
+    commit_message = f"OPS-AGENT canary deploy {deploy_id} (proposal {proposal_id})"
+    commit_code, commit_output = _run(
+        ["git", "commit", "--no-verify", "-m", commit_message], cwd=staging_path, timeout_s=30.0,
+    )
+    if commit_code != 0:
+        raise DiffCommitError(f"git commit failed against the staging clone (exit {commit_code}): {commit_output}")
 
 
 def _rmtree_best_effort(path: Path, *, attempts: int = 5, delay_s: float = 0.3) -> None:
@@ -400,7 +477,7 @@ def deploy_canary(
         # build-test command below sees the same real data the promoted
         # checkout will actually run against.
         _carry_over_local_data(live_root, staging_path)
-        _apply_diff(staging_path, proposal.diff)
+        touched_paths = _apply_diff(staging_path, proposal.diff)
         stage_reached = "diff_applied"
 
         returncode, build_output = _run(build_test_command, cwd=staging_path, timeout_s=build_timeout_s)
@@ -417,6 +494,13 @@ def deploy_canary(
                 detail=f"build verification failed (exit {returncode}) - the live checkout was never touched",
             )
         stage_reached = "build_verified"
+
+        # H022: commit the applied diff inside the staging clone BEFORE
+        # promotion - see _commit_applied_diff()'s own docstring for why a
+        # successful canary must never promote a staging clone with an
+        # uncommitted git apply still sitting in its working tree.
+        _commit_applied_diff(staging_path, touched_paths, deploy_id=deploy_id, proposal_id=proposal.proposal_id)
+        stage_reached = "diff_committed"
 
         # V07-004 (shared with HYDRA-UMC-UPDATER's own install.py, P1;
         # honest, bounded mitigation, not the full transactional

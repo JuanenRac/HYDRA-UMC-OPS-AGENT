@@ -9,6 +9,32 @@ bumped manually only. See `bump_version.py`.
 
 (nothing yet)
 
+## [0.1.0] - H022/H049: a successful canary locked itself out, and a broken git status read as "clean"
+
+- **H022 (P0):** `_apply_diff()` only ran `git apply` against the
+  staging clone, leaving it with a real, uncommitted working-tree
+  change. Promoting that clone as the new live checkout made it dirty
+  from the moment it went live, and the very next canary deploy's own
+  `TrackedDirtyError` safety gate (V07-002) would then correctly - but
+  wrongly, from the operator's point of view - refuse to run at all: a
+  genuinely successful canary locking itself out of ever deploying
+  again. Fixed: the staging clone now commits exactly the paths the
+  diff itself touched (via `git apply --numstat`, never `git add -A`/
+  `git add -u`, either of which risks sweeping `_carry_over_local_data()`'s
+  own untracked local data into the commit too) as one real, identifiable
+  deployment commit before promotion. Two different, consecutive,
+  approved canaries against the same live checkout now both succeed.
+- **H049 (P0, shared with HYDRA-UMC-UPDATER's own sibling helper):**
+  `_tracked_dirty_paths()` treated a `git status` that failed to even
+  run (not a git repository, git missing from PATH, a permissions/IO
+  error) exactly like "ran fine, found nothing dirty" - the one real
+  uncommitted edit this check exists to catch became invisible the
+  moment the check itself broke, and `deploy_canary()` would proceed as
+  if the live checkout were genuinely clean. Now fails closed: a
+  `git status` failure raises `DirtyCheckError` instead of returning an
+  empty dirty-paths list.
+- 3 new regression tests (H022) + 1 new regression test (H049).
+
 ## [0.0.9] - Honesty check section in every README
 
 Added a "Honesty check" paragraph right after the status blockquote in
