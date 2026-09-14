@@ -66,6 +66,7 @@ def _cmd_edge_collect(args: argparse.Namespace) -> int:
         projects_root=Path(args.projects_root),
         systemd_units=args.systemd_unit or None,
         http_health_urls=args.http_health_url or None,
+        incident_store_path=Path(args.incident_store) if args.incident_store else None,
     )
     payload = json.dumps(snapshot.to_dict(), indent=2)
     if args.out:
@@ -246,6 +247,13 @@ def build_parser() -> argparse.ArgumentParser:
     collect.add_argument("--systemd-unit", action="append", default=[], help="A systemd unit to check (repeatable). Skipped honestly, not faked, on a non-systemd host.")
     collect.add_argument("--http-health-url", action="append", default=[], help="An HTTP health-check URL to probe (repeatable).")
     collect.add_argument("--out", help="Write the snapshot JSON here instead of stdout.")
+    collect.add_argument(
+        "--incident-store",
+        help="PROM-OPS-E01: path to a real, durable JSON file tracking incidents across runs. Given, the same "
+        "ongoing problem on the same component keeps its original incidentId across repeated `edge collect` "
+        "runs instead of getting a new one every time, and a genuinely re-checked, now-clean component gets "
+        "its own open record marked resolved. Omitted (the default), nothing changes from before.",
+    )
     collect.set_defaults(func=_cmd_edge_collect)
 
     control = subparsers.add_parser("control", help="Control-plane role (runs on a development host).")

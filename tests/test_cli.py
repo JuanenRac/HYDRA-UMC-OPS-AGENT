@@ -49,6 +49,29 @@ class CliEndToEndTests(unittest.TestCase):
         self.assertEqual(data["sourceNode"], "cm5-test")
         self.assertEqual(len(data["projects"]), 1)
 
+    def test_edge_collect_with_incident_store_keeps_the_same_incident_id_across_two_real_runs(self):
+        project_dir = self.root / "broken"
+        project_dir.mkdir()
+        (project_dir / "hydra-umc.project.json").write_text("{not json", encoding="utf-8")
+        store_file = self.root / "incidents.json"
+
+        def _run() -> dict:
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                exit_code = main([
+                    "edge", "collect", "--node-name", "cm5-test", "--projects-root", str(self.root),
+                    "--incident-store", str(store_file),
+                ])
+            self.assertEqual(exit_code, 0)
+            return json.loads(stdout.getvalue())
+
+        first = _run()
+        second = _run()
+
+        self.assertEqual(len(first["incidents"]), 1)
+        self.assertEqual(first["incidents"][0]["incidentId"], second["incidents"][0]["incidentId"])
+        self.assertTrue(store_file.is_file())
+
     def test_edge_collect_without_out_prints_the_snapshot_to_stdout(self):
         stdout = io.StringIO()
         with contextlib.redirect_stdout(stdout):
