@@ -298,6 +298,24 @@ def _create_staging_clone(live_root: Path, staging_parent: Path) -> Path:
     if returncode != 0 or not staging_path.is_dir():
         raise StagingCloneError(f"git clone --local --no-hardlinks of {live_root} failed (exit {returncode}): {output}")
 
+    # Real bug found while auditing CI: `_commit_applied_diff()` below
+    # runs a real `git commit` against this clone, but a plain `git
+    # clone` never copies commit-author identity - it relies entirely
+    # on a global `user.name`/`user.email` already being configured on
+    # whatever machine runs this. That happens to hold on a maintainer's
+    # own workstation, but is false by default on a fresh GitHub Actions
+    # runner (this repo's own CI) and arguably wrong anyway even on a
+    # real deploy host: an automated canary commit should never be
+    # silently authored as whichever human happens to be logged in
+    # there. Set a fixed, local (this clone only) synthetic identity
+    # instead, so this step's own correctness never depends on the
+    # host's ambient git config.
+    for key, value in (("user.name", "HYDRA-UMC OPS-AGENT"), ("user.email", "ops-agent@hydra-umc.local")):
+        identity_code, identity_output = _run(["git", "config", key, value], cwd=staging_path, timeout_s=10.0)
+        if identity_code != 0:
+            _rmtree_best_effort(staging_path)
+            raise StagingCloneError(f"git config {key} on the staging clone failed (exit {identity_code}): {identity_output}")
+
     # V07-002: `git clone --local` above points the new clone's own
     # `origin` at LIVE_ROOT ITSELF (the local source path it was cloned
     # from) - never at the real upstream. Left uncorrected, the checkout
