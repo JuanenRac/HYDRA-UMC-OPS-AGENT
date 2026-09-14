@@ -7,17 +7,34 @@ import http.server
 import json
 import shutil
 import socket
+import subprocess
 import tempfile
 import threading
 import unittest
 from pathlib import Path
 
 from hydra_umc_ops_agent.inventory import (
+    ManifestScanIssue,
+    ProjectVersion,
     SystemdUnavailableError,
     check_http_health,
+    check_project_manifest,
     check_systemd_unit_health,
+    read_git_commit_hash,
     scan_project_manifests,
 )
+
+
+def _init_git_repo(path: Path) -> None:
+    """A real, minimal local git repo - same synthetic-identity approach
+    canary_deploy.py's own _create_staging_clone() already uses, so a
+    commit works even on a runner with no ambient git config."""
+    for command in (
+        ["git", "init", "--quiet"],
+        ["git", "config", "user.name", "test"],
+        ["git", "config", "user.email", "test@example.invalid"],
+    ):
+        subprocess.run(command, cwd=str(path), check=True, capture_output=True)
 
 
 def _write_manifest(path: Path, **fields) -> None:
@@ -108,6 +125,81 @@ class ScanProjectManifestsTests(unittest.TestCase):
         result = scan_project_manifests(self.root)
         self.assertEqual(result.projects, ())
         self.assertIn("not a JSON object", result.issues[0].reason)
+
+
+class CheckProjectManifestTests(unittest.TestCase):
+    """N01: check_project_manifest() re-validates ONE manifest by path -
+    factored out of scan_project_manifests()'s own loop, same real checks,
+    just callable without a full root re-scan (see verification.py's own
+    _verify_manifest_incident())."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_a_real_valid_manifest_is_read_correctly(self):
+        _write_manifest(self.root / "p", name="P", version="1.0.0", maturity="functional")
+        result = check_project_manifest(self.root / "p" / "hydra-umc.project.json")
+        self.assertIsInstance(result, ProjectVersion)
+        self.assertEqual(result.name, "P")
+
+    def test_a_manifest_that_no_longer_exists_is_a_real_reported_issue(self):
+        result = check_project_manifest(self.root / "gone" / "hydra-umc.project.json")
+        self.assertIsInstance(result, ManifestScanIssue)
+        self.assertIn("no longer exists", result.reason)
+
+    def test_malformed_json_is_a_real_reported_issue(self):
+        project_dir = self.root / "broken"
+        project_dir.mkdir()
+        (project_dir / "hydra-umc.project.json").write_text("{not json", encoding="utf-8")
+        result = check_project_manifest(project_dir / "hydra-umc.project.json")
+        self.assertIsInstance(result, ManifestScanIssue)
+        self.assertIn("not valid JSON", result.reason)
+
+    def test_a_full_root_scan_and_a_direct_single_file_check_agree(self):
+        # The refactor's own real regression guard: scan_project_manifests()
+        # must still produce exactly what it always did, now that its loop
+        # calls this same function instead of its own inline duplicate.
+        _write_manifest(self.root / "p", name="P", version="1.0.0", maturity="functional")
+        scanned = scan_project_manifests(self.root).projects[0]
+        direct = check_project_manifest(self.root / "p" / "hydra-umc.project.json")
+        self.assertEqual(scanned, direct)
+
+
+class ReadGitCommitHashTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_a_real_git_repo_yields_a_real_commit_hash(self):
+        if shutil.which("git") is None:
+            self.skipTest("no real git on this host")
+        _init_git_repo(self.root)
+        (self.root / "f.txt").write_text("x", encoding="utf-8")
+        subprocess.run(["git", "add", "f.txt"], cwd=str(self.root), check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "c1", "--no-verify"], cwd=str(self.root), check=True, capture_output=True)
+        commit = read_git_commit_hash(self.root)
+        self.assertIsNotNone(commit)
+        self.assertEqual(len(commit), 40)  # a real full SHA-1, not a guess
+
+    def test_a_directory_with_no_real_git_repo_yields_none(self):
+        if shutil.which("git") is None:
+            self.skipTest("no real git on this host")
+        self.assertIsNone(read_git_commit_hash(self.root))
+
+    def test_git_missing_from_path_yields_none_not_a_crash(self):
+        original_which = shutil.which
+        try:
+            shutil.which = lambda name: None  # type: ignore[assignment]
+            self.assertIsNone(read_git_commit_hash(self.root))
+        finally:
+            shutil.which = original_which
 
 
 class CheckSystemdUnitHealthTests(unittest.TestCase):

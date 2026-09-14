@@ -9,17 +9,43 @@ inventory.py functions Delivery 1 already has - never a second,
 independently-drifting health-check implementation. An incident is only
 ever considered resolved because the real evidence was re-collected and
 came back healthy, never because a canary deploy (Delivery 4) merely
-reported "promoted"."""
+reported "promoted".
+
+N01: a manifest-scan incident is the one real check kind here pinned to
+actual versioned source state (a project checkout's own git commit) -
+unlike a live HTTP/systemd poll, "did this really get fixed" has an
+honest, checkable answer for it: did the checkout's commit actually move,
+not just "does the file look fine again right now". That is exactly
+HYDRA-UMC-SDK's own T07/I60 `ScenarioOutcome`/`compare_runs()` contract
+(`clients/python/src/hydra_umc_sdk/scenario.py`) - the shared "apparent
+success" control, reused here rather than a second, competing
+implementation. It is genuinely optional (the `sdk` extra, lazily
+imported) - a manifest incident raised before N01, or one whose checkout
+was never a real git repo, has no `base_commit:` evidence and degrades to
+the exact same honest VerificationError this module always raised for a
+manifest incident. HTTP/systemd checks are deliberately left as they
+are: a live service transitioning from unreachable/inactive to
+reachable/active is not "apparent success" in the T07/I60 sense - there
+is no stable base fingerprint to compare it against (a systemd unit's
+own ActiveEnterTimestamp necessarily changes on any real restart, so it
+would never actually catch anything an already-covered `active` boolean
+doesn't), and forcing that comparison in anyway would be decorative, not
+a real additional guarantee.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 
-from .incident import MaintenanceIncident
+from .incident import EVIDENCE_BASE_COMMIT_PREFIX, MaintenanceIncident
 from .inventory import (
+    ManifestScanIssue,
     SystemdUnavailableError,
     check_http_health,
+    check_project_manifest,
     check_systemd_unit_health,
+    read_git_commit_hash,
 )
 
 # The exact, fixed symptom prefixes incident.py's own IncidentBatch
@@ -35,6 +61,12 @@ class VerificationError(RuntimeError):
     """A real reason verification itself could not be performed - never
     silently reported as "still broken" when the real answer is "could
     not be checked at all"."""
+
+
+class SdkUnavailableError(VerificationError):
+    """N01: the optional 'hydra-umc-sdk' package is not installed - same
+    degrade-honestly shape as SystemdUnavailableError above, not a bare
+    ImportError leaking out of this module."""
 
 
 def _utc_now_iso() -> str:
@@ -104,9 +136,66 @@ def verify_incident_resolved(incident: MaintenanceIncident, *, timeout_s: float 
         return VerificationResult(incident_id=incident.incident_id, verified_at=_utc_now_iso(), resolved=result.active, detail=result.detail)
 
     if incident.symptom.startswith(_MANIFEST_SYMPTOM_PREFIX):
+        return _verify_manifest_incident(incident)
+
+    raise VerificationError(f"unrecognized incident symptom shape, cannot determine how to verify it: {incident.symptom!r}")
+
+
+def _find_base_commit(evidence_refs: tuple[str, ...]) -> str | None:
+    for ref in evidence_refs:
+        if ref.startswith(EVIDENCE_BASE_COMMIT_PREFIX):
+            return ref[len(EVIDENCE_BASE_COMMIT_PREFIX):]
+    return None
+
+
+def _verify_manifest_incident(incident: MaintenanceIncident) -> VerificationResult:
+    """N01: re-checks THIS exact manifest (incident.component IS its real
+    path - see incident.py's own add_manifest_issue()) via
+    check_project_manifest(), then - only when a real `base_commit:`
+    evidence ref was captured at detection time - runs the shared
+    `compare_runs()` T07/I60 check against the checkout's CURRENT commit,
+    so a re-check that merely "looks fine" without the checkout's own
+    commit ever having moved (a stale/no-op incident, or one silently
+    re-created identically by something else) is never reported as
+    resolved. No `base_commit:` at all - the honest, unchanged fallback
+    this module always had."""
+    base_commit = _find_base_commit(incident.evidence_refs)
+    if base_commit is None:
         raise VerificationError(
             "a manifest-scan incident has no automated re-check here - re-run `edge collect` "
             "against the same projects-root and confirm this incident no longer appears in the new snapshot"
         )
 
-    raise VerificationError(f"unrecognized incident symptom shape, cannot determine how to verify it: {incident.symptom!r}")
+    manifest_path = Path(incident.component)
+    checked = check_project_manifest(manifest_path)
+
+    try:
+        import hydra_umc_sdk  # type: ignore[import-not-found]  # noqa: F401
+        from hydra_umc_sdk.scenario import compare_runs  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise SdkUnavailableError(
+            "the optional 'hydra-umc-sdk' package is not installed - run "
+            "`pip install -e \".[sdk]\"` to re-verify a manifest incident against its real base commit"
+        ) from exc
+
+    observed_commit = read_git_commit_hash(manifest_path.parent)
+    if observed_commit is None:
+        raise VerificationError(
+            f"could not read a real current git commit for {manifest_path.parent} - "
+            "cannot compare it against the incident's own recorded base_commit"
+        )
+
+    now = _utc_now_iso()
+    before = {
+        "schema_version": "1.0", "scenario_id": incident.incident_id, "run_id": f"{incident.incident_id}:before",
+        "base_fingerprint": base_commit, "phase": "before", "repro_case": incident.component,
+        "observed": {"outcome": "reproduced"}, "timestamp_utc": incident.detected_at,
+    }
+    after = {
+        "schema_version": "1.0", "scenario_id": incident.incident_id, "run_id": f"{incident.incident_id}:after",
+        "base_fingerprint": observed_commit, "phase": "after", "repro_case": incident.component,
+        "observed": {"outcome": "reproduced" if isinstance(checked, ManifestScanIssue) else "not-reproduced"},
+        "timestamp_utc": now,
+    }
+    comparison = compare_runs(before, after)
+    return VerificationResult(incident_id=incident.incident_id, verified_at=now, resolved=comparison.is_promotable, detail=comparison.reason)

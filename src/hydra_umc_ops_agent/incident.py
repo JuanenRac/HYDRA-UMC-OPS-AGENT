@@ -22,8 +22,20 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from .inventory import HttpHealthResult, ManifestScanIssue, ServiceHealthResult
+from pathlib import Path
+
+from .inventory import HttpHealthResult, ManifestScanIssue, ServiceHealthResult, read_git_commit_hash
 from .log_redaction import redact_secrets
+
+# N01: prefix for the one real, additional evidence_refs entry
+# add_manifest_issue() appends - never a new MaintenanceIncident field
+# (that contract is already fixed, field-for-field, per this module's own
+# header comment). verification.py's own re-check looks for this exact
+# prefix; a `MaintenanceIncident` loaded from anywhere else (an older
+# incident, a non-git checkout) simply won't have one, and degrades to
+# the same honest "no automated re-check" VerificationError it always
+# raised for a manifest incident before N01.
+EVIDENCE_BASE_COMMIT_PREFIX = "base_commit:"
 
 SEVERITY_INFO = "info"
 SEVERITY_WARNING = "warning"
@@ -125,12 +137,27 @@ class IncidentBatch:
         return incident
 
     def add_manifest_issue(self, source_node: str, issue: ManifestScanIssue) -> MaintenanceIncident:
+        evidence_refs: tuple[str, ...] = (issue.path,)
+        # N01: a manifest issue's own project checkout is real, versioned
+        # source state - unlike a live HTTP/systemd check, "was this
+        # really fixed" here has a genuine, honest answer: did the
+        # checkout's own commit actually move. Best-effort only, and only
+        # when the manifest genuinely exists (every real ManifestScanIssue
+        # scan_project_manifests() itself produces already read this exact
+        # file moments before raising the issue) - a fabricated/test path
+        # that was never a real file on disk never gets one, so this never
+        # picks up an unrelated git repo that merely happens to be an
+        # ancestor of the *process's* cwd.
+        if Path(issue.path).is_file():
+            commit = read_git_commit_hash(Path(issue.path).parent)
+            if commit is not None:
+                evidence_refs = (issue.path, f"{EVIDENCE_BASE_COMMIT_PREFIX}{commit}")
         return self._new_incident(
             source_node=source_node,
             severity=SEVERITY_WARNING,
             component=issue.path,
             symptom=f"manifest scan issue: {issue.reason}",
-            evidence_refs=(issue.path,),
+            evidence_refs=evidence_refs,
         )
 
     def add_service_health(self, source_node: str, result: ServiceHealthResult) -> MaintenanceIncident | None:

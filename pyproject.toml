@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydra-umc-ops-agent"
-version = "0.1.2"
+version = "0.1.3"
 description = "Maintenance-incident coordinator for the HYDRA-UMC/URTC ecosystem: a low-privilege edge role that collects a sanitized inventory/health snapshot, a control-plane role that renders it read-only, an optional AI-assisted diagnosis suggestion for one incident, a human-approved change proposal, a canary deploy that promotes an approved change only once a staged clone's own real build-test passes (via HYDRA-UMC-UPDATER's own atomic-by-verification pattern), and a re-verification of the original check. Voice/notification integration was investigated and found genuinely blocked (see README) - not later work, a real, closed architectural finding."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -29,6 +29,12 @@ dev = ["pytest>=8.0"]
 # Protocol) - install only the extra for the provider you actually use.
 ai-anthropic = ["anthropic>=0.40.0"]
 ai-openai = ["openai>=1.40.0"]
+# N01 (Delivery 5's own real, separate addition, same convention as the
+# ai-* extras above): a git dependency (not on PyPI), same pattern every
+# bridge project and HYDRA-UMC-UPDATER already use for this exact
+# package. Only verification.py's manifest-incident re-check needs this -
+# HTTP/systemd re-checks stay dependency-free.
+sdk = ["hydra-umc-sdk @ git+https://github.com/JuanenRac/HYDRA-UMC-SDK.git@main#subdirectory=clients/python"]
 
 [project.urls]
 Homepage = "https://github.com/JuanenRac/HYDRA-UMC-OPS-AGENT"

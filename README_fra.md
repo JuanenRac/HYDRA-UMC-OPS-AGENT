@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="Rôles edge et control-plane">
 </p>
 
-> **État : v0.1.2, scaffolding - Livraisons 1-5 sur 6 (preuve,
+> **État : v0.1.3, scaffolding - Livraisons 1-5 sur 6 (preuve,
 > diagnostic, changement approuvé par une personne, déploiement canari,
 > vérification).** Chaque sous-commande est réelle et testée de bout en
 > bout - `control diagnose` contre un fournisseur d'IA simulé (tout
@@ -177,9 +177,15 @@ surface de commandes complète et réelle.
   première, et chaque décision est attribuée à un nom réel, non vide.
 - **La vérification relance la MÊME vérification réelle, jamais une plus
   laxiste.** `verify_incident_resolved()` appelle directement les
-  propres `check_http_health()`/`check_systemd_unit_health()` de la
-  Livraison 1 - il n'existe nulle part dans ce projet une seconde
-  implémentation de vérification de santé, dérivant indépendamment.
+  propres `check_http_health()`/`check_systemd_unit_health()`/
+  `check_project_manifest()` de la Livraison 1 - il n'existe nulle part
+  dans ce projet une seconde implémentation de vérification de santé,
+  dérivant indépendamment. Un incident de manifeste portant un vrai
+  `base_commit:` (capturé au mieux à la détection) est en plus vérifié
+  face au contrôle partagé T07/I60 `compare_runs()` de HYDRA-UMC-SDK - le
+  commit du checkout doit avoir réellement bougé, pas seulement le
+  fichier qui paraît corrigé sur disque. Voir
+  [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md).
 - **La Livraison 6 est bloquée, pas simplement sautée.** Le propre
   contrat réel de HYDRA-UMC-VOICE-UI (`gateway.py`) est une passerelle
   bornée, ENTRANTE, de transcription vers intention, sans aucune
@@ -192,8 +198,11 @@ surface de commandes complète et réelle.
   `control verify` n'ont besoin d'aucune dépendance - `urllib.request`
   pour la vérification HTTP, `subprocess`/`shutil.which` pour celle de
   systemd, `git` (un vrai binaire externe, pas un paquet Python) pour
-  l'étape de déploiement canari. Seul `control diagnose` a besoin d'un
-  extra optionnel, et seulement pour le fournisseur réellement utilisé.
+  l'étape de déploiement canari et pour la capture du `base_commit:`
+  d'un incident de manifeste. Seuls `control diagnose` (un extra `ai-*`)
+  et la revérification `compare_runs()` d'un incident de manifeste
+  (l'extra `sdk`) ont besoin d'une dépendance optionnelle, chacun
+  uniquement pour ce qui l'utilise réellement.
 
 ## 📂 STRUCTURE DES RÉPERTOIRES
 
@@ -241,6 +250,7 @@ ANTHROPIC_API_KEY=sk-ant-... ./run.sh control diagnose snapshot.json --incident-
 ./run.sh control propose snapshot.json --incident-id <id> --project-name NOM --description "..." --diff-file fix.diff --rationale "..." --out proposal.json
 ./run.sh control approve proposal.json --approved-by "Votre Nom"
 ./run.sh control deploy-canary proposal.json --live-root CHEMIN --build-test-command "bash build-test.sh"
+pip install -e ".[sdk]"                           # nécessaire seulement pour revérifier le base_commit d'un incident de manifeste
 ./run.sh control verify snapshot.json --incident-id <id>
 ```
 

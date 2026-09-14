@@ -80,10 +80,22 @@ HTTP-health incident, `check_systemd_unit_health()` for a systemd
 incident, both straight from Delivery 1's own `inventory.py` - never a
 second, independently-drifting implementation of either check.
 
-A manifest-scan incident has no automated re-check here on purpose: it
-is a structural fact about a file, not a live service to re-poll. The
-real way to confirm one is gone is to re-run `edge collect` against the
-same `--projects-root` and check the new snapshot.
+A manifest-scan incident is re-checked with `check_project_manifest()`
+(same real per-file logic Delivery 1's own `scan_project_manifests()`
+loop applies) AND, whenever the incident carries a real `base_commit:`
+evidence entry (best-effort, captured at detection time from the
+checkout's own `git rev-parse HEAD` - see `incident.py`'s own
+`add_manifest_issue()`), against HYDRA-UMC-SDK's shared T07/I60
+`ScenarioOutcome`/`compare_runs()` "apparent success" control: the
+checkout's own commit must have genuinely moved between detection and
+re-check, not merely have the file *look* fixed on disk right now (a
+real, plausible trap - a hand-edit that was never actually committed).
+This needs the optional `sdk` extra installed
+(`pip install -e ".[sdk]"`); without it, or without a `base_commit:`
+(an incident raised before this, or one whose checkout was never a real
+git repo), verification falls back to the original, honest answer: no
+automated re-check, re-run `edge collect` against the same
+`--projects-root` and check the new snapshot by hand.
 
 ## What a real end-to-end operator flow looks like
 

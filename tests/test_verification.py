@@ -4,13 +4,24 @@
 # GPL-3.0 - see LICENSE
 # =============================================================================
 import http.server
+import json
 import shutil
 import socket
+import subprocess
+import tempfile
 import threading
 import unittest
+from pathlib import Path
 
-from hydra_umc_ops_agent.incident import MaintenanceIncident
-from hydra_umc_ops_agent.verification import VerificationError, VerificationResult, verify_incident_resolved
+from hydra_umc_ops_agent.incident import IncidentBatch, MaintenanceIncident
+from hydra_umc_ops_agent.inventory import ManifestScanIssue
+from hydra_umc_ops_agent.verification import SdkUnavailableError, VerificationError, VerificationResult, verify_incident_resolved
+
+try:
+    import hydra_umc_sdk  # noqa: F401
+    _SDK_INSTALLED = True
+except ImportError:
+    _SDK_INSTALLED = False
 
 
 def _make_incident(component: str, symptom: str) -> MaintenanceIncident:
@@ -80,6 +91,97 @@ class VerifyManifestIncidentTests(unittest.TestCase):
         with self.assertRaises(VerificationError) as ctx:
             verify_incident_resolved(incident)
         self.assertIn("edge collect", str(ctx.exception))
+
+
+def _git(command, cwd):
+    subprocess.run(["git", *command], cwd=str(cwd), check=True, capture_output=True)
+
+
+def _init_and_commit_manifest(root: Path, **fields) -> Path:
+    manifest = root / "hydra-umc.project.json"
+    manifest.write_text(json.dumps(fields), encoding="utf-8")
+    _git(["init", "--quiet"], root)
+    _git(["config", "user.name", "test"], root)
+    _git(["config", "user.email", "test@example.invalid"], root)
+    _git(["add", "hydra-umc.project.json"], root)
+    _git(["commit", "-m", "c1", "--no-verify"], root)
+    return manifest
+
+
+@unittest.skipUnless(_SDK_INSTALLED, "the optional 'hydra-umc-sdk' extra is not installed")
+class VerifyManifestIncidentWithBaseCommitTests(unittest.TestCase):
+    """N01: once a manifest incident carries a real `base_commit:` (see
+    incident.py's own add_manifest_issue()), verification re-checks the
+    manifest AND runs the shared compare_runs() T07/I60 control against
+    the checkout's real current commit."""
+
+    def setUp(self):
+        if shutil.which("git") is None:
+            self.skipTest("no real git on this host")
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_a_manifest_fixed_by_a_real_new_commit_is_reported_resolved(self):
+        manifest = _init_and_commit_manifest(self.root)  # no name/version/maturity - a real issue
+        batch = IncidentBatch()
+        incident = batch.add_manifest_issue("cm5-1", ManifestScanIssue(path=str(manifest), reason="missing/empty required field(s): name, version, maturity"))
+
+        # The real fix, actually committed - the base genuinely moves.
+        manifest.write_text(json.dumps({"name": "P", "version": "1.0.0", "maturity": "functional"}), encoding="utf-8")
+        _git(["add", "hydra-umc.project.json"], self.root)
+        _git(["commit", "-m", "fix", "--no-verify"], self.root)
+
+        result = verify_incident_resolved(incident)
+        self.assertTrue(result.resolved)
+
+    def test_a_still_broken_manifest_is_reported_unresolved(self):
+        manifest = _init_and_commit_manifest(self.root)
+        batch = IncidentBatch()
+        incident = batch.add_manifest_issue("cm5-1", ManifestScanIssue(path=str(manifest), reason="missing/empty required field(s): name, version, maturity"))
+        # Nothing committed since - still genuinely broken.
+        result = verify_incident_resolved(incident)
+        self.assertFalse(result.resolved)
+
+    def test_an_uncommitted_hand_edit_is_reported_unresolved_as_apparent_success(self):
+        # The whole point of N01: the file now LOOKS fine, but the
+        # checkout's own commit never actually moved - a real, plausible
+        # "fixed on disk, never committed" trap this must not miss.
+        manifest = _init_and_commit_manifest(self.root)
+        batch = IncidentBatch()
+        incident = batch.add_manifest_issue("cm5-1", ManifestScanIssue(path=str(manifest), reason="missing/empty required field(s): name, version, maturity"))
+
+        manifest.write_text(json.dumps({"name": "P", "version": "1.0.0", "maturity": "functional"}), encoding="utf-8")
+        # Deliberately never committed.
+
+        result = verify_incident_resolved(incident)
+        self.assertFalse(result.resolved)
+        self.assertIn("nothing was actually applied", result.detail)
+
+
+class VerifyManifestIncidentSdkUnavailableTests(unittest.TestCase):
+    """Real even without the optional extra installed at all - a manifest
+    incident carrying a base_commit is refused with a typed, actionable
+    error, never a bare ImportError, when 'hydra-umc-sdk' is missing."""
+
+    def test_a_missing_sdk_raises_a_real_typed_actionable_error(self):
+        import sys
+        from unittest import mock
+
+        incident = MaintenanceIncident(
+            incident_id="i1", source_node="cm5-1", detected_at="2026-09-06T12:00:00+00:00",
+            severity="warning", component="/some/path/hydra-umc.project.json",
+            symptom="manifest scan issue: not valid JSON: ...",
+            evidence_refs=("/some/path/hydra-umc.project.json", "base_commit:deadbeef"),
+            redaction_level="sanitized", requested_by="edge-agent:auto", correlation_id="c1",
+        )
+        with mock.patch.dict(sys.modules, {"hydra_umc_sdk": None}):
+            with self.assertRaises(SdkUnavailableError) as ctx:
+                verify_incident_resolved(incident)
+        self.assertIn("hydra-umc-sdk", str(ctx.exception))
+        self.assertIn("[sdk]", str(ctx.exception))
 
 
 class VerifyUnrecognizedIncidentTests(unittest.TestCase):

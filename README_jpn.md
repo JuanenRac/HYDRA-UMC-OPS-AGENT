@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="エッジとコントロールプレーンの役割">
 </p>
 
-> **ステータス: v0.1.2、scaffolding - 6 件の納品のうち第 1-5 弾(証拠、
+> **ステータス: v0.1.3、scaffolding - 6 件の納品のうち第 1-5 弾(証拠、
 > 診断、人による承認済みの変更、カナリアデプロイ、検証)。** すべての
 > サブコマンドが本物であり、エンドツーエンドでテスト済みです——
 > `control diagnose` は模擬の AI プロバイダーに対して(本物のプロバイ
@@ -173,9 +173,16 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-...
   前に帰属します。
 - **検証は同じ本物のチェックを再実行します。決して緩いチェックではあ
   りません。** `verify_incident_resolved()` は、納品 1 自身の
-  `check_http_health()`/`check_systemd_unit_health()` を直接呼び出し
-  ます——このプロジェクトのどこにも、独立してドリフトしうる第二のヘ
-  ルスチェック実装は存在しません。
+  `check_http_health()`/`check_systemd_unit_health()`/
+  `check_project_manifest()` を直接呼び出します——このプロジェクトの
+  どこにも、独立してドリフトしうる第二のヘルスチェック実装は存在しま
+  せん。本物の `base_commit:`(検知時にベストエフォートで取得)を持つ
+  マニフェストのインシデントは、さらに HYDRA-UMC-SDK が共有する
+  T07/I60 の `compare_runs()`「見せかけの成功」チェックに照らして検証
+  されます——チェックアウト自身のコミットが本当に動いていなければな
+  らず、ディスク上でファイルが直っているように見えるだけでは不十分で
+  す。[docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md) を参照して
+  ください。
 - **納品 6 はブロックされているのであり、単に省略されているのではあ
   りません。** HYDRA-UMC-VOICE-UI 自身の本物の契約(`gateway.py`)は、
   今日時点で本物のアウトバウンド通知機能を持たない、限定的でインバウ
@@ -187,10 +194,12 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-...
   `control show`/`control propose`/`control approve`/`control
   reject`/`control verify` は、依存関係を一切必要としません——HTTP
   チェックには `urllib.request`、systemd チェックには
-  `subprocess`/`shutil.which`、カナリアデプロイの段階には `git`
-  (Python パッケージではなく、本物の外部バイナリ)を使用します。オプ
-  ションの extra を必要とするのは `control diagnose` だけで、それも
-  実際に使用するプロバイダー分のみです。
+  `subprocess`/`shutil.which`、カナリアデプロイの段階とマニフェストの
+  インシデントの `base_commit:` 取得には `git` (Python パッケージでは
+  なく、本物の外部バイナリ)を使用します。オプションの依存関係を必要
+  とするのは `control diagnose`(`ai-*` extra)とマニフェストのインシ
+  デントの `compare_runs()` 再検証(`sdk` extra)だけで、それぞれ実際
+  に使う機能の分のみです。
 
 ## 📂 リポジトリ構成
 
@@ -238,6 +247,7 @@ ANTHROPIC_API_KEY=sk-ant-... ./run.sh control diagnose snapshot.json --incident-
 ./run.sh control propose snapshot.json --incident-id <id> --project-name NAME --description "..." --diff-file fix.diff --rationale "..." --out proposal.json
 ./run.sh control approve proposal.json --approved-by "あなたの名前"
 ./run.sh control deploy-canary proposal.json --live-root PATH --build-test-command "bash build-test.sh"
+pip install -e ".[sdk]"                           # マニフェストのインシデントの base_commit を再検証する場合のみ必要
 ./run.sh control verify snapshot.json --incident-id <id>
 ```
 

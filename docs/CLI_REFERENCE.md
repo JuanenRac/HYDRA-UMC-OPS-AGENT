@@ -144,8 +144,10 @@ incident kinds this can and cannot automatically re-check.
 
 Exit code `0` if the incident is now resolved, `1` if it is confirmed
 still unresolved, `1` with `ERROR: ...` on stderr if it genuinely cannot
-be re-checked automatically (e.g. a manifest-scan incident, or a
-systemd incident on a host with no `systemctl`).
+be re-checked automatically (a systemd incident on a host with no
+`systemctl`; a manifest-scan incident with no `base_commit:` evidence, or
+one re-checked without the optional `sdk` extra installed - see
+[CHANGE_LIFECYCLE.md](CHANGE_LIFECYCLE.md)).
 
 ## `--version`
 

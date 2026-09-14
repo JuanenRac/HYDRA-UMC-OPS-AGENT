@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="Roles edge y control-plane">
 </p>
 
-> **Estado: v0.1.2, scaffolding - Entregas 1-5 de 6 (evidencia,
+> **Estado: v0.1.3, scaffolding - Entregas 1-5 de 6 (evidencia,
 > diagnóstico, cambio aprobado por una persona, despliegue canario,
 > verificación).** Cada subcomando es real y está probado de extremo a
 > extremo - `control diagnose` contra un proveedor de IA simulado
@@ -177,10 +177,15 @@ superficie de comandos completa y real.
   se atribuye a un nombre real, no vacío.
 - **La verificación vuelve a ejecutar la MISMA comprobación real, nunca
   una más laxa.** `verify_incident_resolved()` llama directamente a las
-  propias `check_http_health()`/`check_systemd_unit_health()` de la
-  Entrega 1 - no existe una segunda implementación de comprobación de
-  salud, independiente y propensa a desviarse, en ningún lugar de este
-  proyecto.
+  propias `check_http_health()`/`check_systemd_unit_health()`/
+  `check_project_manifest()` de la Entrega 1 - no existe una segunda
+  implementación de comprobación de salud, independiente y propensa a
+  desviarse, en ningún lugar de este proyecto. Un incidente de manifiesto
+  con un `base_commit:` real (capturado de forma best-effort al
+  detectarlo) se comprueba además contra el control compartido T07/I60
+  `compare_runs()` de HYDRA-UMC-SDK - el commit del checkout debe haberse
+  movido de verdad, no basta con que el archivo parezca arreglado en
+  disco. Ver [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md).
 - **La Entrega 6 está bloqueada, no simplemente omitida.** El propio
   contrato real de HYDRA-UMC-VOICE-UI (`gateway.py`) es una puerta de
   entrada acotada, de ENTRADA, de transcripción a intención, sin ninguna
@@ -193,8 +198,11 @@ superficie de comandos completa y real.
   verify` no necesitan ninguna dependencia - `urllib.request` para la
   comprobación HTTP, `subprocess`/`shutil.which` para la de systemd,
   `git` (un binario externo real, no un paquete Python) para la etapa de
-  despliegue canario. Solo `control diagnose` necesita un extra
-  opcional, y solo para el proveedor realmente usado.
+  despliegue canario y para la captura del `base_commit:` de un
+  incidente de manifiesto. Solo `control diagnose` (un extra `ai-*`) y la
+  recomprobación `compare_runs()` de un incidente de manifiesto (el extra
+  `sdk`) necesitan una dependencia opcional, cada una solo para lo que
+  realmente la usa.
 
 ## 📂 ESTRUCTURA DE DIRECTORIOS
 
@@ -242,6 +250,7 @@ ANTHROPIC_API_KEY=sk-ant-... ./run.sh control diagnose snapshot.json --incident-
 ./run.sh control propose snapshot.json --incident-id <id> --project-name NOMBRE --description "..." --diff-file fix.diff --rationale "..." --out proposal.json
 ./run.sh control approve proposal.json --approved-by "Tu Nombre"
 ./run.sh control deploy-canary proposal.json --live-root RUTA --build-test-command "bash build-test.sh"
+pip install -e ".[sdk]"                           # solo necesario para recomprobar el base_commit de un incidente de manifiesto
 ./run.sh control verify snapshot.json --incident-id <id>
 ```
 

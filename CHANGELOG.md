@@ -9,6 +9,31 @@ bumped manually only. See `bump_version.py`.
 
 (nothing yet)
 
+## [0.1.3] - N01: a manifest incident's own real T07/I60 "apparent success" control
+
+`verify_incident_resolved()` used to have no automated re-check at all
+for a manifest-scan incident - "a structural fact about a file, not a
+live service to re-poll" was true, but left a real, honest gap: a
+manifest incident could not be verified without a human re-running
+`edge collect` by hand.
+
+New: `inventory.py`'s own `check_project_manifest()` (the per-file logic
+`scan_project_manifests()`'s loop already applied, now a real, separate,
+independently-callable function - no behavior change to the existing
+scan) re-checks the one manifest a manifest incident is about, directly.
+`incident.py`'s own `add_manifest_issue()` best-effort captures the
+checkout's real `git rev-parse HEAD` as a `base_commit:` evidence ref
+(never a new `MaintenanceIncident` field - that contract stays exactly
+as documented). When both are available, `verification.py` runs
+HYDRA-UMC-SDK's shared T07/I60 `ScenarioOutcome`/`compare_runs()`
+control (the optional `sdk` extra) against the checkout's current
+commit: a manifest that merely *looks* fixed on disk without the
+checkout's own commit having actually moved (a real, plausible trap - a
+hand-edit that was never committed) is reported unresolved, not a false
+"fixed". No `base_commit:`, or the `sdk` extra not installed - the exact
+same honest `VerificationError` this always raised for a manifest
+incident, unchanged.
+
 ## [0.1.2] - PROM-OPS-E01: real persistent, deduplicated incidents across separate edge-collection runs
 
 `incident.py`'s own `IncidentBatch._new_incident()` generated a fresh
