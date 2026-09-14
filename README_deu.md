@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="Edge- und Control-Plane-Rollen">
 </p>
 
-> **Status: v0.1.2, Scaffolding - Lieferungen 1-5 von 6 (Beweis,
+> **Status: v0.1.3, Scaffolding - Lieferungen 1-5 von 6 (Beweis,
 > Diagnose, von einer Person genehmigte Änderung, Canary-Deployment,
 > Verifizierung).** Jeder Unterbefehl ist echt und Ende-zu-Ende getestet
 > - `control diagnose` gegen einen simulierten KI-Anbieter (jeder echte
@@ -180,9 +180,15 @@ echte Befehlsoberfläche.
   jede Entscheidung wird einem echten, nicht leeren Namen zugeschrieben.
 - **Die Verifizierung führt DIESELBE echte Prüfung erneut aus, nie eine
   laxere.** `verify_incident_resolved()` ruft direkt die eigenen
-  `check_http_health()`/`check_systemd_unit_health()` von Lieferung 1
-  auf - es gibt nirgendwo in diesem Projekt eine zweite, unabhängig
-  driftende Implementierung der Gesundheitsprüfung.
+  `check_http_health()`/`check_systemd_unit_health()`/
+  `check_project_manifest()` von Lieferung 1 auf - es gibt nirgendwo in
+  diesem Projekt eine zweite, unabhängig driftende Implementierung der
+  Gesundheitsprüfung. Ein Manifest-Vorfall mit einem echten
+  `base_commit:` (best-effort bei der Erkennung erfasst) wird zusätzlich
+  gegen die geteilte T07/I60-`compare_runs()`-Kontrolle von HYDRA-UMC-SDK
+  geprüft - der Commit des Checkouts muss sich wirklich bewegt haben, es
+  reicht nicht, dass die Datei auf der Festplatte nur repariert aussieht.
+  Siehe [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md).
 - **Lieferung 6 ist blockiert, nicht einfach übersprungen.** Der eigene
   echte Vertrag von HYDRA-UMC-VOICE-UI (`gateway.py`) ist ein
   begrenztes, EINGEHENDES Gateway von Transkript zu Intent, ohne eine
@@ -195,8 +201,11 @@ echte Befehlsoberfläche.
   verify` brauchen überhaupt keine Abhängigkeit - `urllib.request` für
   die HTTP-Prüfung, `subprocess`/`shutil.which` für die von systemd,
   `git` (ein echtes externes Binary, kein Python-Paket) für die
-  Canary-Deployment-Stufe. Nur `control diagnose` braucht ein optionales
-  Extra, und nur für den tatsächlich verwendeten Anbieter.
+  Canary-Deployment-Stufe und für die `base_commit:`-Erfassung eines
+  Manifest-Vorfalls. Nur `control diagnose` (ein `ai-*`-Extra) und die
+  `compare_runs()`-Nachprüfung eines Manifest-Vorfalls (das `sdk`-Extra)
+  brauchen eine optionale Abhängigkeit, jeweils nur für das, was sie
+  tatsächlich benutzt.
 
 ## 📂 VERZEICHNISSTRUKTUR
 
@@ -244,6 +253,7 @@ ANTHROPIC_API_KEY=sk-ant-... ./run.sh control diagnose snapshot.json --incident-
 ./run.sh control propose snapshot.json --incident-id <id> --project-name NAME --description "..." --diff-file fix.diff --rationale "..." --out proposal.json
 ./run.sh control approve proposal.json --approved-by "Ihr Name"
 ./run.sh control deploy-canary proposal.json --live-root PFAD --build-test-command "bash build-test.sh"
+pip install -e ".[sdk]"                           # nur nötig, um den base_commit eines Manifest-Vorfalls erneut zu prüfen
 ./run.sh control verify snapshot.json --incident-id <id>
 ```
 

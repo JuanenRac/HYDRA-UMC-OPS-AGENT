@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="Edge and control-plane roles">
 </p>
 
-> **Status: v0.1.2, scaffolding - Deliveries 1-5 of 6 (evidence,
+> **Status: v0.1.3, scaffolding - Deliveries 1-5 of 6 (evidence,
 > diagnosis, human-approved change, canary deploy, verification).**
 > Every subcommand is real and tested end to end - `control diagnose`
 > against a fake AI provider (any real provider works, see
@@ -166,9 +166,14 @@ command surface.
   every decision is attributed to a real, non-empty name.
 - **Verification re-runs the SAME real check, never a looser one.**
   `verify_incident_resolved()` calls straight back into Delivery 1's own
-  `check_http_health()`/`check_systemd_unit_health()` - there is no
-  second, independently-drifting health-check implementation anywhere
-  in this project.
+  `check_http_health()`/`check_systemd_unit_health()`/
+  `check_project_manifest()` - there is no second, independently-drifting
+  health-check implementation anywhere in this project. A manifest
+  incident with a real `base_commit:` (best-effort, captured at
+  detection) is additionally checked against HYDRA-UMC-SDK's shared
+  T07/I60 `compare_runs()` "apparent success" control - the checkout's
+  own commit must have genuinely moved, not just have the file look
+  fixed on disk. See [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md).
 - **Delivery 6 is blocked, not skipped.** HYDRA-UMC-VOICE-UI's own real
   contract (`gateway.py`) is a bounded, inbound transcript-to-intent
   gateway with no real outbound-notification surface today - inventing
@@ -179,9 +184,11 @@ command surface.
   propose`/`control approve`/`control reject`/`control verify` need no
   dependency at all - `urllib.request` for the HTTP check,
   `subprocess`/`shutil.which` for the systemd check, `git` (a real
-  external binary, not a Python package) for the canary-deploy stage.
-  Only `control diagnose` needs an optional extra, and only for the
-  provider actually used.
+  external binary, not a Python package) for the canary-deploy stage and
+  for a manifest incident's own `base_commit:` capture. Only `control
+  diagnose` (an `ai-*` extra) and a manifest incident's `compare_runs()`
+  re-check (the `sdk` extra) need an optional dependency, each only for
+  what actually uses it.
 
 ## 📂 DIRECTORY STRUCTURE
 
@@ -229,6 +236,7 @@ ANTHROPIC_API_KEY=sk-ant-... ./run.sh control diagnose snapshot.json --incident-
 ./run.sh control propose snapshot.json --incident-id <id> --project-name NAME --description "..." --diff-file fix.diff --rationale "..." --out proposal.json
 ./run.sh control approve proposal.json --approved-by "Your Name"
 ./run.sh control deploy-canary proposal.json --live-root PATH --build-test-command "bash build-test.sh"
+pip install -e ".[sdk]"                           # only needed to re-verify a manifest incident's own base_commit
 ./run.sh control verify snapshot.json --incident-id <id>
 ```
 

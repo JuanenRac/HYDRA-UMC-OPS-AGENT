@@ -3,9 +3,14 @@
 # Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
 # GPL-3.0 - see LICENSE
 # =============================================================================
+import shutil
+import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 
 from hydra_umc_ops_agent.incident import (
+    EVIDENCE_BASE_COMMIT_PREFIX,
     REDACTION_LEVEL_SANITIZED,
     SEVERITY_CRITICAL,
     SEVERITY_WARNING,
@@ -107,6 +112,54 @@ class IncidentBatchTests(unittest.TestCase):
         incident = batch.add_http_health("cm5-1", HttpHealthResult(url="http://x", reachable=False, status_code=None, detail="unreachable: refused"))
         self.assertIsNotNone(incident)
         self.assertEqual(incident.severity, SEVERITY_WARNING)
+
+
+class AddManifestIssueBaseCommitTests(unittest.TestCase):
+    """N01: add_manifest_issue() best-effort captures the checkout's own
+    real git commit as an extra evidence_refs entry - never a new
+    MaintenanceIncident field (see incident.py's own EVIDENCE_BASE_COMMIT_
+    PREFIX comment)."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_a_fabricated_path_that_is_not_a_real_file_gets_no_base_commit(self):
+        batch = IncidentBatch()
+        incident = batch.add_manifest_issue("cm5-1", ManifestScanIssue(path="p1", reason="bad"))
+        self.assertEqual(incident.evidence_refs, ("p1",))
+
+    def test_a_real_manifest_outside_any_git_repo_gets_no_base_commit(self):
+        if shutil.which("git") is None:
+            self.skipTest("no real git on this host")
+        manifest = self.root / "hydra-umc.project.json"
+        manifest.write_text("{not json", encoding="utf-8")
+        batch = IncidentBatch()
+        incident = batch.add_manifest_issue("cm5-1", ManifestScanIssue(path=str(manifest), reason="not valid JSON"))
+        self.assertEqual(incident.evidence_refs, (str(manifest),))
+
+    def test_a_real_manifest_inside_a_real_git_repo_gets_a_real_base_commit(self):
+        if shutil.which("git") is None:
+            self.skipTest("no real git on this host")
+        for command in (
+            ["git", "init", "--quiet"],
+            ["git", "config", "user.name", "test"],
+            ["git", "config", "user.email", "test@example.invalid"],
+        ):
+            subprocess.run(command, cwd=str(self.root), check=True, capture_output=True)
+        manifest = self.root / "hydra-umc.project.json"
+        manifest.write_text("{not json", encoding="utf-8")
+        subprocess.run(["git", "add", "hydra-umc.project.json"], cwd=str(self.root), check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "c1", "--no-verify"], cwd=str(self.root), check=True, capture_output=True)
+
+        batch = IncidentBatch()
+        incident = batch.add_manifest_issue("cm5-1", ManifestScanIssue(path=str(manifest), reason="not valid JSON"))
+        self.assertEqual(len(incident.evidence_refs), 2)
+        self.assertTrue(incident.evidence_refs[1].startswith(EVIDENCE_BASE_COMMIT_PREFIX))
+        self.assertEqual(len(incident.evidence_refs[1][len(EVIDENCE_BASE_COMMIT_PREFIX):]), 40)
 
 
 if __name__ == "__main__":

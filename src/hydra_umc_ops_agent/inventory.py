@@ -73,6 +73,53 @@ _MANIFEST_FILENAME = "hydra-umc.project.json"
 _REQUIRED_FIELDS = ("name", "version", "maturity")
 
 
+def check_project_manifest(manifest_path: Path) -> ProjectVersion | ManifestScanIssue:
+    """Re-validates ONE real hydra-umc.project.json directly by path - the
+    same real checks scan_project_manifests()'s own loop applies to each
+    candidate directory it finds, factored out here so a caller that
+    already knows exactly which manifest to look at (verification.py's
+    own Delivery-5 re-check of a manifest-scan incident, N01) never needs
+    a full root re-scan just to answer one question about one file."""
+    if not manifest_path.is_file():
+        return ManifestScanIssue(path=str(manifest_path), reason="manifest file no longer exists")
+    try:
+        raw = manifest_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return ManifestScanIssue(path=str(manifest_path), reason=f"could not read: {exc}")
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return ManifestScanIssue(path=str(manifest_path), reason=f"not valid JSON: {exc}")
+    if not isinstance(data, dict):
+        return ManifestScanIssue(path=str(manifest_path), reason="manifest is not a JSON object")
+    missing = [field for field in _REQUIRED_FIELDS if not isinstance(data.get(field), str) or not data.get(field)]
+    if missing:
+        return ManifestScanIssue(path=str(manifest_path), reason=f"missing/empty required field(s): {', '.join(missing)}")
+    return ProjectVersion(name=data["name"], version=data["version"], maturity=data["maturity"], manifest_path=str(manifest_path))
+
+
+def read_git_commit_hash(path: Path, *, timeout_s: float = 5.0) -> str | None:
+    """Best-effort `git rev-parse HEAD` for `path` - `None` (never a
+    guessed/empty string) whenever this can't be answered for real: `git`
+    missing from PATH, `path` is not inside a real git checkout, or the
+    command times out. Used by N01 to pin a manifest incident's before/
+    after evidence to the exact source state it was raised and resolved
+    against - see verification.py's own header comment."""
+    git = shutil.which("git")
+    if git is None:
+        return None
+    try:
+        result = subprocess.run(
+            [git, "rev-parse", "HEAD"], cwd=str(path), capture_output=True, text=True, timeout=timeout_s, check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+    if result.returncode != 0:
+        return None
+    commit = result.stdout.strip()
+    return commit or None
+
+
 def scan_project_manifests(root: Path) -> ManifestScanResult:
     """Scans the immediate subdirectories of `root` for a real
     hydra-umc.project.json each, reading its own name/version/maturity.
@@ -107,29 +154,11 @@ def scan_project_manifests(root: Path) -> ManifestScanResult:
         manifest_path = entry / _MANIFEST_FILENAME
         if not manifest_path.is_file():
             continue
-        try:
-            raw = manifest_path.read_text(encoding="utf-8")
-        except OSError as exc:
-            issues.append(ManifestScanIssue(path=str(manifest_path), reason=f"could not read: {exc}"))
-            continue
-        try:
-            data = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            issues.append(ManifestScanIssue(path=str(manifest_path), reason=f"not valid JSON: {exc}"))
-            continue
-        if not isinstance(data, dict):
-            issues.append(ManifestScanIssue(path=str(manifest_path), reason="manifest is not a JSON object"))
-            continue
-        missing = [field for field in _REQUIRED_FIELDS if not isinstance(data.get(field), str) or not data.get(field)]
-        if missing:
-            issues.append(ManifestScanIssue(path=str(manifest_path), reason=f"missing/empty required field(s): {', '.join(missing)}"))
-            continue
-        projects.append(ProjectVersion(
-            name=data["name"],
-            version=data["version"],
-            maturity=data["maturity"],
-            manifest_path=str(manifest_path),
-        ))
+        checked = check_project_manifest(manifest_path)
+        if isinstance(checked, ManifestScanIssue):
+            issues.append(checked)
+        else:
+            projects.append(checked)
     return ManifestScanResult(projects=tuple(projects), issues=tuple(issues))
 
 

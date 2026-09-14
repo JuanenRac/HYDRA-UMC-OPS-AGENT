@@ -22,7 +22,7 @@ shapes.
 | `severity` | string | One of `info` / `warning` / `critical` (see the `SEVERITY_*` constants in `incident.py`). |
 | `component` | string | What the incident is about, e.g. a project name, a systemd unit, or an HTTP health-check URL. |
 | `symptom` | string | Human-readable description. Always passed through `redact_secrets()` again at `to_dict()` time, even if the caller already redacted it - defense in depth for the single most safety-critical text field in this delivery. |
-| `evidenceRefs` | array of string | Free-form references to supporting evidence (e.g. a manifest path). Never raw log content - see `redactionLevel`. |
+| `evidenceRefs` | array of string | Free-form references to supporting evidence (e.g. a manifest path). Never raw log content - see `redactionLevel`. N01: a manifest-scan incident's own `add_manifest_issue()` best-effort appends one further entry here, `base_commit:<sha>` (the checkout's real `git rev-parse HEAD` at detection time) - never a new field, this contract stays exactly as above; `verification.py`'s own `_verify_manifest_incident()` is the one real reader of this prefix. |
 | `redactionLevel` | string | Currently only `sanitized` (`REDACTION_LEVEL_SANITIZED`) exists - there is no "raw" level in this delivery, on purpose. |
 | `requestedBy` | string or null | Who/what asked for this check, when known. |
 | `correlationId` | string | Shared by every incident produced by the same `edge collect` run - see `IncidentBatch` below. |
@@ -37,7 +37,9 @@ the thing it examined was actually healthy:
 
 - `add_manifest_issue(issue)` - always produces a `warning` incident (a
   present-but-broken manifest is real information worth surfacing, even
-  though it's not urgent).
+  though it's not urgent). Best-effort captures a real `base_commit:`
+  evidence ref (see the `evidenceRefs` row above) whenever the manifest
+  genuinely exists inside a real git checkout.
 - `add_service_health(unit_name, result)` - a `critical` incident if the
   unit isn't active; `None` if it is.
 - `add_http_health(url, result)` - a `warning` incident if the endpoint
