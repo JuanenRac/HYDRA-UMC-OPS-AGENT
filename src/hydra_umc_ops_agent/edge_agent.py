@@ -32,6 +32,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .incident import IncidentBatch, MaintenanceIncident
+from .incident_store import load_incident_store, reconcile_incidents, save_incident_store
 from .log_redaction import redact_secrets
 from .inventory import (
     HttpHealthResult,
@@ -104,11 +105,26 @@ def collect_snapshot(
     *,
     systemd_units: list[str] | None = None,
     http_health_urls: list[str] | None = None,
+    incident_store_path: Path | None = None,
 ) -> NodeSnapshot:
     """Real, read-only collection - the only network/subprocess calls this
     makes are the ones explicitly asked for (`systemd_units`,
     `http_health_urls`); with both omitted, this only ever reads local
-    manifest files."""
+    manifest files.
+
+    PROM-OPS-E01: `incident_store_path` is optional and, when omitted,
+    changes nothing about this function's own prior behavior - every
+    incident is still the fresh, un-deduplicated `IncidentBatch` output
+    it always was. Given a real path, this run's own incidents are
+    reconciled against `incident_store.py`'s own durable, deduplicated
+    store BEFORE being returned: an ongoing problem on the same real
+    component keeps its original `incidentId` and gets its
+    `occurrenceCount` bumped instead of spawning a new, unrelated
+    incident every single pass; a component that was genuinely
+    re-checked this run and came back clean gets its own open record
+    marked resolved. The store file itself is updated on disk as part of
+    this call - the caller never has to separately load/reconcile/save
+    it."""
     batch = IncidentBatch()
 
     scan = scan_project_manifests(projects_root)
@@ -141,6 +157,28 @@ def collect_snapshot(
         http_health.append(result)
         batch.add_http_health(source_node, result)
 
+    incidents = tuple(batch.incidents)
+    if incident_store_path is not None:
+        # The real, complete set of (source_node, component) this pass
+        # actually re-checked - a clean project manifest and a clean
+        # service/URL never produce an incident.py entry at all, but they
+        # WERE genuinely checked, so an open store record for one of them
+        # must still be eligible for resolution here.
+        checked_components = {(source_node, p.manifest_path) for p in scan.projects}
+        checked_components |= {(source_node, i.path) for i in scan.issues}
+        checked_components |= {(source_node, s.unit_name) for s in service_health}
+        checked_components |= {(source_node, h.url) for h in http_health}
+
+        store = load_incident_store(incident_store_path)
+        reconciled = reconcile_incidents(store, list(incidents), checked_components)
+        save_incident_store(reconciled, incident_store_path)
+
+        touched_keys = {(incident.source_node, incident.component) for incident in incidents}
+        incidents = tuple(
+            tracked.incident for tracked in reconciled
+            if tracked.resolved_at is None and tracked.dedup_key in touched_keys
+        )
+
     return NodeSnapshot(
         source_node=source_node,
         collected_at=_utc_now_iso(),
@@ -151,5 +189,5 @@ def collect_snapshot(
         systemd_unavailable_reason=systemd_unavailable_reason,
         service_health=tuple(service_health),
         http_health=tuple(http_health),
-        incidents=tuple(batch.incidents),
+        incidents=incidents,
     )

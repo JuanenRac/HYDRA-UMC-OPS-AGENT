@@ -16,6 +16,7 @@ hydra-umc-ops-agent edge collect \
     [--systemd-unit hydra-umc-server.service] \
     [--systemd-unit hydra-umc-vision-streamer.service] \
     [--http-health-url http://127.0.0.1:8090/health] \
+    [--incident-store incidents.json] \
     [--out snapshot.json]
 ```
 
@@ -25,6 +26,7 @@ hydra-umc-ops-agent edge collect \
 | `--projects-root` | yes | no | Directory whose immediate subdirectories are scanned for a `hydra-umc.project.json`. A subdirectory with no manifest at all is skipped silently; a subdirectory WITH a manifest that fails to parse or is missing a required field becomes a real `ManifestScanIssue` (never dropped). |
 | `--systemd-unit` | no | yes | A systemd unit name to check with `systemctl is-active`. Skipped honestly on a non-systemd host (`SystemdUnavailableError`) rather than reporting a guessed status - this happens on every non-Linux development machine, and on Linux hosts with no `systemctl` on `PATH`. The first unavailable check stops the whole systemd loop for that run, since "no systemd here" is a host-wide fact, not a per-unit one. |
 | `--http-health-url` | no | yes | A URL to probe with a plain HTTP GET. A non-2xx response and a connection failure are both reported, but distinguished (`status_code` is set for the former, `None` for the latter). |
+| `--incident-store` | no | no | PROM-OPS-E01: path to a real, durable JSON file (`incident_store.py`) tracking incidents across separate `edge collect` runs against the same node. Given, the same ongoing problem on the same real component (same `sourceNode`+`component`) keeps its original `incidentId` and gets an `occurrenceCount` bump instead of a brand-new, unrelated incident every run; a component genuinely re-checked this run and found clean gets its own open record marked resolved. Omitted (the default), nothing changes from before - every incident still gets a fresh id on every run. |
 | `--out` | no | no | Write the snapshot JSON to this path instead of stdout. |
 
 Exit code `0` on success. `scan_project_manifests`/`check_systemd_unit_health`/

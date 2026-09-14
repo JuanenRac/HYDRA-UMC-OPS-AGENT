@@ -9,6 +9,42 @@ bumped manually only. See `bump_version.py`.
 
 (nothing yet)
 
+## [0.1.2] - PROM-OPS-E01: real persistent, deduplicated incidents across separate edge-collection runs
+
+`incident.py`'s own `IncidentBatch._new_incident()` generated a fresh
+`uuid4()` every single call - a service that stayed down across ten
+consecutive `edge collect` runs used to become ten separate, unrelated
+`MaintenanceIncident`s instead of one real, ongoing problem a
+control-plane viewer could track and eventually see resolved.
+
+New `incident_store.py`: `reconcile_incidents()` deduplicates by
+`(sourceNode, component)` - an ongoing problem on the same real
+component keeps its original `incidentId` (only its
+symptom/severity/evidence/detectedAt update to the latest observation)
+and gets `occurrenceCount` bumped, instead of spawning a new incident
+every pass. Resolution is scoped, never blanket: a component is only
+ever auto-resolved when it was genuinely re-checked this run and came
+back clean (`checked_components`), never just because a caller happened
+to omit that check this time. A problem that reoccurs after being
+resolved honestly starts a real NEW incident (fresh id), never a silent
+reopening of the closed one - the closed record itself is preserved as
+real history, never dropped.
+
+Wired as a new, optional `edge_agent.collect_snapshot(incident_store_path=...)`
+parameter (and the CLI's new `edge collect --incident-store <path>`) -
+omitted, nothing changes from before; given, the store file is
+loaded/reconciled/saved automatically as part of the same call, and the
+snapshot's own `incidents` carry the durable ids.
+
+A real bug in `reconcile_incidents()` itself was caught by its own new
+regression tests before this shipped: the first version replaced an
+existing open record's ENTIRE `incident` (including the fresh id from
+the new observation) instead of keeping the original id and only
+updating the observed fields - defeating the whole point. Fixed before
+merge, the exact regression test that caught it kept in the suite.
+
+21 new tests (155 passed, 6 subtests).
+
 ## [0.1.1] - Real CI/production bug fixed: the staging clone never had its own git identity
 
 `_commit_applied_diff()` (added in H022 above) runs a real `git commit`
