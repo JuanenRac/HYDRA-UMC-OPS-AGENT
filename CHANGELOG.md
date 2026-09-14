@@ -9,6 +9,22 @@ bumped manually only. See `bump_version.py`.
 
 (nothing yet)
 
+## [0.1.1] - Real CI/production bug fixed: the staging clone never had its own git identity
+
+`_commit_applied_diff()` (added in H022 above) runs a real `git commit`
+against the staging clone, but a plain `git clone` never copies
+commit-author identity - that step silently depended on a global
+`user.name`/`user.email` already being configured on whatever host
+runs this. True on a maintainer's own workstation, false by default on
+a fresh GitHub Actions runner (this repo's own CI failed on exactly
+this, every run, since H022 landed) - and arguably wrong even on a
+real deploy host, where an automated canary commit should never be
+silently authored as whichever human happens to be logged in there.
+`_create_staging_clone()` now sets a fixed, local-only synthetic
+identity (`HYDRA-UMC OPS-AGENT <ops-agent@hydra-umc.local>`) on the
+staging clone right after cloning it, so this step's correctness never
+depends on the host's ambient git config again.
+
 ## [0.1.0] - H022/H049: a successful canary locked itself out, and a broken git status read as "clean"
 
 - **H022 (P0):** `_apply_diff()` only ran `git apply` against the
