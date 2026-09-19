@@ -9,6 +9,16 @@ bumped manually only. See `bump_version.py`.
 
 (nothing yet)
 
+## [0.1.4] - Removed internal tracking-code labels leaked into source comments
+
+A broad, systemic docs-review pass had already cleaned CHANGELOG/README/
+docs of these; a follow-up audit found the exact same private tracking
+labels also leaked into this module's own source code comments and
+docstrings (canary_deploy.py, change_proposal.py, cli.py,
+control_plane.py, edge_agent.py, incident.py, incident_store.py,
+inventory.py, log_redaction.py, verification.py). Removed everywhere -
+no behavior changed, 169 tests still passing.
+
 ## [0.1.3] - A manifest incident's own real "apparent success" control
 
 `verify_incident_resolved()` used to have no automated re-check at all

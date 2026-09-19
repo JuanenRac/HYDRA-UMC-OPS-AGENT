@@ -27,14 +27,14 @@ from pathlib import Path
 from .inventory import HttpHealthResult, ManifestScanIssue, ServiceHealthResult, read_git_commit_hash
 from .log_redaction import redact_secrets
 
-# N01: prefix for the one real, additional evidence_refs entry
+# Prefix for the one real, additional evidence_refs entry
 # add_manifest_issue() appends - never a new MaintenanceIncident field
 # (that contract is already fixed, field-for-field, per this module's own
 # header comment). verification.py's own re-check looks for this exact
 # prefix; a `MaintenanceIncident` loaded from anywhere else (an older
 # incident, a non-git checkout) simply won't have one, and degrades to
 # the same honest "no automated re-check" VerificationError it always
-# raised for a manifest incident before N01.
+# raised for a manifest incident before this.
 EVIDENCE_BASE_COMMIT_PREFIX = "base_commit:"
 
 SEVERITY_INFO = "info"
@@ -71,10 +71,10 @@ class MaintenanceIncident:
     correlation_id: str
 
     def to_dict(self) -> dict[str, object]:
-        # V07-010 (P1, residual outside REV-013's own three original examples):
+        # A residual outside a few earlier known examples:
         # `component` (often a URL or systemd unit name) and
         # `evidenceRefs` (often a URL or a real command line) were
-        # never redacted here - only `symptom` was, since REV-013's own
+        # never redacted here - only `symptom` was, since an earlier
         # fix - while `redactionLevel` unconditionally still claimed
         # `"sanitized"` for the whole record. A component like
         # `https://user:password@host/health` (a real, plausible
@@ -138,7 +138,7 @@ class IncidentBatch:
 
     def add_manifest_issue(self, source_node: str, issue: ManifestScanIssue) -> MaintenanceIncident:
         evidence_refs: tuple[str, ...] = (issue.path,)
-        # N01: a manifest issue's own project checkout is real, versioned
+        # A manifest issue's own project checkout is real, versioned
         # source state - unlike a live HTTP/systemd check, "was this
         # really fixed" here has a genuine, honest answer: did the
         # checkout's own commit actually move. Best-effort only, and only

@@ -3,7 +3,7 @@
 # Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
 # GPL-3.0 - see LICENSE
 # =============================================================================
-"""PROM-OPS-E01's own real fix: `incident.py`'s own `IncidentBatch`
+"""A real fix: `incident.py`'s own `IncidentBatch`
 generates a fresh `uuid4()` every single time `collect_snapshot()` runs -
 a service that stays down across ten consecutive edge-collection passes
 used to become ten separate, unrelated `MaintenanceIncident`s instead of

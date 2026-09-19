@@ -11,21 +11,21 @@ ever considered resolved because the real evidence was re-collected and
 came back healthy, never because a canary deploy (Delivery 4) merely
 reported "promoted".
 
-N01: a manifest-scan incident is the one real check kind here pinned to
+A manifest-scan incident is the one real check kind here pinned to
 actual versioned source state (a project checkout's own git commit) -
 unlike a live HTTP/systemd poll, "did this really get fixed" has an
 honest, checkable answer for it: did the checkout's commit actually move,
 not just "does the file look fine again right now". That is exactly
-HYDRA-UMC-SDK's own T07/I60 `ScenarioOutcome`/`compare_runs()` contract
+HYDRA-UMC-SDK's own `ScenarioOutcome`/`compare_runs()` contract
 (`clients/python/src/hydra_umc_sdk/scenario.py`) - the shared "apparent
 success" control, reused here rather than a second, competing
 implementation. It is genuinely optional (the `sdk` extra, lazily
-imported) - a manifest incident raised before N01, or one whose checkout
+imported) - a manifest incident raised before this, or one whose checkout
 was never a real git repo, has no `base_commit:` evidence and degrades to
 the exact same honest VerificationError this module always raised for a
 manifest incident. HTTP/systemd checks are deliberately left as they
 are: a live service transitioning from unreachable/inactive to
-reachable/active is not "apparent success" in the T07/I60 sense - there
+reachable/active is not "apparent success" in this sense - there
 is no stable base fingerprint to compare it against (a systemd unit's
 own ActiveEnterTimestamp necessarily changes on any real restart, so it
 would never actually catch anything an already-covered `active` boolean
@@ -64,7 +64,7 @@ class VerificationError(RuntimeError):
 
 
 class SdkUnavailableError(VerificationError):
-    """N01: the optional 'hydra-umc-sdk' package is not installed - same
+    """The optional 'hydra-umc-sdk' package is not installed - same
     degrade-honestly shape as SystemdUnavailableError above, not a bare
     ImportError leaking out of this module."""
 
@@ -90,7 +90,7 @@ class VerificationResult:
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> "VerificationResult":
-        # V07-021 (P2): this
+        # This
         # is a real public loading boundary (whatever produced `data`
         # need not be this module's own to_dict()) - `bool(data["resolved"])`
         # used to coerce ANY non-empty value, including the literal
@@ -149,11 +149,11 @@ def _find_base_commit(evidence_refs: tuple[str, ...]) -> str | None:
 
 
 def _verify_manifest_incident(incident: MaintenanceIncident) -> VerificationResult:
-    """N01: re-checks THIS exact manifest (incident.component IS its real
+    """Re-checks THIS exact manifest (incident.component IS its real
     path - see incident.py's own add_manifest_issue()) via
     check_project_manifest(), then - only when a real `base_commit:`
     evidence ref was captured at detection time - runs the shared
-    `compare_runs()` T07/I60 check against the checkout's CURRENT commit,
+    `compare_runs()` check against the checkout's CURRENT commit,
     so a re-check that merely "looks fine" without the checkout's own
     commit ever having moved (a stale/no-op incident, or one silently
     re-created identically by something else) is never reported as

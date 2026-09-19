@@ -46,7 +46,7 @@ class InvalidDiffError(ChangeProposalError):
 
 
 class SecretShapedDiffError(ChangeProposalError):
-    """V07-005: a diff that looks like it contains a real secret
+    """A diff that looks like it contains a real secret
     (log_redaction.py's own detectors - a JSON/URL-credential/PEM
     shape) is refused outright at proposal time, instead of being
     silently accepted and then redacted-in-place later - redacting the
@@ -76,7 +76,7 @@ def _validate_diff_text(diff_text: str) -> None:
         raise InvalidDiffError(
             "diff text does not look like a real unified diff (expected a '--- ' / '+++ ' / 'diff --git ' header line)"
         )
-    # V07-005: reject a secret-shaped diff HERE, before it is ever
+    # Reject a secret-shaped diff HERE, before it is ever
     # stored - see SecretShapedDiffError's own docstring for why this
     # replaces redacting it after the fact.
     if redact_secrets(diff_text) != diff_text:
@@ -93,12 +93,12 @@ def _content_digest(project_name: str, diff: str) -> str:
     (commentary, never applied) so editing those after approval (e.g.
     fixing a typo in the human-readable rationale) doesn't spuriously
     invalidate a real approval - see approve_change()'s own docstring
-    for what this binds and why (V07-003)."""
+    for what this binds and why."""
     return hashlib.sha256(f"{project_name}\n{diff}".encode("utf-8")).hexdigest()
 
 
 class ApprovalContentMismatchError(ChangeProposalError):
-    """V07-003 (P1): an
+    """An
     approval's own `status == "approved"` used to be the ONLY thing
     deploy_canary() checked - nothing tied that approval to the exact
     project or diff a human actually reviewed. A saved proposal file is
@@ -129,7 +129,7 @@ class ChangeProposal:
     decided_by: str | None = None
     decided_at: str | None = None
     decision_reason: str | None = None
-    # V07-003: set only by approve_change(), a real SHA-256 over the
+    # Set only by approve_change(), a real SHA-256 over the
     # exact project_name+diff that were true at the moment of approval
     # - see _content_digest()'s own docstring. None for a proposal that
     # was never approved (pending/rejected).
@@ -158,7 +158,7 @@ class ChangeProposal:
             )
 
     def to_dict(self) -> dict[str, object]:
-        # V07-005 (P1): this
+        # This
         # dict is not just a display view - save_proposal()/load_proposal()
         # round-trip THROUGH it, and canary_deploy.py's own _apply_diff()
         # later runs `git apply` on whatever `.diff` comes back out.
@@ -252,7 +252,7 @@ def approve_change(proposal: ChangeProposal, *, approved_by: str) -> ChangePropo
         )
     if not approved_by or not approved_by.strip():
         raise ChangeProposalError("approved_by must not be empty - an approval must be attributable to a real person")
-    # V07-003: bind this approval to exactly the project/diff a human
+    # Bind this approval to exactly the project/diff a human
     # reviewed right now - see _content_digest()/ApprovalContentMismatchError's
     # own docstrings.
     digest = _content_digest(proposal.project_name, proposal.diff)

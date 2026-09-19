@@ -12,8 +12,7 @@ A systemd-unavailable host (this development machine included) is a real,
 honestly-reported state (`systemd_available=False`, a real reason string),
 not silently skipped or faked as "all units healthy".
 
-V07-020 (P2, a real residual
-of REV-015): `systemd_available` used to default to `True` and only ever
+A real residual issue: `systemd_available` used to default to `True` and only ever
 flip to `False` on a real, observed failure - if zero `--systemd-unit`
 flags were configured at all, it stayed `True` forever, having never
 actually asked systemd anything. That's a real, different fact from
@@ -75,7 +74,7 @@ class NodeSnapshot:
             # `reason`/`detail` below are real free text (a manifest parse
             # error, an HTTP response snippet) that can carry a copy-pasted
             # secret just as easily as an incident's own `symptom` can - the
-            # same real gap REV-013 found: only `incidents[].symptom` was
+            # same real gap found earlier: only `incidents[].symptom` was
             # ever redacted here. Redacted at serialization time regardless
             # of whether the caller already sanitized it upstream, matching
             # `MaintenanceIncident.to_dict()`'s own defense-in-depth.
@@ -112,7 +111,7 @@ def collect_snapshot(
     `http_health_urls`); with both omitted, this only ever reads local
     manifest files.
 
-    PROM-OPS-E01: `incident_store_path` is optional and, when omitted,
+    `incident_store_path` is optional and, when omitted,
     changes nothing about this function's own prior behavior - every
     incident is still the fresh, un-deduplicated `IncidentBatch` output
     it always was. Given a real path, this run's own incidents are
@@ -131,7 +130,7 @@ def collect_snapshot(
     for issue in scan.issues:
         batch.add_manifest_issue(source_node, issue)
 
-    # V07-020: starts as None (genuinely unknown/never asked) - only set
+    # Starts as None (genuinely unknown/never asked) - only set
     # to a real True/False once systemd is actually queried below.
     systemd_available: bool | None = None
     systemd_unavailable_reason: str | None = None
