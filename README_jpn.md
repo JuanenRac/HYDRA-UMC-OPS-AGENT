@@ -178,7 +178,7 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-...
   どこにも、独立してドリフトしうる第二のヘルスチェック実装は存在しま
   せん。本物の `base_commit:`(検知時にベストエフォートで取得)を持つ
   マニフェストのインシデントは、さらに HYDRA-UMC-SDK が共有する
-  T07/I60 の `compare_runs()`「見せかけの成功」チェックに照らして検証
+  `compare_runs()`「見せかけの成功」チェックに照らして検証
   されます——チェックアウト自身のコミットが本当に動いていなければな
   らず、ディスク上でファイルが直っているように見えるだけでは不十分で
   す。[docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md) を参照して

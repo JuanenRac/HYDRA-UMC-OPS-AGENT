@@ -171,7 +171,7 @@ command surface.
   health-check implementation anywhere in this project. A manifest
   incident with a real `base_commit:` (best-effort, captured at
   detection) is additionally checked against HYDRA-UMC-SDK's shared
-  T07/I60 `compare_runs()` "apparent success" control - the checkout's
+  `compare_runs()` "apparent success" control - the checkout's
   own commit must have genuinely moved, not just have the file look
   fixed on disk. See [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md).
 - **Delivery 6 is blocked, not skipped.** HYDRA-UMC-VOICE-UI's own real

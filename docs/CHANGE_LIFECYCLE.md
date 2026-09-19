@@ -85,7 +85,7 @@ A manifest-scan incident is re-checked with `check_project_manifest()`
 loop applies) AND, whenever the incident carries a real `base_commit:`
 evidence entry (best-effort, captured at detection time from the
 checkout's own `git rev-parse HEAD` - see `incident.py`'s own
-`add_manifest_issue()`), against HYDRA-UMC-SDK's shared T07/I60
+`add_manifest_issue()`), against HYDRA-UMC-SDK's shared
 `ScenarioOutcome`/`compare_runs()` "apparent success" control: the
 checkout's own commit must have genuinely moved between detection and
 re-check, not merely have the file *look* fixed on disk right now (a

@@ -182,7 +182,7 @@ surface de commandes complète et réelle.
   dans ce projet une seconde implémentation de vérification de santé,
   dérivant indépendamment. Un incident de manifeste portant un vrai
   `base_commit:` (capturé au mieux à la détection) est en plus vérifié
-  face au contrôle partagé T07/I60 `compare_runs()` de HYDRA-UMC-SDK - le
+  face au contrôle partagé `compare_runs()` de HYDRA-UMC-SDK - le
   commit du checkout doit avoir réellement bougé, pas seulement le
   fichier qui paraît corrigé sur disque. Voir
   [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md).

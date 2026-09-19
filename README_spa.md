@@ -182,7 +182,7 @@ superficie de comandos completa y real.
   implementación de comprobación de salud, independiente y propensa a
   desviarse, en ningún lugar de este proyecto. Un incidente de manifiesto
   con un `base_commit:` real (capturado de forma best-effort al
-  detectarlo) se comprueba además contra el control compartido T07/I60
+  detectarlo) se comprueba además contra el control compartido
   `compare_runs()` de HYDRA-UMC-SDK - el commit del checkout debe haberse
   movido de verdad, no basta con que el archivo parezca arreglado en
   disco. Ver [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md).
