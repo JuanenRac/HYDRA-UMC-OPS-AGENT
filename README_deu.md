@@ -185,7 +185,7 @@ echte Befehlsoberfläche.
   diesem Projekt eine zweite, unabhängig driftende Implementierung der
   Gesundheitsprüfung. Ein Manifest-Vorfall mit einem echten
   `base_commit:` (best-effort bei der Erkennung erfasst) wird zusätzlich
-  gegen die geteilte T07/I60-`compare_runs()`-Kontrolle von HYDRA-UMC-SDK
+  gegen die geteilte `compare_runs()`-Kontrolle von HYDRA-UMC-SDK
   geprüft - der Commit des Checkouts muss sich wirklich bewegt haben, es
   reicht nicht, dass die Datei auf der Festplatte nur repariert aussieht.
   Siehe [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md).

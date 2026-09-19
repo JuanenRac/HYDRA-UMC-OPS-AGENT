@@ -185,7 +185,7 @@ comandi completa e reale.
   parte in questo progetto una seconda implementazione di controllo di
   salute, indipendente e soggetta a deriva. Un incidente di manifest con
   un vero `base_commit:` (catturato al meglio al momento del rilevamento)
-  viene inoltre verificato contro il controllo condiviso T07/I60
+  viene inoltre verificato contro il controllo condiviso
   `compare_runs()` di HYDRA-UMC-SDK - il commit del checkout deve
   essersi davvero mosso, non basta che il file sembri sistemato su
   disco. Vedi [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md).

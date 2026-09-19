@@ -9,7 +9,7 @@ bumped manually only. See `bump_version.py`.
 
 (nothing yet)
 
-## [0.1.3] - N01: a manifest incident's own real T07/I60 "apparent success" control
+## [0.1.3] - A manifest incident's own real "apparent success" control
 
 `verify_incident_resolved()` used to have no automated re-check at all
 for a manifest-scan incident - "a structural fact about a file, not a
@@ -25,7 +25,7 @@ scan) re-checks the one manifest a manifest incident is about, directly.
 checkout's real `git rev-parse HEAD` as a `base_commit:` evidence ref
 (never a new `MaintenanceIncident` field - that contract stays exactly
 as documented). When both are available, `verification.py` runs
-HYDRA-UMC-SDK's shared T07/I60 `ScenarioOutcome`/`compare_runs()`
+HYDRA-UMC-SDK's shared `ScenarioOutcome`/`compare_runs()`
 control (the optional `sdk` extra) against the checkout's current
 commit: a manifest that merely *looks* fixed on disk without the
 checkout's own commit having actually moved (a real, plausible trap - a
@@ -34,7 +34,7 @@ hand-edit that was never committed) is reported unresolved, not a false
 same honest `VerificationError` this always raised for a manifest
 incident, unchanged.
 
-## [0.1.2] - PROM-OPS-E01: real persistent, deduplicated incidents across separate edge-collection runs
+## [0.1.2] - real persistent, deduplicated incidents across separate edge-collection runs
 
 `incident.py`'s own `IncidentBatch._new_incident()` generated a fresh
 `uuid4()` every single call - a service that stayed down across ten
@@ -72,13 +72,13 @@ merge, the exact regression test that caught it kept in the suite.
 
 ## [0.1.1] - Real CI/production bug fixed: the staging clone never had its own git identity
 
-`_commit_applied_diff()` (added in H022 above) runs a real `git commit`
+`_commit_applied_diff()` (added above) runs a real `git commit`
 against the staging clone, but a plain `git clone` never copies
 commit-author identity - that step silently depended on a global
 `user.name`/`user.email` already being configured on whatever host
 runs this. True on a maintainer's own workstation, false by default on
 a fresh GitHub Actions runner (this repo's own CI failed on exactly
-this, every run, since H022 landed) - and arguably wrong even on a
+this, every run, since that commit step landed) - and arguably wrong even on a
 real deploy host, where an automated canary commit should never be
 silently authored as whichever human happens to be logged in there.
 `_create_staging_clone()` now sets a fixed, local-only synthetic
@@ -86,13 +86,13 @@ identity (`HYDRA-UMC OPS-AGENT <ops-agent@hydra-umc.local>`) on the
 staging clone right after cloning it, so this step's correctness never
 depends on the host's ambient git config again.
 
-## [0.1.0] - H022/H049: a successful canary locked itself out, and a broken git status read as "clean"
+## [0.1.0] - a successful canary locked itself out, and a broken git status read as "clean"
 
-- **H022 (P0):** `_apply_diff()` only ran `git apply` against the
+- `_apply_diff()` only ran `git apply` against the
   staging clone, leaving it with a real, uncommitted working-tree
   change. Promoting that clone as the new live checkout made it dirty
   from the moment it went live, and the very next canary deploy's own
-  `TrackedDirtyError` safety gate (V07-002) would then correctly - but
+  `TrackedDirtyError` safety gate would then correctly - but
   wrongly, from the operator's point of view - refuse to run at all: a
   genuinely successful canary locking itself out of ever deploying
   again. Fixed: the staging clone now commits exactly the paths the
@@ -101,7 +101,7 @@ depends on the host's ambient git config again.
   own untracked local data into the commit too) as one real, identifiable
   deployment commit before promotion. Two different, consecutive,
   approved canaries against the same live checkout now both succeed.
-- **H049 (P0, shared with HYDRA-UMC-UPDATER's own sibling helper):**
+- **Shared with HYDRA-UMC-UPDATER's own sibling helper:**
   `_tracked_dirty_paths()` treated a `git status` that failed to even
   run (not a git repository, git missing from PATH, a permissions/IO
   error) exactly like "ran fine, found nothing dirty" - the one real
@@ -110,7 +110,7 @@ depends on the host's ambient git config again.
   if the live checkout were genuinely clean. Now fails closed: a
   `git status` failure raises `DirtyCheckError` instead of returning an
   empty dirty-paths list.
-- 3 new regression tests (H022) + 1 new regression test (H049).
+- 3 new regression tests + 1 new regression test.
 
 ## [0.0.9] - Honesty check section in every README
 
@@ -151,7 +151,7 @@ backup. Fixed: `.backup-` directories are now skipped.
 Verified: full pytest suite (136/136, 8 new), `tools/ci_validate.py`
 PASS (incl. a 7-language README version-string fix this surfaced).
 
-## [0.0.7] - V07-004: a real regression test for a self-heal that had none
+## [0.0.7] - a real regression test for a self-heal that had none
 
 `canary_deploy.py`'s own best-effort self-heal for a failed second
 promotion rename (added alongside HYDRA-UMC-UPDATER's own sibling fix)
@@ -182,26 +182,26 @@ end - confirms the packaging itself (not just an editable install or
 project's own README/ROADMAP honesty note about install/deploy
 guarantees.
 
-## [0.0.5] - V07-002/003/004/005/010/011/020/021: 7 real regressions found in a second review pass
+## [0.0.5] - 7 real regressions found in a second review pass
 
 A second review pass (Codex) reproduced 7 real, distinct gaps
 in this project's own maintenance-incident lifecycle, before it has ever
 been used against a real installation:
 
-- **V07-002 (P1):** `canary_deploy.py`'s own docstring claimed it used
+- `canary_deploy.py`'s own docstring claimed it used
   "the same atomic-by-verification pattern HYDRA-UMC-UPDATER's own
   install.py already uses" - it never actually did. No real-local-data
   carryover, no upstream-remote reset, no tracked-dirty rejection -
-  reproducing every real gap UPDATER's own REV-001/REV-002/V07-001
+  reproducing every real gap UPDATER's own earlier
   fixes already closed there. Fixed by giving `canary_deploy.py` its
   own real `_tracked_dirty_paths()`/`_carry_over_local_data()`/
   upstream-remote-reset logic, mirroring UPDATER's own functions.
-- **V07-004 (P1, shared with UPDATER):** a crash in the narrow gap
+- **Shared with UPDATER:** a crash in the narrow gap
   between the two promotion renames used to leave no active checkout
   at all. Bounded, honest mitigation: a best-effort self-heal restores
   the backup if the second rename fails - a full transactional journal
   is real, separate future work this does not attempt.
-- **V07-003 (P1):** `deploy_canary()` only ever checked
+- `deploy_canary()` only ever checked
   `status == "approved"` - nothing tied an approval to the exact
   project or diff a human actually reviewed. A saved proposal file is
   real, mutable JSON: editing `projectName`/`diff` after approval while
@@ -210,30 +210,29 @@ been used against a real installation:
   now stamps a real SHA-256 digest over the approved project+diff;
   `deploy_canary()` verifies it and also cross-checks the approved
   project against `live_root`'s own real manifest.
-- **V07-005 (P1):** `ChangeProposal.to_dict()` used to redact `diff` -
+- `ChangeProposal.to_dict()` used to redact `diff` -
   but `save_proposal()`/`load_proposal()` round-trip THROUGH it, and
   `canary_deploy.py`'s own `_apply_diff()` later runs `git apply` on
   whatever comes back out. A real, approved proposal's own patch
   silently changed bytes the moment it was saved. `diff` is now the
   immutable, byte-exact artifact; a secret-shaped diff is refused
   outright at proposal time instead (new `SecretShapedDiffError`).
-- **V07-010 (P1, residual outside REV-013's own three original
-  examples):** a secret nested one level deeper as a JSON object/array
+- A secret nested one level deeper as a JSON object/array
   (`"password": {"value": "FAKE"}`, `"api_key": ["FAKE"]`), a truncated
   PEM block with no END marker, and `MaintenanceIncident.component`/
   `evidenceRefs` (often a URL with embedded credentials) all used to
   pass through unredacted while `redactionLevel` still claimed
   `"sanitized"`. All three now handled for real.
-- **V07-011 (P2, partial closure of REV-014):** an incident with
+- An incident with
   `severity: []`/`{}` (unhashable) still crashed the report's own sort;
   a textual `"false"` for `active`/`reachable` still rendered as if it
   were really active/reachable (`bool("false") is True` in Python).
-- **V07-020 (P2, residual of REV-015):** `systemdAvailable` used to
+- `systemdAvailable` used to
   default to `True` and never actually flip when zero units were
   configured - indistinguishable from "checked and healthy". Now a
   real tri-state (`bool | None`): `None` means genuinely never
   attempted.
-- **V07-021 (P2):** `VerificationResult.from_dict()`'s
+- `VerificationResult.from_dict()`'s
   `bool(data["resolved"])` coerced the literal string `"false"` to
   `True` - a publicly-loaded 'false' silently became a resolved
   incident. Every field is now required to already be its real
