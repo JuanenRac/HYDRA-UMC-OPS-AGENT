@@ -78,7 +78,7 @@ def check_project_manifest(manifest_path: Path) -> ProjectVersion | ManifestScan
     same real checks scan_project_manifests()'s own loop applies to each
     candidate directory it finds, factored out here so a caller that
     already knows exactly which manifest to look at (verification.py's
-    own Delivery-5 re-check of a manifest-scan incident, N01) never needs
+    own re-check of a manifest-scan incident) never needs
     a full root re-scan just to answer one question about one file."""
     if not manifest_path.is_file():
         return ManifestScanIssue(path=str(manifest_path), reason="manifest file no longer exists")
@@ -102,7 +102,7 @@ def read_git_commit_hash(path: Path, *, timeout_s: float = 5.0) -> str | None:
     """Best-effort `git rev-parse HEAD` for `path` - `None` (never a
     guessed/empty string) whenever this can't be answered for real: `git`
     missing from PATH, `path` is not inside a real git checkout, or the
-    command times out. Used by N01 to pin a manifest incident's before/
+    command times out. Used to pin a manifest incident's before/
     after evidence to the exact source state it was raised and resolved
     against - see verification.py's own header comment."""
     git = shutil.which("git")

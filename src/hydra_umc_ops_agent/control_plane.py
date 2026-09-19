@@ -83,7 +83,7 @@ def render_snapshot_report(snapshot: dict[str, object]) -> str:
         for issue in manifest_issues:
             lines.append(f"  - {issue.get('path')}: {issue.get('reason')}")
 
-    # V07-020: systemdAvailable is now a real tri-state - True (actually
+    # systemdAvailable is now a real tri-state - True (actually
     # checked, systemd answered), False (actually checked, systemd
     # itself unavailable), or None/absent (never attempted - no unit
     # was ever configured, genuinely unknown, never rendered as if it
@@ -98,7 +98,7 @@ def render_snapshot_report(snapshot: dict[str, object]) -> str:
         service_health, skipped = _safe_entries(snapshot.get("serviceHealth"))
         lines.append(f"Service health checks: {len(service_health)}{_format_skipped(skipped)}")
         for entry in service_health:
-            # V07-011: `entry.get("active")` is a real, publicly-loaded
+            # `entry.get("active")` is a real, publicly-loaded
             # snapshot field, not necessarily this module's own real
             # bool - a truthy-but-wrong-typed value (the textual string
             # "false" included, since any non-empty string is truthy in
@@ -113,7 +113,7 @@ def render_snapshot_report(snapshot: dict[str, object]) -> str:
         lines.append("")
         lines.append(f"HTTP health checks: {len(http_health)}{_format_skipped(skipped)}")
         for entry in http_health:
-            # V07-011: same real gap as serviceHealth's own "active"
+            # Same real gap as serviceHealth's own "active"
             # above - a textual "false" is truthy in Python.
             status = "reachable" if entry.get("reachable") is True else "UNREACHABLE"
             lines.append(f"  - {entry.get('url')}: {status} ({entry.get('detail')})")
@@ -121,7 +121,7 @@ def render_snapshot_report(snapshot: dict[str, object]) -> str:
     incidents, skipped = _safe_entries(snapshot.get("incidents"))
     lines.append("")
     lines.append(f"Incidents: {len(incidents)}{_format_skipped(skipped)}")
-    # V07-011: `inc.get("severity")` is real, publicly-loaded data - an
+    # `inc.get("severity")` is real, publicly-loaded data - an
     # unhashable value (a real `severity: []`/`severity: {}` in the
     # snapshot) used to raise TypeError straight out of dict.get()
     # (unhashable types can't even be looked up), crashing the whole

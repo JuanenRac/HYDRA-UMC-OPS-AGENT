@@ -100,7 +100,7 @@ _PEM_BLOCK_RE = re.compile(
 
 _REDACTED = "[REDACTED]"
 
-# V07-010 (P1, residual outside REV-013's own three original examples): a
+# A residual outside a few earlier known examples: a
 # secret-named key
 # whose value is itself a nested JSON object or array
 # (`"password": {"value": "FAKE"}`, `"api_key": ["FAKE"]`) matches
@@ -167,7 +167,7 @@ def redact_secrets(text: str) -> str:
     a fixed [REDACTED] marker."""
     if not text:
         return text
-    # V07-010: a truncated PEM block (a real BEGIN marker with no
+    # A truncated PEM block (a real BEGIN marker with no
     # matching END - a log excerpt cut off mid-key) used to leave the
     # ENTIRE block, key material included, completely unredacted,
     # because _PEM_BLOCK_RE's own DOTALL match requires both markers.

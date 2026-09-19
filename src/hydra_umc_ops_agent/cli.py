@@ -249,7 +249,7 @@ def build_parser() -> argparse.ArgumentParser:
     collect.add_argument("--out", help="Write the snapshot JSON here instead of stdout.")
     collect.add_argument(
         "--incident-store",
-        help="PROM-OPS-E01: path to a real, durable JSON file tracking incidents across runs. Given, the same "
+        help="Path to a real, durable JSON file tracking incidents across runs. Given, the same "
         "ongoing problem on the same component keeps its original incidentId across repeated `edge collect` "
         "runs instead of getting a new one every time, and a genuinely re-checked, now-clean component gets "
         "its own open record marked resolved. Omitted (the default), nothing changes from before.",

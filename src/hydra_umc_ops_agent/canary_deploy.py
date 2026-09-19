@@ -7,12 +7,12 @@
 to a real project checkout through the same atomic-by-verification pattern
 HYDRA-UMC-UPDATER's own install.py already uses for updates.
 
-V07-002 (P1): this docstring
+This docstring
 used to make that "same pattern" claim while the module underneath only
 copied the STRUCTURE (clone/verify/promote) and never the actual
 data-safety logic - no real-local-data carryover, no upstream-remote
 reset, no tracked-dirty rejection, reproducing every real gap
-UPDATER's own REV-001/REV-002/V07-001 fixes already closed there. Fixed
+UPDATER's own earlier fixes already closed there. Fixed
 by mirroring UPDATER's own real functions directly (not importing
 across repos - each stays independent - but the same logic, same
 docstrings, same tests): `_tracked_dirty_paths()`, `_carry_over_local_data()`
@@ -40,8 +40,8 @@ Sequence, every step real:
    clone in for the live checkout, keeping the previous one at a real
    `.backup-<id>` path - never deleted, matching HYDRA-UMC-UPDATER's own
    promotion pattern. If the second rename fails, a best-effort self-heal
-   renames the backup back so a real installation still exists (V07-004,
-   shared with UPDATER - a full transactional journal surviving a crash
+   renames the backup back so a real installation still exists (shared
+   with UPDATER - a full transactional journal surviving a crash
    in the narrow gap between the two renames is real, separate future
    work this bounded mitigation does not attempt).
 
@@ -80,7 +80,7 @@ class ApprovalInvalidError(CanaryDeployError):
 
 
 class TargetProjectMismatchError(CanaryDeployError):
-    """V07-003 (P1, the
+    """The
     finding's own exact reproduction: "a proposal approved for
     OTHER_PROJECT applied cleanly to a checkout whose manifest says
     HYDRA-UMC-EXAMPLE"): `deploy_canary()` used to never check that the
@@ -121,7 +121,7 @@ class DiffApplyError(CanaryDeployError):
 
 
 class DiffCommitError(CanaryDeployError):
-    """H022: `git add`/`git commit` failed while turning the applied diff
+    """`git add`/`git commit` failed while turning the applied diff
     into a real commit inside the staging clone - see
     `_commit_applied_diff()`'s own docstring for why that commit exists
     at all. The live checkout was never touched; this staging clone is
@@ -162,7 +162,7 @@ class RemoteRestoreError(CanaryDeployError):
 
 
 class DirtyCheckError(CanaryDeployError):
-    """H049 (shared with HYDRA-UMC-UPDATER's own install.py): `git
+    """Shared with HYDRA-UMC-UPDATER's own install.py: `git
     status` itself failed to run against the live checkout (not a git
     repository, git missing from PATH, a permissions/IO error, ...) - see
     `_tracked_dirty_paths()`'s own docstring for why this must never be
@@ -176,7 +176,7 @@ def _tracked_dirty_paths(path: Path) -> list[str]:
     `??`/`!!`, real untracked/ignored data `_carry_over_local_data()`
     already owns).
 
-    V07-002 (P1): this
+    This
     module's own docstring claims it uses "the same atomic-by-
     verification pattern HYDRA-UMC-UPDATER's own install.py already
     uses" - but never actually checked for this. `git clone --local`
@@ -187,11 +187,11 @@ def _tracked_dirty_paths(path: Path) -> list[str]:
     would rename the dirty original aside to `.backup-*`, so the real
     edit would survive only there. Mirrors
     HYDRA-UMC-UPDATER/src/hydra_umc_updater/install.py's own
-    `_tracked_dirty_paths()` (V07-001) exactly - same real gap, same
+    `_tracked_dirty_paths()` exactly - same real gap, same
     real fix, in the sibling implementation this module's own docstring
     already claimed shared UPDATER's pattern.
 
-    H049 (P0, shared with UPDATER's own sibling helper): a `git status`
+    Shared with UPDATER's own sibling helper: a `git status`
     that fails to even RUN (returncode != 0 - not a git repository, git
     missing from PATH, a permissions/IO error, an unrelated real fault)
     used to be treated exactly like "ran fine, found nothing dirty" -
@@ -223,7 +223,7 @@ def _tracked_dirty_paths(path: Path) -> list[str]:
     return paths
 
 
-# V07-002: mirrors HYDRA-UMC-UPDATER/src/hydra_umc_updater/install.py's own
+# Mirrors HYDRA-UMC-UPDATER/src/hydra_umc_updater/install.py's own
 # _NEVER_CARRIED_OVER_DIR_NAMES exactly - regenerable build-artifact
 # directories are never worth the copy cost and would contaminate the
 # staging clone's own freshly-verified build with stale artifacts.
@@ -258,7 +258,7 @@ def _carry_over_local_data(live_root: Path, staging_path: Path) -> None:
     """Copies every real untracked/ignored file or directory from
     `live_root` into `staging_path` before it is built/promoted -
     mirrors HYDRA-UMC-UPDATER's own `_carry_over_local_data()`
-    (REV-002) exactly. Without this, a real project's own operational
+    exactly. Without this, a real project's own operational
     data living inside its checkout (config, accounts, generated
     certificates, ...) is silently left behind in `.backup-*` on every
     canary promotion - the same real data-loss shape UPDATER itself
@@ -278,7 +278,7 @@ def _carry_over_local_data(live_root: Path, staging_path: Path) -> None:
 
 
 def _create_staging_clone(live_root: Path, staging_parent: Path) -> Path:
-    # V07-002: read the live checkout's own REAL upstream before cloning
+    # Read the live checkout's own REAL upstream before cloning
     # it - a real deployed checkout in this ecosystem is always already
     # a clone of its real GitHub origin (HYDRA-UMC-UPDATER's own
     # install.py is what sets that up in the first place), so this never
@@ -316,7 +316,7 @@ def _create_staging_clone(live_root: Path, staging_parent: Path) -> Path:
             _rmtree_best_effort(staging_path)
             raise StagingCloneError(f"git config {key} on the staging clone failed (exit {identity_code}): {identity_output}")
 
-    # V07-002: `git clone --local` above points the new clone's own
+    # `git clone --local` above points the new clone's own
     # `origin` at LIVE_ROOT ITSELF (the local source path it was cloned
     # from) - never at the real upstream. Left uncorrected, the checkout
     # this staging clone becomes once promoted would have `origin`
@@ -346,7 +346,7 @@ def _apply_diff(staging_path: Path, diff_text: str) -> list[str]:
     (added, modified or deleted - both `git apply --numstat`'s own tab-
     separated columns and its `-\t-\tpath` binary-file form end in the
     real path, so a plain split on tabs and taking the last field covers
-    both), read via a dry `--numstat` pass before the real apply. H022's
+    both), read via a dry `--numstat` pass before the real apply. This
     own `_commit_applied_diff()` needs this exact list - not `git add -A`/
     `git add -u` - to commit only what this diff itself changed, never
     `_carry_over_local_data()`'s own untracked local data alongside it."""
@@ -371,12 +371,12 @@ def _apply_diff(staging_path: Path, diff_text: str) -> list[str]:
 
 
 def _commit_applied_diff(staging_path: Path, touched_paths: list[str], *, deploy_id: str, proposal_id: str) -> None:
-    """H022: `_apply_diff()` only ever ran `git apply` - it left the
+    """`_apply_diff()` only ever ran `git apply` - it left the
     staging clone with a real, uncommitted working-tree change. Promoting
     that clone as-is (the rename swap below) made the new live checkout
     dirty from the moment it went live, and the very next canary deploy's
     own `_tracked_dirty_paths()` check (a real, deliberate safety gate -
-    see V07-002) would then correctly refuse to run at all, unable to
+    see above) would then correctly refuse to run at all, unable to
     tell that real uncommitted change apart from someone's genuine
     unrelated local edit - a genuinely SUCCESSFUL canary locking itself
     out of ever deploying again.
@@ -456,7 +456,7 @@ def deploy_canary(
     if not live_root.is_dir():
         raise CanaryDeployError(f"live_root {live_root} is not a real directory")
 
-    # V07-003: the approval's own content digest must still match this
+    # The approval's own content digest must still match this
     # proposal's CURRENT project_name/diff - see
     # verify_approval_content()'s own docstring. Then confirm the
     # approved project_name is the one actually checked out here, not
@@ -472,7 +472,7 @@ def deploy_canary(
             f"but {live_root} is really {live_project_name!r} - refusing to deploy a change to the wrong project"
         )
 
-    # V07-002: refuse upfront, before any staging work, if the live
+    # Refuse upfront, before any staging work, if the live
     # checkout has a real uncommitted change to a tracked file - see
     # _tracked_dirty_paths()'s own docstring.
     dirty = _tracked_dirty_paths(live_root)
@@ -489,7 +489,7 @@ def deploy_canary(
     staging_path = _create_staging_clone(live_root, staging_parent)
     stage_reached = "staged"
     try:
-        # V07-002: carry over the live checkout's own real local data
+        # Carry over the live checkout's own real local data
         # BEFORE the diff is applied/built - see _carry_over_local_data()'s
         # own docstring. Done here (not merely before promotion) so the
         # build-test command below sees the same real data the promoted
@@ -513,14 +513,14 @@ def deploy_canary(
             )
         stage_reached = "build_verified"
 
-        # H022: commit the applied diff inside the staging clone BEFORE
+        # Commit the applied diff inside the staging clone BEFORE
         # promotion - see _commit_applied_diff()'s own docstring for why a
         # successful canary must never promote a staging clone with an
         # uncommitted git apply still sitting in its working tree.
         _commit_applied_diff(staging_path, touched_paths, deploy_id=deploy_id, proposal_id=proposal.proposal_id)
         stage_reached = "diff_committed"
 
-        # V07-004 (shared with HYDRA-UMC-UPDATER's own install.py, P1;
+        # Shared with HYDRA-UMC-UPDATER's own install.py;
         # honest, bounded mitigation, not the full transactional
         # journal/rollback the finding's own acceptance criteria
         # describes - that needs designing once, shared by both
