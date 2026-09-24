@@ -265,7 +265,7 @@ class CheckHttpHealthTests(unittest.TestCase):
         self.assertIsNone(result.status_code)
         self.assertIn("unreachable", result.detail)
 
-    # REV-015 regression: found while auditing the code: a non-HTTP URL scheme (a real
+    # regression: found while auditing the code: a non-HTTP URL scheme (a real
     # `data:` URI, opened successfully by urllib) making `getcode()` return
     # None, and `200 <= None < 300` raising a real, unhandled TypeError -
     # aborting the whole edge collect run instead of reporting one honest

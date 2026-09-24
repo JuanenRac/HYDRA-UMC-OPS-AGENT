@@ -143,7 +143,7 @@ class DeployCanaryHappyPathTests(unittest.TestCase):
 
 
 class DeployCanaryConsecutiveDeploysTests(unittest.TestCase):
-    """H022: a genuinely successful canary used to leave the newly-
+    """a genuinely successful canary used to leave the newly-
     promoted live checkout with an uncommitted `git apply` still sitting
     in its working tree - the very next deploy's own TrackedDirtyError
     safety gate would then refuse to run at all, unable to tell that
@@ -196,13 +196,13 @@ class DeployCanaryConsecutiveDeploysTests(unittest.TestCase):
 
 
 class DeployCanaryDataPreservationTests(unittest.TestCase):
-    """V07-002 (P1): this
+    """this
     module's own docstring claims it uses "the same atomic-by-
     verification pattern HYDRA-UMC-UPDATER's own install.py already
     uses" - but never actually carried over real local data, never
     reset the staging clone's own remote, and never refused a real
     tracked-dirty edit, reproducing the exact same real gaps
-    HYDRA-UMC-UPDATER's own REV-001/REV-002/V07-001 fixes already
+    HYDRA-UMC-UPDATER's own fixes already
     closed there."""
 
     def test_canary_carries_over_real_untracked_local_data(self):
@@ -262,7 +262,7 @@ class DeployCanaryDataPreservationTests(unittest.TestCase):
 
 
 class DeployCanaryApprovalBindingTests(unittest.TestCase):
-    """V07-003 (P1): the
+    """the
     review pass's own exact reproduction - an approval for OTHER_PROJECT
     applied cleanly to a checkout whose real manifest names a
     completely different project, because deploy_canary() only ever
@@ -325,7 +325,7 @@ class DeployCanarySafetyGateTests(unittest.TestCase):
             # Nothing was touched - original content untouched, no backup created.
             self.assertIn('"retries": 0', (live_root / "config.json").read_text(encoding="utf-8"))
 
-    # H049 (P0, shared with HYDRA-UMC-UPDATER's own sibling helper): a
+    # (P0, shared with HYDRA-UMC-UPDATER's own sibling helper): a
     # `git status` that fails to even run must never be read as "found
     # nothing dirty" - that silently defeats the one safety check this
     # whole path exists for. live_root here is a real directory that is
@@ -378,7 +378,7 @@ class DeployCanaryFailureModesTests(unittest.TestCase):
             self.assertEqual(list(tmp_path.glob("ops-agent-canary-*")), [])
 
     def test_promotion_self_heals_when_the_second_rename_fails(self):
-        # V07-004: a real regression this exact self-heal path never had
+        # a real regression this exact self-heal path never had
         # (HYDRA-UMC-UPDATER's own sibling fix - the same real gap in
         # install.py's own clone_or_pull() - got this same test; this
         # module's own self-heal code already existed but was untested).

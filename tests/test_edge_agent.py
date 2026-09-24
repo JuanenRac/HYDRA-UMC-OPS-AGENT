@@ -27,7 +27,7 @@ class CollectSnapshotTests(unittest.TestCase):
         self._tmp.cleanup()
 
     def test_a_clean_root_with_no_checks_requested_yields_an_empty_but_valid_snapshot(self):
-        # V07-020 (P2):
+        # (P2):
         # systemd_available used to default to True and this test
         # asserted exactly that stale default as if it were correct -
         # but "no unit was ever configured" is a genuinely different,
@@ -72,7 +72,7 @@ class CollectSnapshotTests(unittest.TestCase):
         self.assertEqual(reloaded["sourceNode"], "cm5-test")
         self.assertEqual(len(reloaded["projects"]), 1)
 
-    # REV-013 regression: found while auditing the code: manifestIssues[].reason,
+    # regression: found while auditing the code: manifestIssues[].reason,
     # serviceHealth[].detail and httpHealth[].detail/url (all real,
     # free-text fields that can carry a copy-pasted secret, same as an
     # incident's own symptom) leaving to_dict() completely unredacted -
@@ -99,7 +99,7 @@ class CollectSnapshotTests(unittest.TestCase):
 
 
 class CollectSnapshotIncidentStoreTests(unittest.TestCase):
-    """PROM-OPS-E01: `incident_store_path` end to end, across real
+    """`incident_store_path` end to end, across real
     multiple `collect_snapshot()` calls against the same temp root and
     the same real store file - no mocking of incident_store.py."""
 

@@ -87,7 +87,7 @@ class ApproveRejectTests(unittest.TestCase):
         approved.verify_approval_content()  # must not raise
 
     def test_editing_the_diff_after_approval_invalidates_it(self):
-        # V07-003 (P1): the
+        # the
         # review pass's own exact reproduction - a saved, approved proposal
         # file is real, mutable JSON on disk. Editing its diff (or
         # project) after approval while leaving status: "approved"
@@ -144,7 +144,7 @@ class SerializationTests(unittest.TestCase):
         self.assertEqual(restored, proposal)
 
     def test_a_secret_shape_in_the_diff_is_refused_at_proposal_time(self):
-        # V07-005 (P1): this
+        # this
         # test used to assert that to_dict() REDACTED a secret-shaped
         # diff on serialization - but that redaction is exactly the bug:
         # save_proposal()/load_proposal() round-trip through to_dict(),
@@ -157,7 +157,7 @@ class SerializationTests(unittest.TestCase):
             _make_proposal(diff=_REAL_DIFF + "\n# DB_PASSWORD=hunter2\n")
 
     def test_the_diff_survives_a_real_save_load_round_trip_byte_for_byte(self):
-        # V07-005: `diff` is the immutable, applicable artifact -
+        # `diff` is the immutable, applicable artifact -
         # to_dict() must never mutate it, even when it contains
         # something that merely LOOKS secret-shaped inside a value that
         # already passed the refusal above (a real, ordinary diff hunk

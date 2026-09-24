@@ -52,12 +52,12 @@ class RenderSnapshotReportTests(unittest.TestCase):
         report = render_snapshot_report({"sourceNode": "cm5-1", "collectedAt": "now"})
         self.assertIn("cm5-1", report)
         self.assertIn("Incidents: 0", report)
-        # V07-020: systemdAvailable absent (None) must render as a real
+        # systemdAvailable absent (None) must render as a real
         # "never attempted" state, never silently treated as True.
         self.assertIn("not attempted", report)
 
     def test_a_real_checked_systemd_unit_renders_its_own_health(self):
-        # V07-020: True (actually checked, systemd answered) must be
+        # True (actually checked, systemd answered) must be
         # distinguished from None (never attempted) - both from
         # False (checked, systemd itself unavailable), already covered
         # by test_projects_and_incidents_appear_in_the_report below.
@@ -92,7 +92,7 @@ class RenderSnapshotReportTests(unittest.TestCase):
         self.assertLess(report.index("[CRITICAL]"), report.index("[WARNING]"))
 
     def test_an_unhashable_severity_never_crashes_the_sort(self):
-        # V07-011 (P2, residual of REV-014): `severity` is real, publicly-loaded
+        # (P2, residual of ): `severity` is real, publicly-loaded
         # data - a real `[]`/`{}` used to raise TypeError straight out
         # of the sort key's own dict.get() (unhashable types can't be
         # looked up in a dict at all), crashing the entire report.
@@ -111,7 +111,7 @@ class RenderSnapshotReportTests(unittest.TestCase):
         self.assertLess(report.index("[CRITICAL]"), report.index("id=i1"))
 
     def test_a_textual_false_never_reads_as_a_real_active_or_reachable_state(self):
-        # V07-011: `bool("false")` is True in Python - a real,
+        # `bool("false")` is True in Python - a real,
         # publicly-loaded "false" string must never render as if the
         # service/endpoint were actually active/reachable.
         snapshot = {
@@ -125,7 +125,7 @@ class RenderSnapshotReportTests(unittest.TestCase):
         self.assertIn("x.service: NOT ACTIVE", report)
         self.assertIn("http://x: UNREACHABLE", report)
 
-    # REV-014 regression: found while auditing the code: `projects=[null]` (JSON-valid,
+    # regression: found while auditing the code: `projects=[null]` (JSON-valid,
     # structurally malformed) crashing this renderer with AttributeError -
     # `null.get(...)` - deep inside the loop below. A malformed entry must
     # be skipped and counted, never crash an otherwise-valid report.
