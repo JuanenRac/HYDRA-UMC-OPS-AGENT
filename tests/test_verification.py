@@ -112,7 +112,7 @@ def _init_and_commit_manifest(root: Path, **fields) -> Path:
 class VerifyManifestIncidentWithBaseCommitTests(unittest.TestCase):
     """N01: once a manifest incident carries a real `base_commit:` (see
     incident.py's own add_manifest_issue()), verification re-checks the
-    manifest AND runs the shared compare_runs() T07/I60 control against
+    manifest AND runs the shared compare_runs T07/control against
     the checkout's real current commit."""
 
     def setUp(self):
@@ -192,7 +192,7 @@ class VerifyUnrecognizedIncidentTests(unittest.TestCase):
 
 
 class VerificationResultFromDictTests(unittest.TestCase):
-    """V07-021 (P2):
+    """
     from_dict() is a real public loading boundary - whatever produced
     `data` need not be this module's own to_dict(). `bool(data["resolved"])`
     used to coerce ANY non-empty value, including the literal textual

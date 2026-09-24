@@ -3,7 +3,7 @@
 # Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
 # GPL-3.0 - see LICENSE
 # =============================================================================
-"""PROM-OPS-E01: real deduplication/persistence of MaintenanceIncidents
+"""real deduplication/persistence of MaintenanceIncidents
 across multiple scans - no mocking, real temp files on disk."""
 import json
 import tempfile

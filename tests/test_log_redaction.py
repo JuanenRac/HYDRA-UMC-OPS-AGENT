@@ -57,7 +57,7 @@ class RedactSecretsTests(unittest.TestCase):
         self.assertNotIn("abc123", result)
         self.assertIn("user=alice", result)
 
-    # REV-013 regression: found while auditing the code: these 3 real shapes escaping
+    # regression: found while auditing the code: these 3 real shapes escaping
     # every existing pattern above - never covered by a heuristic, each
     # gets its own real, explicit pattern (see log_redaction.py).
     def test_json_string_key_secret_is_redacted(self):
@@ -94,7 +94,7 @@ class RedactSecretsTests(unittest.TestCase):
         self.assertIn("after", joined)
 
     def test_a_secret_nested_one_level_deeper_as_a_json_object_is_redacted(self):
-        # V07-010 (P1, residual outside REV-013's own three original examples): the
+        # (P1, residual outside this project's own three original examples): the
         # secret's own value used to be required to be an immediate
         # quoted string/scalar - a real "password": {"value": "FAKE"}
         # shape (a nested object) let FAKE slip through untouched.
@@ -108,7 +108,7 @@ class RedactSecretsTests(unittest.TestCase):
         self.assertIn("[REDACTED]", result)
 
     def test_a_truncated_pem_block_with_no_end_marker_is_still_redacted(self):
-        # V07-010: a real log excerpt cut off mid-key (a bounded log
+        # a real log excerpt cut off mid-key (a bounded log
         # tail, a crash right after the BEGIN line) has no END marker
         # at all - _PEM_BLOCK_RE's own BEGIN...END match requires both,
         # so the entire block, key material included, used to pass
