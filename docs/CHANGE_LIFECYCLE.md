@@ -44,7 +44,10 @@ atomic-by-verification pattern exactly:
    an independent directory. The live checkout is not touched yet.
 2. **Apply** - `git apply` the proposal's own diff to that staging
    clone. A failure here (`DiffApplyError`) leaves the live checkout
-   untouched.
+   untouched. The diff is stored and applied byte for byte (a patch
+   against a CRLF file keeps its CRLFs), and the paths it changed are found
+   by comparing `git status` before and after, so a rename commits the
+   removal of the old path as well as the new file.
 3. **Verify** - run the project's own real build-test command
    (`--build-test-command`, e.g. `"bash build-test.sh"`) inside the
    staging clone. A failure here is a real, EXPECTED possible outcome
@@ -53,7 +56,15 @@ atomic-by-verification pattern exactly:
    exception, and the live checkout is still untouched.
 4. **Promote** - only if step 3 passed: two back-to-back renames swap
    the staging clone in for the live checkout. The previous checkout is
-   kept at a real `<name>.backup-<id>` path, never deleted.
+   kept at a real `<name>.backup-<id>` path, never deleted. If the second
+   rename fails the previous checkout is put back, and the verified
+   candidate is kept in place for inspection rather than cleaned up.
+
+The build-test command runs in its own process group: on a timeout the
+whole tree is killed (not only the direct child), and only the last 256 KiB
+of its output is kept. Proposals, the incident store and every `--out` file
+are written to a temporary file and renamed into place, so a crash never
+leaves one half written.
 
 `CanaryDeployResult.stage_reached` always tells you exactly how far a
 real run got (`staged` / `diff_applied` / `build_verified` /

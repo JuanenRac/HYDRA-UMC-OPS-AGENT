@@ -29,6 +29,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
+from ._atomic import atomic_write_text
 from .canary_deploy import CanaryDeployError, deploy_canary
 from .change_proposal import (
     ChangeProposalError,
@@ -42,6 +43,7 @@ from .control_plane import SnapshotLoadError, load_snapshot, render_snapshot_rep
 from .diagnosis import DiagnosisError, diagnose_incident
 from .edge_agent import collect_snapshot
 from .incident import MaintenanceIncident
+from .incident_store import IncidentStoreError
 from .verification import VerificationError, verify_incident_resolved
 
 
@@ -60,17 +62,33 @@ def _split_command(command: str) -> list[str]:
     return list(lexer)
 
 
+def _write_output(path: str, payload: str) -> bool:
+    """Writes `payload` to `path` all-or-nothing; a path that cannot be
+    written is one clear line on stderr, not a traceback."""
+    try:
+        atomic_write_text(Path(path), payload)
+    except OSError as exc:
+        print(f"ERROR: could not write {path!r}: {exc}", file=sys.stderr)
+        return False
+    return True
+
+
 def _cmd_edge_collect(args: argparse.Namespace) -> int:
-    snapshot = collect_snapshot(
-        source_node=args.node_name,
-        projects_root=Path(args.projects_root),
-        systemd_units=args.systemd_unit or None,
-        http_health_urls=args.http_health_url or None,
-        incident_store_path=Path(args.incident_store) if args.incident_store else None,
-    )
+    try:
+        snapshot = collect_snapshot(
+            source_node=args.node_name,
+            projects_root=Path(args.projects_root),
+            systemd_units=args.systemd_unit or None,
+            http_health_urls=args.http_health_url or None,
+            incident_store_path=Path(args.incident_store) if args.incident_store else None,
+        )
+    except (IncidentStoreError, OSError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
     payload = json.dumps(snapshot.to_dict(), indent=2)
     if args.out:
-        Path(args.out).write_text(payload, encoding="utf-8")
+        if not _write_output(args.out, payload):
+            return 1
         print(f"Wrote snapshot to {args.out} ({len(snapshot.incidents)} incident(s)).")
     else:
         print(payload)
@@ -88,9 +106,19 @@ def _cmd_control_show(args: argparse.Namespace) -> int:
 
 
 def _find_incident(snapshot: dict[str, object], incident_id: str) -> MaintenanceIncident | None:
-    for raw in snapshot.get("incidents", []):
-        if raw.get("incidentId") == incident_id:
-            return MaintenanceIncident.from_dict(raw)
+    """The incident with `incident_id`, or None. A snapshot is a file anyone
+    can edit: a section that is not a list, an entry that is not an object,
+    or a record missing a field is skipped (or, for the matching record,
+    treated as not found) instead of ending in a traceback."""
+    incidents = snapshot.get("incidents")
+    if not isinstance(incidents, list):
+        return None
+    for raw in incidents:
+        if isinstance(raw, dict) and raw.get("incidentId") == incident_id:
+            try:
+                return MaintenanceIncident.from_dict(raw)
+            except (KeyError, TypeError, ValueError):
+                return None
     return None
 
 
@@ -114,11 +142,21 @@ def _cmd_control_diagnose(args: argparse.Namespace) -> int:
 
     payload = json.dumps(result.to_dict(), indent=2)
     if args.out:
-        Path(args.out).write_text(payload, encoding="utf-8")
+        if not _write_output(args.out, payload):
+            return 1
         print(f"Wrote diagnosis to {args.out}.")
     else:
         print(payload)
     return 0
+
+
+def _save_proposal_or_report(proposal, path: Path) -> bool:
+    try:
+        save_proposal(proposal, path)
+    except OSError as exc:
+        print(f"ERROR: could not write {str(path)!r}: {exc}", file=sys.stderr)
+        return False
+    return True
 
 
 def _cmd_control_propose(args: argparse.Namespace) -> int:
@@ -132,8 +170,11 @@ def _cmd_control_propose(args: argparse.Namespace) -> int:
         print(f"ERROR: no incident with id {args.incident_id!r} in {args.snapshot_file}", file=sys.stderr)
         return 1
     try:
-        diff_text = Path(args.diff_file).read_text(encoding="utf-8")
-    except OSError as exc:
+        # Bytes, decoded without newline translation: `read_text` would turn
+        # a CRLF diff (a patch against a CRLF file) into LF, and the diff
+        # must reach `git apply` byte for byte as reviewed.
+        diff_text = Path(args.diff_file).read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
         print(f"ERROR: could not read {args.diff_file!r}: {exc}", file=sys.stderr)
         return 1
     try:
@@ -149,7 +190,8 @@ def _cmd_control_propose(args: argparse.Namespace) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     out_path = Path(args.out) if args.out else Path(f"proposal-{proposal.proposal_id}.json")
-    save_proposal(proposal, out_path)
+    if not _save_proposal_or_report(proposal, out_path):
+        return 1
     print(f"Wrote pending proposal {proposal.proposal_id} to {out_path}.")
     return 0
 
@@ -163,7 +205,8 @@ def _cmd_control_approve(args: argparse.Namespace) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     out_path = Path(args.out) if args.out else proposal_path
-    save_proposal(approved, out_path)
+    if not _save_proposal_or_report(approved, out_path):
+        return 1
     print(f"Proposal {approved.proposal_id} approved by {args.approved_by!r}. Wrote {out_path}.")
     return 0
 
@@ -177,7 +220,8 @@ def _cmd_control_reject(args: argparse.Namespace) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     out_path = Path(args.out) if args.out else proposal_path
-    save_proposal(rejected, out_path)
+    if not _save_proposal_or_report(rejected, out_path):
+        return 1
     print(f"Proposal {rejected.proposal_id} rejected by {args.rejected_by!r}. Wrote {out_path}.")
     return 0
 
@@ -189,10 +233,18 @@ def _cmd_control_deploy_canary(args: argparse.Namespace) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     try:
+        command = _split_command(args.build_test_command)
+    except ValueError as exc:
+        print(f"ERROR: --build-test-command is not a valid command line: {exc}", file=sys.stderr)
+        return 1
+    if not command:
+        print("ERROR: --build-test-command is empty", file=sys.stderr)
+        return 1
+    try:
         result = deploy_canary(
             proposal,
             live_root=Path(args.live_root),
-            build_test_command=_split_command(args.build_test_command),
+            build_test_command=command,
             build_timeout_s=args.build_timeout,
         )
     except CanaryDeployError as exc:
@@ -200,7 +252,8 @@ def _cmd_control_deploy_canary(args: argparse.Namespace) -> int:
         return 1
     payload = json.dumps(result.to_dict(), indent=2)
     if args.out:
-        Path(args.out).write_text(payload, encoding="utf-8")
+        if not _write_output(args.out, payload):
+            return 1
         print(f"Wrote canary deploy result to {args.out} (promoted={result.promoted}).")
     else:
         print(payload)
@@ -224,7 +277,8 @@ def _cmd_control_verify(args: argparse.Namespace) -> int:
         return 1
     payload = json.dumps(result.to_dict(), indent=2)
     if args.out:
-        Path(args.out).write_text(payload, encoding="utf-8")
+        if not _write_output(args.out, payload):
+            return 1
         print(f"Wrote verification result to {args.out} (resolved={result.resolved}).")
     else:
         print(payload)

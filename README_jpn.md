@@ -4,7 +4,7 @@
 
 # 🩺 HYDRA-UMC-OPS-AGENT
 
-<p align="center"><a href="README.md">🇺🇸 English</a> | <a href="README_spa.md">🇪🇸 Español</a> | <a href="README_fra.md">🇫🇷 Français</a> | <a href="README_ita.md">🇮🇹 Italiano</a> | <a href="README_deu.md">🇩🇪 Deutsch</a> | <a href="README_zho.md">🇨🇳 简体中文</a> | 🇯🇵 <b>日本語</b></p>
+<p align="center"><a href="README.md">🇺🇸 English</a> | <a href="README_spa.md">🇪🇸 Español</a> | <a href="README_fra.md">🇫🇷 Français</a> | <a href="README_ita.md">🇮🇹 Italiano</a> | <a href="README_deu.md">🇩🇪 Deutsch</a> | <a href="README_zho.md">🇨🇳 简体中文</a> | 🇯🇵 <b>日本語</b> | <a href="README_por.md">🇵🇹 Português</a></p>
 
 ### 🔎 エコシステム全体を対象とした、読み取り専用の保守インシデント可観測性
 
@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="エッジとコントロールプレーンの役割">
 </p>
 
-> **ステータス: v0.1.4、scaffolding - 6 件の納品のうち第 1-5 弾(証拠、
+> **ステータス: v0.1.5、scaffolding - 6 件の納品のうち第 1-5 弾(証拠、
 > 診断、人による承認済みの変更、カナリアデプロイ、検証)。** すべての
 > サブコマンドが本物であり、エンドツーエンドでテスト済みです——
 > `control diagnose` は模擬の AI プロバイダーに対して(本物のプロバイ
@@ -29,7 +29,7 @@
 > マップ節を参照してください。今日実在する正確なコマンド面については
 > [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md) を参照してください。
 
-**正直な現状確認 - 今日実際に動くもの:** すでに出荷済みの 5 つのデリバリー - エビデンス(`inventory.py`、`edge_agent.py`、`incident.py`)、診断(`diagnosis.py`)、人間が承認する変更(`change_proposal.py`)、カナリアデプロイ(`canary_deploy.py`)、そして検証(`verification.py`)、さらにマスキング境界(`log_redaction.py`)と CLI(`cli.py`) - はすべて本物であり、エンドツーエンドでテストされている(11 個のテストファイル全体で 169 件のテストと 6 件のサブテストが成功)。カナリアデプロイの段階は、モックではなく、実際に使い捨ての本物のローカル git リポジトリに対して検証されている。診断機能は模擬の `AIProvider` に対してしかテストされていない - `AnthropicProvider`/`OpenAIProvider` は同じプロトコルの本物の実装であるが、このテストスイートの中では、本物の Anthropic API や OpenAI API への実際のライブ呼び出しに対して検証されたことは一度もない(この環境には利用可能なキーがない)。エッジ役割とコントロールプレーン役割は、今日の時点では保存されたスナップショットファイルを介してのみやり取りしており、両者の間にはまだネットワーク伝送が存在しない。デリバリー 6(音声/通知)は単に先送りされているのではなく、実際に完全にブロックされている: HYDRA-UMC-VOICE-UI には今日、統合できるような本物のアウトバウンド通知インターフェースが存在しない。これまでに何が実際に出荷されたかは `CHANGELOG.md` を参照。
+**正直な現状確認 - 今日実際に動くもの:** すでに出荷済みの 5 つのデリバリー - エビデンス(`inventory.py`、`edge_agent.py`、`incident.py`)、診断(`diagnosis.py`)、人間が承認する変更(`change_proposal.py`)、カナリアデプロイ(`canary_deploy.py`)、そして検証(`verification.py`)、さらにマスキング境界(`log_redaction.py`)と CLI(`cli.py`) - はすべて本物であり、エンドツーエンドでテストされている(12 個のテストファイル全体で 202 件のテストと 6 件のサブテストが成功)。カナリアデプロイの段階は、モックではなく、実際に使い捨ての本物のローカル git リポジトリに対して検証されている。診断機能は模擬の `AIProvider` に対してしかテストされていない - `AnthropicProvider`/`OpenAIProvider` は同じプロトコルの本物の実装であるが、このテストスイートの中では、本物の Anthropic API や OpenAI API への実際のライブ呼び出しに対して検証されたことは一度もない(この環境には利用可能なキーがない)。エッジ役割とコントロールプレーン役割は、今日の時点では保存されたスナップショットファイルを介してのみやり取りしており、両者の間にはまだネットワーク伝送が存在しない。デリバリー 6(音声/通知)は単に先送りされているのではなく、実際に完全にブロックされている: HYDRA-UMC-VOICE-UI には今日、統合できるような本物のアウトバウンド通知インターフェースが存在しない。これまでに何が実際に出荷されたかは `CHANGELOG.md` を参照。
 
 ---
 
@@ -206,6 +206,7 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-...
 ```
 HYDRA-UMC-OPS-AGENT/
 ├── src/hydra_umc_ops_agent/
+│   ├── _atomic.py          # ストア・提案・結果のための永続的かつアトミックなファイル書き込み
 │   ├── log_redaction.py    # 純粋な秘密の秘匿化(KEY=VALUE、Bearer トークン、PEM ブロック)
 │   ├── inventory.py        # マニフェストスキャン + systemd/HTTP ヘルスチェック
 │   ├── incident.py         # MaintenanceIncident / IncidentBatch 契約
@@ -216,7 +217,7 @@ HYDRA-UMC-OPS-AGENT/
 │   ├── canary_deploy.py    # 納品 4: ステージング + 適用 + 検証 + 昇格、承認済みのみ
 │   ├── verification.py     # 納品 5: インシデントの背後にある本物のチェックを再実行
 │   └── cli.py               # 上記すべての納品向けの edge/control サブコマンドエントリーポイント
-├── tests/                  # 10 モジュールすべてに対する本物のテスト、ローカル http.server フィクスチャ、模擬 AI プロバイダー、カナリアデプロイ用の本物の使い捨て git リポジトリを含む
+├── tests/                  # 11 モジュールすべてに対する本物のテスト、ローカル http.server フィクスチャ、模擬 AI プロバイダー、カナリアデプロイ用の本物の使い捨て git リポジトリを含む
 ├── docs/
 │   ├── CLI_REFERENCE.md     # すべてのサブコマンド、そのフラグ、終了コード契約
 │   ├── INCIDENT_CONTRACT.md # MaintenanceIncident/NodeSnapshot の本物の JSON 形

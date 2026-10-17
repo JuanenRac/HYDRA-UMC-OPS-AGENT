@@ -41,11 +41,29 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
+from ._atomic import atomic_write_text
 from .incident import MaintenanceIncident
+from .log_redaction import redact_secrets
+
+# Resolved incidents are history, not state: the newest of them are kept for
+# a viewer to look back on and the rest are dropped, so a store rewritten on
+# every collection pass does not grow without bound over months.
+MAX_RESOLVED_INCIDENTS = 500
 
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def incident_key(source_node: str, component: str) -> tuple[str, str]:
+    """`(source_node, component)` with the component in the form it has once
+    stored: `MaintenanceIncident.to_dict()` redacts it (a health URL with an
+    embedded `user:password@` is stored with the password replaced), so a key
+    built from the raw component of this run would never equal the one read
+    back from the store, and every pass would open a new incident for the
+    same endpoint while the old one never closed. Redaction is idempotent, so
+    applying it to an already-stored component changes nothing."""
+    return (source_node, redact_secrets(component))
 
 
 class IncidentStoreError(RuntimeError):
@@ -70,7 +88,7 @@ class TrackedIncident:
 
     @property
     def dedup_key(self) -> tuple[str, str]:
-        return (self.incident.source_node, self.incident.component)
+        return incident_key(self.incident.source_node, self.incident.component)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -113,6 +131,7 @@ def reconcile_incidents(
     being closed is honestly a new occurrence, not a silent reopening of
     the old closed one."""
     resolved_at = now if now is not None else _utc_now_iso()
+    checked_components = {incident_key(node, component) for node, component in checked_components}
 
     by_key: dict[tuple[str, str], TrackedIncident] = {}
     closed: list[TrackedIncident] = []
@@ -124,7 +143,7 @@ def reconcile_incidents(
 
     seen_keys: set[tuple[str, str]] = set()
     for incident in new_incidents:
-        key = (incident.source_node, incident.component)
+        key = incident_key(incident.source_node, incident.component)
         seen_keys.add(key)
         existing = by_key.get(key)
         if existing is None:
@@ -153,7 +172,10 @@ def reconcile_incidents(
             # Genuinely not re-checked this run - stays open, untouched.
             still_open.append(tracked)
 
-    return closed + newly_closed + still_open
+    history = closed + newly_closed
+    if len(history) > MAX_RESOLVED_INCIDENTS:
+        history = sorted(history, key=lambda tracked: tracked.resolved_at or "")[-MAX_RESOLVED_INCIDENTS:]
+    return history + still_open
 
 
 def load_incident_store(path: Path) -> list[TrackedIncident]:
@@ -180,6 +202,5 @@ def load_incident_store(path: Path) -> list[TrackedIncident]:
 
 
 def save_incident_store(store: list[TrackedIncident], path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
     payload = [tracked.to_dict() for tracked in store]
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    atomic_write_text(path, json.dumps(payload, indent=2))

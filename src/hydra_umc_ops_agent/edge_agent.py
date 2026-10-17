@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .incident import IncidentBatch, MaintenanceIncident
-from .incident_store import load_incident_store, reconcile_incidents, save_incident_store
+from .incident_store import incident_key, load_incident_store, reconcile_incidents, save_incident_store
 from .log_redaction import redact_secrets
 from .inventory import (
     HttpHealthResult,
@@ -172,7 +172,7 @@ def collect_snapshot(
         reconciled = reconcile_incidents(store, list(incidents), checked_components)
         save_incident_store(reconciled, incident_store_path)
 
-        touched_keys = {(incident.source_node, incident.component) for incident in incidents}
+        touched_keys = {incident_key(incident.source_node, incident.component) for incident in incidents}
         incidents = tuple(
             tracked.incident for tracked in reconciled
             if tracked.resolved_at is None and tracked.dedup_key in touched_keys

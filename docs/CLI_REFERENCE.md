@@ -25,15 +25,15 @@ hydra-umc-ops-agent edge collect \
 | `--node-name` | yes | no | This node's own identity string, e.g. `cm5-cell-3`. Stored verbatim as `NodeSnapshot.source_node` and `MaintenanceIncident.source_node`. |
 | `--projects-root` | yes | no | Directory whose immediate subdirectories are scanned for a `hydra-umc.project.json`. A subdirectory with no manifest at all is skipped silently; a subdirectory WITH a manifest that fails to parse or is missing a required field becomes a real `ManifestScanIssue` (never dropped). |
 | `--systemd-unit` | no | yes | A systemd unit name to check with `systemctl is-active`. Skipped honestly on a non-systemd host (`SystemdUnavailableError`) rather than reporting a guessed status - this happens on every non-Linux development machine, and on Linux hosts with no `systemctl` on `PATH`. The first unavailable check stops the whole systemd loop for that run, since "no systemd here" is a host-wide fact, not a per-unit one. |
-| `--http-health-url` | no | yes | A URL to probe with a plain HTTP GET. A non-2xx response and a connection failure are both reported, but distinguished (`status_code` is set for the former, `None` for the latter). |
+| `--http-health-url` | no | yes | A URL to probe with a plain HTTP GET. A non-2xx response and a connection failure are both reported, but distinguished (`status_code` is set for the former, `None` for the latter). A URL may carry `user:password@`: the credentials are sent as a Basic `Authorization` header, never forwarded if the endpoint redirects, and stored redacted. A redirect is followed only to another `http`/`https` URL, and an endpoint that does not answer in HTTP at all is reported as unreachable. |
 | `--incident-store` | no | no | Path to a real, durable JSON file (`incident_store.py`) tracking incidents across separate `edge collect` runs against the same node. Given, the same ongoing problem on the same real component (same `sourceNode`+`component`) keeps its original `incidentId` and gets an `occurrenceCount` bump instead of a brand-new, unrelated incident every run; a component genuinely re-checked this run and found clean gets its own open record marked resolved. Omitted (the default), nothing changes from before - every incident still gets a fresh id on every run. |
 | `--out` | no | no | Write the snapshot JSON to this path instead of stdout. |
 
 Exit code `0` on success. `scan_project_manifests`/`check_systemd_unit_health`/
 `check_http_health` failures for an INDIVIDUAL project/unit/URL never abort
 the run - they become incidents inside the same snapshot instead. The
-command itself only fails (non-zero, with a traceback) on a real
-programmer/environment error (e.g. `--projects-root` does not exist).
+command itself fails (exit `1`, one `ERROR:` line on stderr) when the
+incident store cannot be read or an output file cannot be written.
 
 ## `control show <snapshot_file>`
 

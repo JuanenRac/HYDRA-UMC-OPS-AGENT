@@ -51,8 +51,11 @@ exists to enforce, and it comes before anything else, every time.
 """
 from __future__ import annotations
 
+import os
 import shutil
+import signal
 import subprocess
+import tempfile
 import time
 import uuid
 from dataclasses import dataclass
@@ -132,20 +135,81 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def _run(command: list[str], cwd: Path, timeout_s: float) -> tuple[int, str]:
-    """Runs one real subprocess, capturing combined output, honoring a
-    real timeout - a canary build that hangs must never hang this
-    process forever. Never raises for a real, distinct failure mode
-    (a nonzero exit, a timeout, a missing executable) - each becomes a
-    real, honest (exit_code, output) pair the caller decides what to do
-    with."""
+# A build can print far more than anyone will read; only the end of it is
+# kept (that is where a failure is), so a chatty build can neither exhaust
+# memory nor bloat the stored deploy result.
+_OUTPUT_TAIL_BYTES = 256 * 1024
+# Every plain git call below is bounded too: a hung `git status` on a
+# stalled disk must not hang the deploy (or, worse, be read as clean).
+_GIT_TIMEOUT_S = 60.0
+
+
+def _kill_process_tree(proc: subprocess.Popen) -> None:
+    """Best effort: a build that forks (npm -> node, make -> cc) leaves
+    grandchildren that outlive a kill of the direct child and keep
+    running, and keep any pipe they inherited open, after the timeout."""
     try:
-        proc = subprocess.run(command, cwd=str(cwd), capture_output=True, text=True, timeout=timeout_s)
-    except subprocess.TimeoutExpired:
-        return 124, f"TIMEOUT: {' '.join(command)!r} did not finish within {timeout_s}s"
-    except OSError as exc:
-        return 127, f"could not run {command!r}: {exc}"
-    return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
+        if os.name == "nt":
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, timeout=15, check=False,
+            )
+        else:
+            os.killpg(proc.pid, signal.SIGKILL)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    try:
+        proc.kill()
+    except OSError:
+        pass
+
+
+def _read_tail(sink) -> str:
+    size = sink.seek(0, os.SEEK_END)
+    start = max(0, size - _OUTPUT_TAIL_BYTES)
+    sink.seek(start)
+    text = sink.read().decode("utf-8", errors="replace")
+    return f"[... earlier output dropped, last {size - start} bytes kept ...]\n{text}" if start else text
+
+
+def _run(command: list[str], cwd: Path, timeout_s: float) -> tuple[int, str]:
+    """Runs one real subprocess, capturing combined output (stdout and
+    stderr interleaved, last `_OUTPUT_TAIL_BYTES` kept), honoring a real
+    timeout - a canary build that hangs must never hang this process
+    forever, and on a timeout the WHOLE process tree is killed, not only
+    the direct child (a grandchild left holding the output open used to
+    keep `subprocess.run` waiting long after the timeout). Never raises
+    for a real, distinct failure mode (a nonzero exit, a timeout, a
+    missing executable, output that is not UTF-8) - each becomes a real,
+    honest (exit_code, output) pair the caller decides what to do with."""
+    if not command:
+        return 127, "could not run an empty command"
+    options: dict[str, object] = {}
+    if os.name == "nt":
+        options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        options["start_new_session"] = True
+    with tempfile.TemporaryFile() as sink:
+        try:
+            proc = subprocess.Popen(
+                command, cwd=str(cwd), stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT, **options,
+            )
+        except (OSError, ValueError) as exc:
+            return 127, f"could not run {command!r}: {exc}"
+        timed_out = False
+        try:
+            proc.wait(timeout=timeout_s)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            _kill_process_tree(proc)
+            try:
+                proc.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                pass
+        output = _read_tail(sink)
+    if timed_out:
+        header = f"TIMEOUT: {' '.join(command)!r} did not finish within {timeout_s}s"
+        return 124, f"{header}\n{output}" if output else header
+    return proc.returncode, output
 
 
 class TrackedDirtyError(CanaryDeployError):
@@ -201,26 +265,44 @@ def _tracked_dirty_paths(path: Path) -> list[str]:
     checkout were genuinely clean. Failing closed here (raising, never
     returning `[]`) is the only reading consistent with what "dirty
     check" is supposed to mean: unable to verify clean is not clean."""
-    result = subprocess.run(
-        ["git", "status", "--porcelain", "-z"],
-        cwd=str(path), check=False, capture_output=True, text=True,
-    )
+    return [rel_path for status_code, rel_path in _porcelain_entries(path, ignored=False) if status_code not in ("??", "!!")]
+
+
+def _porcelain_entries(path: Path, *, ignored: bool, all_untracked: bool = False) -> list[tuple[str, str]]:
+    """`(status code, path)` for every entry `git status --porcelain -z`
+    reports for `path` (ignored ones too when asked). Fails closed: git
+    not running, timing out or exiting non-zero is `DirtyCheckError`, never
+    an empty list. Paths are decoded with `surrogateescape` so a file name
+    that is not valid UTF-8 still round-trips to the real file instead of
+    crashing the decode; a rename/copy entry carries its origin path as
+    one extra NUL-separated field, which is skipped (the entry itself
+    already names the path that exists now)."""
+    command = ["git", "status", "--porcelain", "-z"] + (["--ignored"] if ignored else []) + (["-uall"] if all_untracked else [])
+    try:
+        result = subprocess.run(command, cwd=str(path), check=False, capture_output=True, timeout=_GIT_TIMEOUT_S)
+    except subprocess.TimeoutExpired as exc:
+        raise DirtyCheckError(f"could not verify {path} has no uncommitted changes - `git status` did not finish within {_GIT_TIMEOUT_S}s") from exc
+    except OSError as exc:
+        raise DirtyCheckError(f"could not verify {path} has no uncommitted changes - could not run git: {exc}") from exc
     if result.returncode != 0:
+        stderr = result.stderr.decode("utf-8", errors="replace").strip()
         raise DirtyCheckError(
             f"could not verify {path} has no uncommitted changes - `git status` itself failed "
-            f"(exit {result.returncode}): {result.stderr.strip() or '(no stderr)'}"
+            f"(exit {result.returncode}): {stderr or '(no stderr)'}"
         )
-    if not result.stdout:
-        return []
-    paths: list[str] = []
-    for entry_text in result.stdout.split("\0"):
-        if len(entry_text) < 4:
+    tokens = result.stdout.decode("utf-8", errors="surrogateescape").split("\0")
+    entries: list[tuple[str, str]] = []
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        index += 1
+        if len(token) < 4:
             continue
-        status_code, rel_path = entry_text[:2], entry_text[3:]
-        if status_code in ("??", "!!"):
-            continue
-        paths.append(rel_path)
-    return paths
+        status_code, rel_path = token[:2], token[3:]
+        if "R" in status_code or "C" in status_code:
+            index += 1  # the origin path of a rename/copy
+        entries.append((status_code, rel_path))
+    return entries
 
 
 # Mirrors HYDRA-UMC-UPDATER/src/hydra_umc_updater/install.py's own
@@ -237,21 +319,30 @@ def _real_untracked_paths(path: Path) -> list[str]:
     """Every real path this checkout's own git considers untracked OR
     ignored (`??`/`!!`) - the exact real local-data shape that needs
     carrying into the staging clone, which `git clone --local` never
-    copies (only the committed object database)."""
-    result = subprocess.run(
-        ["git", "status", "--porcelain", "--ignored", "-z"],
-        cwd=str(path), check=False, capture_output=True, text=True,
-    )
-    if result.returncode != 0 or not result.stdout:
-        return []
-    paths: list[str] = []
-    for entry_text in result.stdout.split("\0"):
-        if len(entry_text) < 4:
-            continue
-        status_code, rel_path = entry_text[:2], entry_text[3:]
-        if status_code in ("??", "!!"):
-            paths.append(rel_path)
-    return paths
+    copies (only the committed object database). A `git status` that
+    fails here is an error, not "no local data": skipping the carry-over
+    would leave the operational data behind in `.backup-*`, the exact loss
+    this step exists to prevent."""
+    return [rel_path for status_code, rel_path in _porcelain_entries(path, ignored=True) if status_code in ("??", "!!")]
+
+
+def _copy_local_entry(source: Path, destination: Path) -> None:
+    """One untracked/ignored entry, copied as what it IS: a symlink stays a
+    symlink (a `data -> /mnt/storage` link must not turn into a copy of
+    the whole volume), a directory is copied with its inner links kept."""
+    if source.is_symlink():
+        try:
+            os.symlink(os.readlink(source), destination, target_is_directory=source.is_dir())
+            return
+        except OSError:
+            if not source.exists():
+                return  # a dangling link that cannot be recreated here has nothing to copy
+            # The platform refused to create the link (Windows without the
+            # privilege): fall through to copying what it points at.
+    if source.is_dir():
+        shutil.copytree(source, destination, dirs_exist_ok=True, symlinks=True)
+    else:
+        shutil.copy2(source, destination)
 
 
 def _carry_over_local_data(live_root: Path, staging_path: Path) -> None:
@@ -267,14 +358,11 @@ def _carry_over_local_data(live_root: Path, staging_path: Path) -> None:
         if rel_path.split("/")[0] in _NEVER_CARRIED_OVER_DIR_NAMES:
             continue
         source = live_root / rel_path
-        if not source.exists():
+        if not os.path.lexists(source):
             continue
         destination = staging_path / rel_path
         destination.parent.mkdir(parents=True, exist_ok=True)
-        if source.is_dir():
-            shutil.copytree(source, destination, dirs_exist_ok=True)
-        else:
-            shutil.copy2(source, destination)
+        _copy_local_entry(source, destination)
 
 
 def _create_staging_clone(live_root: Path, staging_parent: Path) -> Path:
@@ -284,10 +372,8 @@ def _create_staging_clone(live_root: Path, staging_parent: Path) -> Path:
     # install.py is what sets that up in the first place), so this never
     # needs any GitHub-specific knowledge of its own; it just inherits
     # whatever origin live_root already correctly has.
-    origin_result = subprocess.run(
-        ["git", "remote", "get-url", "origin"], cwd=str(live_root), capture_output=True, text=True,
-    )
-    real_origin_url = origin_result.stdout.strip() if origin_result.returncode == 0 else None
+    origin_code, origin_output = _run(["git", "remote", "get-url", "origin"], cwd=live_root, timeout_s=_GIT_TIMEOUT_S)
+    real_origin_url = origin_output.strip() if origin_code == 0 else None
 
     staging_path = staging_parent / f"ops-agent-canary-{uuid.uuid4().hex[:8]}"
     returncode, output = _run(
@@ -329,36 +415,35 @@ def _create_staging_clone(live_root: Path, staging_parent: Path) -> Path:
     # origin - a genuinely fresh/local-only checkout) is a real,
     # explicit refusal rather than a silent skip.
     if real_origin_url:
-        remote_result = subprocess.run(
-            ["git", "remote", "set-url", "origin", real_origin_url], cwd=str(staging_path), capture_output=True, text=True,
+        remote_code, remote_output = _run(
+            ["git", "remote", "set-url", "origin", real_origin_url], cwd=staging_path, timeout_s=_GIT_TIMEOUT_S,
         )
-        if remote_result.returncode != 0:
+        if remote_code != 0:
             _rmtree_best_effort(staging_path)
             raise RemoteRestoreError(
-                f"could not restore the real upstream remote on the staging clone (exit {remote_result.returncode}): "
-                f"{remote_result.stderr}"
+                f"could not restore the real upstream remote on the staging clone (exit {remote_code}): "
+                f"{remote_output}"
             )
     return staging_path
 
 
 def _apply_diff(staging_path: Path, diff_text: str) -> list[str]:
-    """Applies `diff_text` and returns exactly the paths it touches
-    (added, modified or deleted - both `git apply --numstat`'s own tab-
-    separated columns and its `-\t-\tpath` binary-file form end in the
-    real path, so a plain split on tabs and taking the last field covers
-    both), read via a dry `--numstat` pass before the real apply. This
-    own `_commit_applied_diff()` needs this exact list - not `git add -A`/
-    `git add -u` - to commit only what this diff itself changed, never
-    `_carry_over_local_data()`'s own untracked local data alongside it."""
+    """Applies `diff_text` and returns exactly the paths it changed (added,
+    modified, deleted or renamed - a rename returns the old path, now
+    deleted, as well as the new one), found by comparing `git status`
+    before and after the apply. `_commit_applied_diff()` needs this exact
+    list - not `git add -A`/`git add -u` - to commit only what this diff
+    itself changed, never `_carry_over_local_data()`'s own untracked local
+    data alongside it. (`git apply --numstat` is not a substitute: it names
+    only the new path of a rename, which would leave the old path's removal
+    unstaged and the promoted checkout dirty, and it quotes unusual file
+    names.) The patch file is written as bytes: text mode would turn every
+    line ending into the host's own, and a diff against a CRLF file must
+    reach `git apply` exactly as it was reviewed."""
+    before = set(_porcelain_entries(staging_path, ignored=False, all_untracked=True))
     patch_file = staging_path / f".ops-agent-canary-{uuid.uuid4().hex[:8]}.patch"
-    patch_file.write_text(diff_text, encoding="utf-8")
+    patch_file.write_bytes(diff_text.encode("utf-8"))
     try:
-        numstat_code, numstat_output = _run(
-            ["git", "apply", "--numstat", patch_file.name], cwd=staging_path, timeout_s=30.0
-        )
-        if numstat_code != 0:
-            raise DiffApplyError(f"git apply failed against the staging clone (exit {numstat_code}): {numstat_output}")
-        touched_paths = [line.rsplit("\t", 1)[-1] for line in numstat_output.splitlines() if line.strip()]
         returncode, output = _run(["git", "apply", "--whitespace=nowarn", patch_file.name], cwd=staging_path, timeout_s=30.0)
     finally:
         try:
@@ -367,7 +452,8 @@ def _apply_diff(staging_path: Path, diff_text: str) -> list[str]:
             pass  # best-effort cleanup only - never mask the real apply result below
     if returncode != 0:
         raise DiffApplyError(f"git apply failed against the staging clone (exit {returncode}): {output}")
-    return touched_paths
+    after = set(_porcelain_entries(staging_path, ignored=False, all_untracked=True))
+    return sorted(rel_path for _, rel_path in after - before)
 
 
 def _commit_applied_diff(staging_path: Path, touched_paths: list[str], *, deploy_id: str, proposal_id: str) -> None:
@@ -483,11 +569,15 @@ def deploy_canary(
             "commit, stash, or discard them first so a canary deploy can never silently discard real local work"
         )
 
+    if not build_test_command or not all(isinstance(part, str) and part for part in build_test_command):
+        raise CanaryDeployError("build_test_command must be a non-empty list of non-empty strings")
+
     deploy_id = str(uuid.uuid4())
     started_at = _utc_now_iso()
     staging_parent = staging_parent or live_root.parent
     staging_path = _create_staging_clone(live_root, staging_parent)
     stage_reached = "staged"
+    keep_staging = False
     try:
         # Carry over the live checkout's own real local data
         # BEFORE the diff is applied/built - see _carry_over_local_data()'s
@@ -537,6 +627,10 @@ def deploy_canary(
         try:
             staging_path.rename(live_root)
         except OSError as exc:
+            # The message below tells the operator the verified candidate is
+            # still on disk for inspection; the cleanup in `finally` must
+            # not delete it out from under that promise.
+            keep_staging = True
             try:
                 backup_path.rename(live_root)
             except OSError:
@@ -561,5 +655,5 @@ def deploy_canary(
             detail=f"promoted - the previous checkout was kept at {backup_path}, never deleted",
         )
     finally:
-        if stage_reached != "promoted":
+        if stage_reached != "promoted" and not keep_staging:
             _rmtree_best_effort(staging_path)

@@ -4,7 +4,7 @@
 
 # 🩺 HYDRA-UMC-OPS-AGENT
 
-<p align="center"><a href="README.md">🇺🇸 English</a> | <a href="README_spa.md">🇪🇸 Español</a> | <a href="README_fra.md">🇫🇷 Français</a> | <a href="README_ita.md">🇮🇹 Italiano</a> | 🇩🇪 <b>Deutsch</b> | <a href="README_zho.md">🇨🇳 简体中文</a> | <a href="README_jpn.md">🇯🇵 日本語</a></p>
+<p align="center"><a href="README.md">🇺🇸 English</a> | <a href="README_spa.md">🇪🇸 Español</a> | <a href="README_fra.md">🇫🇷 Français</a> | <a href="README_ita.md">🇮🇹 Italiano</a> | 🇩🇪 <b>Deutsch</b> | <a href="README_zho.md">🇨🇳 简体中文</a> | <a href="README_jpn.md">🇯🇵 日本語</a> | <a href="README_por.md">🇵🇹 Português</a></p>
 
 ### 🔎 Schreibgeschützte Beobachtung von Wartungsvorfällen für das gesamte Ökosystem
 
@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="Edge- und Control-Plane-Rollen">
 </p>
 
-> **Status: v0.1.4, Scaffolding - Lieferungen 1-5 von 6 (Beweis,
+> **Status: v0.1.5, Scaffolding - Lieferungen 1-5 von 6 (Beweis,
 > Diagnose, von einer Person genehmigte Änderung, Canary-Deployment,
 > Verifizierung).** Jeder Unterbefehl ist echt und Ende-zu-Ende getestet
 > - `control diagnose` gegen einen simulierten KI-Anbieter (jeder echte
@@ -30,7 +30,7 @@
 > [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md) für die genaue
 > Befehlsoberfläche, die es heute gibt.
 
-**Ehrlichkeitscheck - was heute wirklich läuft:** alle fünf bereits ausgelieferten Deliveries - Evidenz (`inventory.py`, `edge_agent.py`, `incident.py`), Diagnose (`diagnosis.py`), von einem Menschen genehmigte Änderung (`change_proposal.py`), Canary-Deployment (`canary_deploy.py`) und Verifikation (`verification.py`), plus die Schwärzungsgrenze (`log_redaction.py`) und die CLI (`cli.py`) - sind real und Ende-zu-Ende getestet (169 bestandene Tests plus 6 Subtests über alle 11 Testdateien). Die Canary-Deploy-Stufe wird tatsächlich gegen ein echtes, einmal verwendetes lokales Git-Repository geprüft, kein Mock. Die Diagnose wird ausschließlich gegen einen simulierten `AIProvider` getestet - `AnthropicProvider`/`OpenAIProvider` sind echte Implementierungen desselben Protokolls, aber keine der beiden wurde in dieser Testsuite gegen einen echten, live laufenden Anthropic- oder OpenAI-API-Aufruf geprüft (in dieser Umgebung ist kein Schlüssel verfügbar). Die Edge- und Control-Plane-Rollen kommunizieren heute nur über eine gespeicherte Snapshot-Datei - es gibt noch keinen Netzwerktransport zwischen ihnen. Delivery 6 (Sprache/Benachrichtigung) ist tatsächlich blockiert, nicht bloß aufgeschoben: HYDRA-UMC-VOICE-UI hat heute keine echte ausgehende Benachrichtigungsoberfläche, mit der man sich integrieren könnte. Siehe `CHANGELOG.md` für das, was bisher genau ausgeliefert wurde.
+**Ehrlichkeitscheck - was heute wirklich läuft:** alle fünf bereits ausgelieferten Deliveries - Evidenz (`inventory.py`, `edge_agent.py`, `incident.py`), Diagnose (`diagnosis.py`), von einem Menschen genehmigte Änderung (`change_proposal.py`), Canary-Deployment (`canary_deploy.py`) und Verifikation (`verification.py`), plus die Schwärzungsgrenze (`log_redaction.py`) und die CLI (`cli.py`) - sind real und Ende-zu-Ende getestet (202 bestandene Tests plus 6 Subtests über alle 12 Testdateien). Die Canary-Deploy-Stufe wird tatsächlich gegen ein echtes, einmal verwendetes lokales Git-Repository geprüft, kein Mock. Die Diagnose wird ausschließlich gegen einen simulierten `AIProvider` getestet - `AnthropicProvider`/`OpenAIProvider` sind echte Implementierungen desselben Protokolls, aber keine der beiden wurde in dieser Testsuite gegen einen echten, live laufenden Anthropic- oder OpenAI-API-Aufruf geprüft (in dieser Umgebung ist kein Schlüssel verfügbar). Die Edge- und Control-Plane-Rollen kommunizieren heute nur über eine gespeicherte Snapshot-Datei - es gibt noch keinen Netzwerktransport zwischen ihnen. Delivery 6 (Sprache/Benachrichtigung) ist tatsächlich blockiert, nicht bloß aufgeschoben: HYDRA-UMC-VOICE-UI hat heute keine echte ausgehende Benachrichtigungsoberfläche, mit der man sich integrieren könnte. Siehe `CHANGELOG.md` für das, was bisher genau ausgeliefert wurde.
 
 ---
 
@@ -212,6 +212,7 @@ echte Befehlsoberfläche.
 ```
 HYDRA-UMC-OPS-AGENT/
 ├── src/hydra_umc_ops_agent/
+│   ├── _atomic.py          # Dauerhafte, atomare Dateischreibvorgänge für Speicher, Vorschläge und Ergebnisse
 │   ├── log_redaction.py    # Reine Geheimnis-Redaktion (KEY=VALUE, Bearer-Token, PEM-Blöcke)
 │   ├── inventory.py        # Manifest-Scan + systemd-/HTTP-Health-Checks
 │   ├── incident.py         # MaintenanceIncident-/IncidentBatch-Vertrag
@@ -222,7 +223,7 @@ HYDRA-UMC-OPS-AGENT/
 │   ├── canary_deploy.py    # Lieferung 4: stage + apply + verify + promote, nur bei Genehmigung
 │   ├── verification.py     # Lieferung 5: führt die echte Prüfung hinter einem Vorfall erneut aus
 │   └── cli.py               # Einstiegspunkt der edge-/control-Unterbefehle für jede Lieferung oben
-├── tests/                  # Echte Tests für alle 10 Module, inkl. eines lokalen http.server-Fixtures, eines simulierten KI-Anbieters und eines echten Wegwerf-Git-Repositorys für das Canary-Deployment
+├── tests/                  # Echte Tests für alle 11 Module, inkl. eines lokalen http.server-Fixtures, eines simulierten KI-Anbieters und eines echten Wegwerf-Git-Repositorys für das Canary-Deployment
 ├── docs/
 │   ├── CLI_REFERENCE.md     # Jeder Unterbefehl, seine Flags, der Exit-Code-Vertrag
 │   ├── INCIDENT_CONTRACT.md # Die echte JSON-Form von MaintenanceIncident/NodeSnapshot

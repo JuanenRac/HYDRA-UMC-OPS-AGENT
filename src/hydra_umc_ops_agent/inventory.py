@@ -18,6 +18,8 @@ path (the one thing genuinely verifiable without the real hardware).
 """
 from __future__ import annotations
 
+import base64
+import http.client
 import json
 import shutil
 import subprocess
@@ -33,6 +35,40 @@ from pathlib import Path
 # HTTP-shaped) is what stops a malformed/hostile URL from reaching
 # `urlopen()` at all, not just from crashing once it gets there.
 _SUPPORTED_HTTP_SCHEMES = ("http", "https")
+
+
+class _HttpOnlyRedirects(urllib.request.HTTPRedirectHandler):
+    """A health endpoint that redirects (`/health` -> `/health/`, http ->
+    https) is still answering, so redirects are followed - but only to
+    `http`/`https`. urllib would also follow one to `ftp:`, which turns a
+    health probe into a connection to wherever a misbehaving endpoint says."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D401 - stdlib hook
+        if urllib.parse.urlsplit(newurl).scheme.lower() not in _SUPPORTED_HTTP_SCHEMES:
+            return None
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_HTTP_OPENER = urllib.request.build_opener(_HttpOnlyRedirects)
+
+
+def _request_for(url: str) -> urllib.request.Request:
+    """The request for a health URL. urllib does not understand credentials
+    written into the URL (`http://user:password@host/health`): it takes
+    `user:password@host` for the host name and fails to resolve it, so a
+    credentialed URL - which the incident redaction code expects people to
+    configure - was reported unreachable forever, a permanent false
+    incident. The userinfo is split off and sent as a Basic `Authorization`
+    header instead, added as an UNREDIRECTED header so it is never carried
+    along if the endpoint redirects somewhere else."""
+    parts = urllib.parse.urlsplit(url)
+    if parts.username is None and parts.password is None:
+        return urllib.request.Request(url)
+    userinfo = f"{urllib.parse.unquote(parts.username or '')}:{urllib.parse.unquote(parts.password or '')}"
+    bare = urllib.parse.urlunsplit((parts.scheme, parts.netloc.rpartition("@")[2], parts.path, parts.query, parts.fragment))
+    request = urllib.request.Request(bare)
+    request.add_unredirected_header("Authorization", "Basic " + base64.b64encode(userinfo.encode("utf-8")).decode("ascii"))
+    return request
 
 
 class SystemdUnavailableError(RuntimeError):
@@ -70,6 +106,9 @@ class ManifestScanResult:
 
 
 _MANIFEST_FILENAME = "hydra-umc.project.json"
+# A real manifest is a few hundred bytes; anything past this is not one, and
+# reading it whole into memory on every scan is not worth finding out.
+_MANIFEST_MAX_BYTES = 1_000_000
 _REQUIRED_FIELDS = ("name", "version", "maturity")
 
 
@@ -83,7 +122,13 @@ def check_project_manifest(manifest_path: Path) -> ProjectVersion | ManifestScan
     if not manifest_path.is_file():
         return ManifestScanIssue(path=str(manifest_path), reason="manifest file no longer exists")
     try:
+        if manifest_path.stat().st_size > _MANIFEST_MAX_BYTES:
+            return ManifestScanIssue(path=str(manifest_path), reason=f"manifest is larger than {_MANIFEST_MAX_BYTES} bytes")
         raw = manifest_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        # A byte that is not UTF-8 is a broken manifest to report, not a
+        # reason for the whole scan (and every project after it) to crash.
+        return ManifestScanIssue(path=str(manifest_path), reason=f"not valid UTF-8: {exc}")
     except OSError as exc:
         return ManifestScanIssue(path=str(manifest_path), reason=f"could not read: {exc}")
     try:
@@ -188,6 +233,8 @@ def check_systemd_unit_health(unit_name: str, *, timeout_s: float = 5.0) -> Serv
         )
     except subprocess.TimeoutExpired:
         return ServiceHealthResult(unit_name=unit_name, active=False, detail=f"systemctl is-active timed out after {timeout_s}s")
+    except OSError as exc:
+        return ServiceHealthResult(unit_name=unit_name, active=False, detail=f"could not run systemctl: {exc}")
     detail = (result.stdout or result.stderr or "").strip() or f"exit code {result.returncode}"
     return ServiceHealthResult(unit_name=unit_name, active=result.returncode == 0, detail=detail)
 
@@ -213,7 +260,7 @@ def check_http_health(url: str, *, timeout_s: float = 5.0) -> HttpHealthResult:
             detail=f"unsupported URL scheme {scheme!r} - only http/https are ever checked",
         )
     try:
-        with urllib.request.urlopen(url, timeout=timeout_s) as response:
+        with _HTTP_OPENER.open(_request_for(url), timeout=timeout_s) as response:
             status_code = response.getcode()
             if not isinstance(status_code, int):
                 # A real HTTP(S) response always has an int status code -
@@ -235,5 +282,8 @@ def check_http_health(url: str, *, timeout_s: float = 5.0) -> HttpHealthResult:
         # A real response was received - the server IS reachable - it just
         # reported a non-2xx status. Distinct from URLError below.
         return HttpHealthResult(url=url, reachable=False, status_code=exc.code, detail=f"HTTP {exc.code}: {exc.reason}")
-    except (urllib.error.URLError, OSError, ValueError) as exc:
+    except (urllib.error.URLError, http.client.HTTPException, OSError, ValueError) as exc:
+        # http.client.HTTPException (a status line that is not HTTP, a
+        # truncated body) is not an OSError, so urllib lets it through raw -
+        # one odd endpoint used to crash the whole `edge collect`.
         return HttpHealthResult(url=url, reachable=False, status_code=None, detail=f"unreachable: {exc}")

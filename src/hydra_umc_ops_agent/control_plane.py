@@ -26,7 +26,7 @@ class SnapshotLoadError(RuntimeError):
 def load_snapshot(path: Path) -> dict[str, object]:
     try:
         raw = path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         raise SnapshotLoadError(f"could not read {path}: {exc}") from exc
     try:
         data = json.loads(raw)

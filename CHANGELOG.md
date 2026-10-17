@@ -9,6 +9,17 @@ bumped manually only. See `bump_version.py`.
 
 (nothing yet)
 
+## [0.1.5] - Credentialed health URLs, renames, bounded builds, atomic stores
+
+- A health URL with credentials (`http://user:password@host/health`) now works: urllib took `user:password@host` for the host name, so such a URL was reported unreachable forever and opened a false incident on every pass. The credentials are sent as a Basic `Authorization` header (never forwarded on a redirect), the incident store matches the redacted form so the same endpoint stays one incident across runs and closes when it recovers.
+- An endpoint that does not speak HTTP, or a manifest that is not valid UTF-8, no longer crashes `edge collect`: the first is reported as unreachable and the second as a manifest issue; a manifest over 1 MB is an issue too. A redirect from a health URL is followed only to `http`/`https`.
+- A diff that renames a file can now be promoted: the changed paths are found by comparing `git status` before and after the apply, so the removal of the old path is part of the commit (the numstat listing named only the new path and left the promoted checkout dirty, which blocked the next deploy), and file names with non-ASCII characters no longer break the commit.
+- The diff is kept byte for byte: the CLI reads the diff file without newline translation and the patch is written as bytes, so a patch against a CRLF file reaches `git apply` unchanged.
+- The build-test command runs in its own process group and the whole tree is killed on a timeout (a grandchild holding the output open used to keep the run waiting), its output is bounded to the last 256 KiB and decoded tolerantly, every git call has a timeout, and an empty command is refused up front.
+- When promotion fails the verified candidate is kept, as the error message says it is (cleanup used to delete it); symlinks among the carried-over local data stay symlinks instead of being copied through; a failing `git status --ignored` is an error instead of silently skipping the carry-over.
+- The incident store, change proposals and every `--out` file are written atomically (temporary file, flushed, renamed), resolved incidents are capped at the newest 500, and the CLI reports a corrupt store, an unwritable output, a malformed snapshot record, an unbalanced quote in the build command and a non-UTF-8 file as one `ERROR:` line instead of a traceback.
+- Added 33 tests for all of the above (202 in total, with a real throwaway git repository and real sockets); documented the behaviour; added the Portuguese README and the `_atomic.py` module to the directory tree of every README.
+
 ## [0.1.4] - Removed internal tracking-code labels leaked into source comments
 
 A broad, systemic docs-review pass had already cleaned CHANGELOG/README/

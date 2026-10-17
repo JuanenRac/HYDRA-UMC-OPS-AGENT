@@ -20,6 +20,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
+from ._atomic import atomic_write_text
 from .log_redaction import redact_secrets
 
 STATUS_PENDING = "pending"
@@ -151,9 +152,11 @@ class ChangeProposal:
             )
         current = _content_digest(self.project_name, self.diff)
         if current != self.approved_content_digest:
+            # str(): the digest comes from a file anyone can edit, and a
+            # non-string there must still end in this error, not a TypeError.
             raise ApprovalContentMismatchError(
                 f"proposal {self.proposal_id}'s project/diff no longer match what was approved "
-                f"(approved digest {self.approved_content_digest[:12]}..., current {current[:12]}...) - "
+                f"(approved digest {str(self.approved_content_digest)[:12]}..., current {current[:12]}...) - "
                 "the approved content changed after approval; a new approval is required"
             )
 
@@ -277,7 +280,7 @@ def reject_change(proposal: ChangeProposal, *, rejected_by: str, reason: str) ->
 def load_proposal(path: Path) -> ChangeProposal:
     try:
         raw = path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         raise ProposalLoadError(f"could not read {path}: {exc}") from exc
     try:
         data = json.loads(raw)
@@ -292,4 +295,4 @@ def load_proposal(path: Path) -> ChangeProposal:
 
 
 def save_proposal(proposal: ChangeProposal, path: Path) -> None:
-    path.write_text(json.dumps(proposal.to_dict(), indent=2), encoding="utf-8")
+    atomic_write_text(path, json.dumps(proposal.to_dict(), indent=2))
