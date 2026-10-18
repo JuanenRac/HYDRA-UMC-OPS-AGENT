@@ -4,15 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydra-umc-ops-agent"
-version = "0.1.5"
-description = "Maintenance-incident coordinator for the HYDRA-UMC/URTC ecosystem: a low-privilege edge role that collects a sanitized inventory/health snapshot, a control-plane role that renders it read-only, an optional AI-assisted diagnosis suggestion for one incident, a human-approved change proposal, a canary deploy that promotes an approved change only once a staged clone's own real build-test passes (via HYDRA-UMC-UPDATER's own atomic-by-verification pattern), and a re-verification of the original check. Voice/notification integration was investigated and found genuinely blocked (see README) - not later work, a real, closed architectural finding."
+version = "0.1.6"
+description = "Maintenance-incident coordinator for the HYDRA-UMC/URTC ecosystem: a low-privilege edge role that collects a sanitized inventory/health snapshot, a control-plane role that renders it read-only, an optional AI-assisted diagnosis suggestion for one incident, a human-approved change proposal, a canary deploy that promotes a signed-approved change only once a staged clone's own real build-test passes (following HYDRA-UMC-UPDATER's atomic-by-verification pattern, with its own implementation), and a re-verification of the original check. Voice/notification integration was investigated and found genuinely blocked (see README) - not later work, a real, closed architectural finding."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE.md" }
 authors = [
     { name = "JuanenRac (Electro Hobby 3D)", email = "electrohobby3d@gmail.com" },
 ]
-keywords = ["hydra-umc", "urtc", "ops-agent", "maintenance", "observability", "fleet-management"]
+keywords = ["hydra-umc", "ops-agent", "maintenance", "observability", "fleet-management"]
 # Deliberately stdlib-only for the core (edge collect / control show /
 # log redaction / manifest+health scanning) - the optional "ai" extra
 # below is Delivery 2's own real, separate addition, added only once
@@ -21,7 +21,10 @@ keywords = ["hydra-umc", "urtc", "ops-agent", "maintenance", "observability", "f
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "cryptography>=42", "ruff>=0.5"]
+# Ed25519 signatures of approvals (change_proposal.py / approval_signing.py):
+# needed to approve a proposal and to verify an approval before a deploy.
+signing = ["cryptography>=42"]
 # Delivery 2 (diagnosis) only - each lazily imported by diagnosis.py's
 # own provider classes, never required by the Delivery-1 core (edge
 # collect / control show / log redaction / manifest+health scanning all
@@ -29,12 +32,15 @@ dev = ["pytest>=8.0"]
 # Protocol) - install only the extra for the provider you actually use.
 ai-anthropic = ["anthropic>=0.40.0"]
 ai-openai = ["openai>=1.40.0"]
-# N01 (Delivery 5's own real, separate addition, same convention as the
+# (Delivery 5's own real, separate addition, same convention as the
 # ai-* extras above): a git dependency (not on PyPI), same pattern every
 # bridge project and HYDRA-UMC-UPDATER already use for this exact
 # package. Only verification.py's manifest-incident re-check needs this -
 # HTTP/systemd re-checks stay dependency-free.
-sdk = ["hydra-umc-sdk @ git+https://github.com/JuanenRac/HYDRA-UMC-SDK.git@main#subdirectory=clients/python"]
+# Pinned to a commit that carries the hardened promotion journal, so a build
+# never depends on whatever the SDK branch holds at that moment; raise the pin
+# on purpose when the SDK releases something this tool should use.
+sdk = ["hydra-umc-sdk @ git+https://github.com/JuanenRac/HYDRA-UMC-SDK.git@9d06c7bb535a4beb3f633e2917a03277542e3818#subdirectory=clients/python"]
 
 [project.urls]
 Homepage = "https://github.com/JuanenRac/HYDRA-UMC-OPS-AGENT"

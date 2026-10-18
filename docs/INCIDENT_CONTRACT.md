@@ -24,8 +24,8 @@ shapes.
 | `symptom` | string | Human-readable description. Always passed through `redact_secrets()` again at `to_dict()` time, even if the caller already redacted it - defense in depth for the single most safety-critical text field in this delivery. |
 | `evidenceRefs` | array of string | Free-form references to supporting evidence (e.g. a manifest path). Never raw log content - see `redactionLevel`. A manifest-scan incident's own `add_manifest_issue()` best-effort appends one further entry here, `base_commit:<sha>` (the checkout's real `git rev-parse HEAD` at detection time) - never a new field, this contract stays exactly as above; `verification.py`'s own `_verify_manifest_incident()` is the one real reader of this prefix. |
 | `redactionLevel` | string | Currently only `sanitized` (`REDACTION_LEVEL_SANITIZED`) exists - there is no "raw" level in this delivery, on purpose. |
-| `requestedBy` | string or null | Who/what asked for this check, when known. |
-| `correlationId` | string | Shared by every incident produced by the same `edge collect` run - see `IncidentBatch` below. |
+| `requestedBy` | string or null | Who/what asked for this check, when known. `null` stays `null` when loaded; any other type is refused. The edge agent always writes `edge-agent:auto`. |
+| `correlationId` | string | Shared by every incident produced by the same `edge collect` run - see `IncidentBatch` below. With `--incident-store`, an ongoing incident keeps its `incidentId` and takes the `correlationId` of the latest pass. |
 
 ## `IncidentBatch`
 
@@ -56,11 +56,24 @@ The top-level object `edge collect` writes and `control show` reads.
 | `correlationId` | string | Same value as every incident's own `correlationId` in this snapshot. |
 | `projects` | array | Every `ProjectVersion` found by `scan_project_manifests()` (name/version/maturity). |
 | `manifestIssues` | array | Every `ManifestScanIssue` found (present-but-broken manifests only - a missing manifest is not an issue, see `CLI_REFERENCE.md`). |
-| `systemdAvailable` | bool | `false` the moment the first `--systemd-unit` check raises `SystemdUnavailableError`; `true` otherwise (including when no `--systemd-unit` was passed at all). |
+| `systemdAvailable` | bool or null | `null` when no `--systemd-unit` was passed (systemd was never asked - unknown, not "true"); `false` the moment the first check raises `SystemdUnavailableError`; `true` once a unit was actually checked. |
 | `systemdUnavailableReason` | string or null | Set only when `systemdAvailable` is `false`. |
 | `serviceHealth` | array | One `ServiceHealthResult` per `--systemd-unit` actually checked (empty if `systemdAvailable` is `false`, since the whole loop stops at the first failure). |
 | `httpHealth` | array | One `HttpHealthResult` per `--http-health-url`. |
 | `incidents` | array | Every `MaintenanceIncident` this run produced, in the order they were found (NOT severity-sorted - `control show` sorts at render time, the stored snapshot doesn't reorder its own evidence). |
+
+## The incident store
+
+With `edge collect --incident-store FILE` the incidents of repeated runs are
+tracked in a JSON array of records (`incident_store.py`): `incident` (a
+`MaintenanceIncident` carrying the latest symptom, severity, evidence and
+`correlationId`), `firstSeenAt`, `lastSeenAt`, `occurrenceCount` and
+`resolvedAt` (`null` while open). The key of a record is `(sourceNode,
+component)` with the component in its stored, redacted form; two observations
+of the same key in one pass count once. Loading, reconciling and saving happen
+under a lock, so two simultaneous runs cannot overwrite each other. A resolved
+record that reoccurs starts a new incident; at most the newest 500 resolved
+records are kept.
 
 ## What this contract deliberately does not cover yet
 

@@ -31,7 +31,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .incident import IncidentBatch, MaintenanceIncident
-from .incident_store import incident_key, load_incident_store, reconcile_incidents, save_incident_store
+from ._atomic import exclusive_lock
+from .incident_store import IncidentStoreError, incident_key, load_incident_store, reconcile_incidents, save_incident_store
 from .log_redaction import redact_secrets
 from .inventory import (
     HttpHealthResult,
@@ -42,6 +43,7 @@ from .inventory import (
     check_http_health,
     check_systemd_unit_health,
     scan_project_manifests,
+    validate_unit_name,
 )
 
 
@@ -124,6 +126,9 @@ def collect_snapshot(
     marked resolved. The store file itself is updated on disk as part of
     this call - the caller never has to separately load/reconcile/save
     it."""
+    for unit in systemd_units or []:
+        validate_unit_name(unit)  # ValueError for a name systemctl could read as an option
+
     batch = IncidentBatch()
 
     scan = scan_project_manifests(projects_root)
@@ -168,9 +173,17 @@ def collect_snapshot(
         checked_components |= {(source_node, s.unit_name) for s in service_health}
         checked_components |= {(source_node, h.url) for h in http_health}
 
-        store = load_incident_store(incident_store_path)
-        reconciled = reconcile_incidents(store, list(incidents), checked_components)
-        save_incident_store(reconciled, incident_store_path)
+        # Load, reconcile and save as one step under a lock: two collections
+        # at the same time (a cron job and a manual run) would otherwise each
+        # start from the same store and the last to write would erase the
+        # other's counters and closures.
+        try:
+            with exclusive_lock(incident_store_path):
+                store = load_incident_store(incident_store_path)
+                reconciled = reconcile_incidents(store, list(incidents), checked_components)
+                save_incident_store(reconciled, incident_store_path)
+        except TimeoutError as exc:
+            raise IncidentStoreError(str(exc)) from exc
 
         touched_keys = {incident_key(incident.source_node, incident.component) for incident in incidents}
         incidents = tuple(

@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="エッジとコントロールプレーンの役割">
 </p>
 
-> **ステータス: v0.1.5、scaffolding - 6 件の納品のうち第 1-5 弾(証拠、
+> **ステータス: v0.1.6、functional - 6 件の納品のうち第 1-5 弾(証拠、
 > 診断、人による承認済みの変更、カナリアデプロイ、検証)。** すべての
 > サブコマンドが本物であり、エンドツーエンドでテスト済みです——
 > `control diagnose` は模擬の AI プロバイダーに対して(本物のプロバイ
@@ -29,7 +29,7 @@
 > マップ節を参照してください。今日実在する正確なコマンド面については
 > [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md) を参照してください。
 
-**正直な現状確認 - 今日実際に動くもの:** すでに出荷済みの 5 つのデリバリー - エビデンス(`inventory.py`、`edge_agent.py`、`incident.py`)、診断(`diagnosis.py`)、人間が承認する変更(`change_proposal.py`)、カナリアデプロイ(`canary_deploy.py`)、そして検証(`verification.py`)、さらにマスキング境界(`log_redaction.py`)と CLI(`cli.py`) - はすべて本物であり、エンドツーエンドでテストされている(12 個のテストファイル全体で 202 件のテストと 6 件のサブテストが成功)。カナリアデプロイの段階は、モックではなく、実際に使い捨ての本物のローカル git リポジトリに対して検証されている。診断機能は模擬の `AIProvider` に対してしかテストされていない - `AnthropicProvider`/`OpenAIProvider` は同じプロトコルの本物の実装であるが、このテストスイートの中では、本物の Anthropic API や OpenAI API への実際のライブ呼び出しに対して検証されたことは一度もない(この環境には利用可能なキーがない)。エッジ役割とコントロールプレーン役割は、今日の時点では保存されたスナップショットファイルを介してのみやり取りしており、両者の間にはまだネットワーク伝送が存在しない。デリバリー 6(音声/通知)は単に先送りされているのではなく、実際に完全にブロックされている: HYDRA-UMC-VOICE-UI には今日、統合できるような本物のアウトバウンド通知インターフェースが存在しない。これまでに何が実際に出荷されたかは `CHANGELOG.md` を参照。
+**正直な現状確認 - 今日実際に動くもの:** すでに出荷済みの 5 つのデリバリー - エビデンス(`inventory.py`、`edge_agent.py`、`incident.py`)、診断(`diagnosis.py`)、人間が承認する変更(`change_proposal.py`)、カナリアデプロイ(`canary_deploy.py`)、そして検証(`verification.py`)、さらにマスキング境界(`log_redaction.py`)と CLI(`cli.py`) - はすべて本物であり、エンドツーエンドでテストされている(15 個のテストファイル全体で 305 件のテストと 6 件のサブテストが成功)。カナリアデプロイの段階は、モックではなく、実際に使い捨ての本物のローカル git リポジトリに対して検証されている。診断機能は模擬の `AIProvider` に対してしかテストされていない - `AnthropicProvider`/`OpenAIProvider` は同じプロトコルの本物の実装であるが、このテストスイートの中では、本物の Anthropic API や OpenAI API への実際のライブ呼び出しに対して検証されたことは一度もない(この環境には利用可能なキーがない)。エッジ役割とコントロールプレーン役割は、今日の時点では保存されたスナップショットファイルを介してのみやり取りしており、両者の間にはまだネットワーク伝送が存在しない。デリバリー 6(音声/通知)は単に先送りされているのではなく、実際に完全にブロックされている: HYDRA-UMC-VOICE-UI には今日、統合できるような本物のアウトバウンド通知インターフェースが存在しない。これまでに何が実際に出荷されたかは `CHANGELOG.md` を参照。
 
 ---
 
@@ -93,10 +93,17 @@ $ hydra-umc-ops-agent edge collect \
 Wrote snapshot to snapshot.json (1 incident(s)).
 
 $ hydra-umc-ops-agent control show snapshot.json
-Node: cm5-cell-3   Collected: 2026-09-06T10:15:03Z   Correlation: 7c2c...
-Projects scanned: 27
+Node: cm5-cell-3  (collected 2026-01-01T10:15:03+00:00)
+
+Projects found: 27
+  - HYDRA-UMC-SERVER v0.1.0 (functional)
+  ...
+
+Service health checks: 1
+  - hydra-umc-server.service: NOT ACTIVE (failed)
+
 Incidents: 1
-  [CRITICAL] hydra-umc-server.service - systemd unit is not active
+  [CRITICAL] hydra-umc-server.service: systemd unit is not active: failed  (id=7c2c1e4a-...)
 
 $ ANTHROPIC_API_KEY=sk-ant-... hydra-umc-ops-agent control diagnose \
     snapshot.json --incident-id 7c2c1e4a-...
@@ -109,10 +116,14 @@ $ ANTHROPIC_API_KEY=sk-ant-... hydra-umc-ops-agent control diagnose \
 $ hydra-umc-ops-agent control propose snapshot.json --incident-id 7c2c1e4a-... \
     --project-name HYDRA-UMC-SERVER --description "Increase retry count to 3" \
     --diff-file fix.diff --rationale "gives up too early" --out proposal.json
-$ hydra-umc-ops-agent control approve proposal.json --approved-by "Juan Enrique"
+$ hydra-umc-ops-agent control keygen --name ana --key-out ana.pem --public-out ana.pub
+$ hydra-umc-ops-agent control approve proposal.json --approved-by ana --key ana.pem \
+    --live-root /home/pi/HYDRA-UMC/HYDRA-UMC-SERVER
 $ hydra-umc-ops-agent control deploy-canary proposal.json \
-    --live-root /home/pi/HYDRA-UMC/HYDRA-UMC-SERVER --build-test-command "bash build-test.sh"
-$ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-...
+    --live-root /home/pi/HYDRA-UMC/HYDRA-UMC-SERVER --build-test-command "bash build-test.sh" \
+    --approvers approvers.json --service-unit hydra-umc-server.service \
+    --health-url http://127.0.0.1:3000/health
+$ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --node-name cm5-cell-3
 ```
 
 上記の完全かつ本物のオペレーターフローについては
@@ -171,6 +182,7 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-...
   ず `InvalidTransitionError` を送出します——2 度目の決定が最初の決定
   を黙って上書きすることは決してなく、すべての決定は本物の空でない名
   前に帰属します。
+- **承認はフィールドではなく署名です。** `approve_change()` は、承認者自身の Ed25519 秘密鍵で、何を承認するかを正確に述べた内容（提案、diff の SHA-256、承認者、有効期限、対象チェックアウトのコミット、保護パスを許可するかどうか）に署名します。`deploy_canary()` は、承認者の*公開鍵*の登録簿に対して署名が検証できる場合にのみ受け付けるため、提案ファイルに書き込めるだけの人は何も承認できません。さらに、本物の秘密情報の形をしたものを含む diff や、宣言なしに CI・build-test・サービスのファイルに触れる diff は拒否され、build-test は最小限の環境で実行され、切り替えの前後でサービスを停止・ヘルスチェックして自動ロールバックでき、すべての提案・承認・デプロイ・ロールバック・整理はハッシュで連鎖した監査ジャーナルに追記されます。[docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md) を参照してください。
 - **検証は同じ本物のチェックを再実行します。決して緩いチェックではあ
   りません。** `verify_incident_resolved()` は、納品 1 自身の
   `check_http_health()`/`check_systemd_unit_health()`/
@@ -207,6 +219,9 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-...
 HYDRA-UMC-OPS-AGENT/
 ├── src/hydra_umc_ops_agent/
 │   ├── _atomic.py          # ストア・提案・結果のための永続的かつアトミックなファイル書き込み
+│   ├── approval_signing.py # 承認の Ed25519 署名; 承認者の登録簿
+│   ├── audit_journal.py    # ハッシュで連鎖する追記専用の監査ジャーナル
+│   ├── diff_policy.py      # diff が含められるもの・触れられるもの(秘密情報の形、保護パス、サイズ)
 │   ├── log_redaction.py    # 純粋な秘密の秘匿化(KEY=VALUE、Bearer トークン、PEM ブロック)
 │   ├── inventory.py        # マニフェストスキャン + systemd/HTTP ヘルスチェック
 │   ├── incident.py         # MaintenanceIncident / IncidentBatch 契約
@@ -239,15 +254,17 @@ HYDRA-UMC-OPS-AGENT/
 ```bash
 chmod +x build.sh   # 初回のみ
 ./build.sh          # .venv を作成、pip install -e ".[dev]"、コンパイルチェック + テスト
-./run.sh                                          # 本物のデモ: この GitHub ワークスペースに対して
+./run.sh                                          # 本物のデモ: 使い捨てのサンプルプロジェクトに対して
                                                    # edge collect を実行し、その後 control show
 ./run.sh edge collect --node-name n --projects-root DIR --out FILE
 ./run.sh control show snapshot.json
 pip install -e ".[ai-anthropic]"                  # または .[ai-openai] - control diagnose にのみ必要
 ANTHROPIC_API_KEY=sk-ant-... ./run.sh control diagnose snapshot.json --incident-id <id>
 ./run.sh control propose snapshot.json --incident-id <id> --project-name NAME --description "..." --diff-file fix.diff --rationale "..." --out proposal.json
-./run.sh control approve proposal.json --approved-by "あなたの名前"
-./run.sh control deploy-canary proposal.json --live-root PATH --build-test-command "bash build-test.sh"
+./run.sh control keygen --name you --key-out you.pem --public-out you.pub
+./run.sh control approve proposal.json --approved-by you --key you.pem --live-root PATH
+./run.sh control deploy-canary proposal.json --live-root PATH --build-test-command "bash build-test.sh" --approvers approvers.json
+pip install -e ".[signing]"                       # needed to sign and to verify approvals (cryptography)
 pip install -e ".[sdk]"                           # マニフェストのインシデントの base_commit を再検証する場合のみ必要
 ./run.sh control verify snapshot.json --incident-id <id>
 ```
@@ -283,6 +300,7 @@ Windows では: 先に `build.bat`、その後 `run.bat`(引数なしの場合�
 - `control deploy-canary` が `ERROR: refusing to deploy ...` で失敗す
   る: その提案がまだ `approved` になっていません——先に
   `control approve` を実行してください。
+- `control deploy-canary` が `ERROR: ... signed approval` / `not a registered approver` / `expired` / `approved for commit` で失敗する：承認が無い、登録簿に無い鍵で行われた、期限切れ、またはチェックアウトの別の状態に対して与えられたものです。`control approve --key あなたの鍵 --live-root パス` で承認し直してください。ファイルを編集して承認した提案や、承認に署名が付く前の提案は受け付けられません。
 - `control deploy-canary` が `promoted: false` を報告する: 結果 JSON
   内の `buildOutput` を読んでください——ステージングビルドが本当に失
   敗しており、本番のチェックアウトには一切触れられていません。
@@ -309,17 +327,13 @@ Windows では: 先に `build.bat`、その後 `run.bat`(引数なしの場合�
   知」機能を自ら備えるようになったら、これを再検討します。
 - エッジ役割とコントロールプレーン役割の間の本物の転送手段(現在、両
   者の間でスナップショットファイルを移動するのは手動のステップです)。
-- 実行時に後から誤りだと判明した、既に昇格したカナリアのためのロール
-  バックコマンド——`.backup-<id>` ディレクトリは本物で保持されます
-  が、それを今日復元するのは手動のステップです(
-  [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md) を参照)。
 
 ## 🔗 関連プロジェクト
 
 本プロジェクトは、同じ作者(JuanenRac / Electro Hobby 3D)による HYDRA-UMC ロボティクスエコシステムの一部です。リクエストが実はこの中のどれかについてのものである可能性があるため、知っておく価値があります。
 
 **直接関連**
-- **[HYDRA-UMC-UPDATER](https://github.com/JuanenRac/HYDRA-UMC-UPDATER)** — エコシステムのすべてのチェックアウトを検出・インストール・更新する。納品 4 のカナリアデプロイは、第二の実装ではなく、本プロジェクト自身の既存の「検証を経てからの原子的」更新パスを通じて承認済みの変更を適用する。
+- **[HYDRA-UMC-UPDATER](https://github.com/JuanenRac/HYDRA-UMC-UPDATER)** — エコシステムの各チェックアウトを検出・インストール・更新します。ここのカナリアデプロイは同じ「検証による原子性」のパターンに従いますが、更新ツールを呼び出すのではなく独自の実装なので、両者は食い違うことがあります。更新ツールは、カナリアのローカルコミットを持つチェックアウトの早送り更新を拒否し、そのコミットを示します。
 - **[HYDRA-UMC-OS-REBUILDER](https://github.com/JuanenRac/HYDRA-UMC-OS-REBUILDER)** — もう一つの「Ecosystem Operations」の兄弟プロジェクト: 既に稼働中のものを観測するのではなく、新しく完全に最新の CM5 イメージを構築する。
 - **[HYDRA-UMC-DEV-SERVER](https://github.com/JuanenRac/HYDRA-UMC-DEV-SERVER)** — 再現可能な開発ホスト。候補をビルドし、その永続タスクキューを本プロジェクト自身のインシデントライフサイクルと協調させる。自分自身のタスクを承認することは決してない。
 - **[HYDRA-UMC-NODE-HEALING](https://github.com/JuanenRac/HYDRA-UMC-NODE-HEALING)** — 独自のリトライ/バックオフとアイデンティティ不一致検出を備えた、実際の gRPC ベースのフリートヘルスウォッチドッグ——本プロジェクト自身のマニフェスト/systemd/HTTP による証拠収集とインシデントライフサイクルとは関連するが別個の課題(gRPC 経由のフリートノードのライブ健全性)。

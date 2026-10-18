@@ -29,8 +29,8 @@ printf '\n'
 #
 # Usage:
 #   ./run.sh                                          - real demo: edge collect
-#                                                        against this GitHub
-#                                                        workspace, then control show
+#                                                        against a throwaway sample project
+#                                                        (or OPS_AGENT_DEMO_ROOT), then control show
 #   ./run.sh edge collect --node-name n --projects-root DIR --out FILE
 #   ./run.sh control show snapshot.json
 # This delivery is CLI-only (no GUI yet) - see cli.py's own header comment.
@@ -52,9 +52,16 @@ elif [ -f .venv/Scripts/activate ]; then
 fi
 
 if [ "$#" -eq 0 ]; then
-    printf '%s\n' "No arguments given - running a real demo: edge collect against this GitHub workspace, then control show."
-    demo_root="$(cd "$(pwd)/.." && pwd)"
+    printf '%s\n' "No arguments given - running a real demo: edge collect against a throwaway sample project (set OPS_AGENT_DEMO_ROOT to scan a folder of your own), then control show."
     demo_dir="$(mktemp -d)"
+    demo_root="${OPS_AGENT_DEMO_ROOT:-}"
+    if [ -z "$demo_root" ]; then
+        # Nothing of the user's own is scanned by default: a sample project with
+        # a deliberately broken manifest, so the demo shows an incident.
+        demo_root="$demo_dir/projects"
+        mkdir -p "$demo_root/sample-project"
+        printf '%s\n' '{ "name": "sample-project"' > "$demo_root/sample-project/hydra-umc.project.json"
+    fi
     demo_snapshot="$demo_dir/snapshot.json"
     python -m hydra_umc_ops_agent.cli edge collect --node-name demo-node --projects-root "$demo_root" --out "$demo_snapshot"
     status=$?

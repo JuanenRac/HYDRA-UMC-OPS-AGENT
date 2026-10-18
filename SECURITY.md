@@ -12,8 +12,8 @@
 
 This project is designed, from its very first delivery, around a
 non-negotiable limit: it must never leak a secret, and it must never
-mutate anything without an explicit human approval step that does not
-exist yet in this version. If you discover a vulnerability affecting:
+mutate anything without an explicit, signed human approval. If you discover
+a vulnerability affecting:
 
 - **What `log_redaction.py` fails to redact** - a real secret shape
   (a password, token, API key, private key, credential, or SSH key) that
@@ -39,12 +39,16 @@ exist yet in this version. If you discover a vulnerability affecting:
   provider's own response text as anything other than inert display
   text (it is never executed, evaluated, or used to construct a
   command).
-- **What `change_proposal.py` lets become an APPROVED proposal without a
-  real human decision** - a way to reach `STATUS_APPROVED` without going
-  through `approve_change()` with a real, non-empty `approved_by`, or a
-  way to re-approve/re-reject a proposal that already left `pending`
-  (the one-decision-only guarantee `InvalidTransitionError` exists to
-  enforce).
+- **What `change_proposal.py` and `approval_signing.py` let count as an
+  approval** - a way to make `deploy_canary()` accept a proposal whose
+  approval was not signed with the private key of an approver registered in
+  the registry it is given, or whose diff, project, expiry, commit or
+  protected-paths flag changed after signing, or that has expired, or that
+  was signed for another commit than the checkout is on; a way to re-approve
+  or re-reject a proposal that already left `pending`. The threat model: whoever
+  can write the proposal file, the snapshot or the machine that deploys must
+  not be able to approve; the machine that deploys holds only public keys,
+  and an approver's private key must stay with that person.
 - **What `canary_deploy.py` does before an approved diff is verified** -
   the single most safety-critical check in this whole delivery: any way
   to make `deploy_canary()` promote a staging clone (replace the real,
@@ -55,7 +59,15 @@ exist yet in this version. If you discover a vulnerability affecting:
   Also: a way to make `_apply_diff()`'s own `git apply` or the build-test
   command escape the staging clone's own directory (e.g. via a
   maliciously crafted diff path, `../` traversal, or shell metacharacters
-  in `--build-test-command`).
+  in `--build-test-command`); a way to make the build-test command see
+  the operator's environment variables (it gets a minimal environment); a
+  way to get a diff that rewrites CI, build-test, service or provisioning
+  files through without it being signed as allowed.
+- **What `audit_journal.py` records** - a way to remove or alter an entry of
+  the audit journal without `control audit-verify` noticing, or to deploy
+  without a start record. (A journal rewritten from scratch, or with its last
+  lines cut off, cannot be detected from inside the file; keep a copy elsewhere
+  if that matters.)
 - **What `verification.py` re-checks** - a way to make
   `verify_incident_resolved()` report `resolved: true` for an incident
   that is still genuinely broken (it must only ever re-run the exact

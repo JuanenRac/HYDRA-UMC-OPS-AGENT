@@ -144,6 +144,11 @@ def reconcile_incidents(
     seen_keys: set[tuple[str, str]] = set()
     for incident in new_incidents:
         key = incident_key(incident.source_node, incident.component)
+        if key in seen_keys:
+            # Two observations of the same component in one pass (for example
+            # two URLs that differ only in the password, which is redacted
+            # before it is stored) are one ongoing problem, counted once.
+            continue
         seen_keys.add(key)
         existing = by_key.get(key)
         if existing is None:
@@ -155,7 +160,11 @@ def reconcile_incidents(
             # Keep the ORIGINAL incidentId (the whole point of this
             # module) - only the latest observation's own real content
             # (severity/symptom/evidence/detectedAt) is carried forward.
-            updated_incident = replace(existing.incident, severity=incident.severity, symptom=incident.symptom, evidence_refs=incident.evidence_refs, detected_at=incident.detected_at)
+            updated_incident = replace(
+                existing.incident, severity=incident.severity, symptom=incident.symptom,
+                evidence_refs=incident.evidence_refs, detected_at=incident.detected_at,
+                correlation_id=incident.correlation_id,
+            )
             by_key[key] = replace(
                 existing, incident=updated_incident, last_seen_at=incident.detected_at,
                 occurrence_count=existing.occurrence_count + 1,
@@ -187,7 +196,7 @@ def load_incident_store(path: Path) -> list[TrackedIncident]:
         return []
     try:
         raw = path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         raise IncidentStoreError(f"could not read {path}: {exc}") from exc
     try:
         data = json.loads(raw)

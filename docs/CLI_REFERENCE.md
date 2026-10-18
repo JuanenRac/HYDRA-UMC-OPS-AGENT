@@ -24,10 +24,16 @@ hydra-umc-ops-agent edge collect \
 |---|---|---|---|
 | `--node-name` | yes | no | This node's own identity string, e.g. `cm5-cell-3`. Stored verbatim as `NodeSnapshot.source_node` and `MaintenanceIncident.source_node`. |
 | `--projects-root` | yes | no | Directory whose immediate subdirectories are scanned for a `hydra-umc.project.json`. A subdirectory with no manifest at all is skipped silently; a subdirectory WITH a manifest that fails to parse or is missing a required field becomes a real `ManifestScanIssue` (never dropped). |
-| `--systemd-unit` | no | yes | A systemd unit name to check with `systemctl is-active`. Skipped honestly on a non-systemd host (`SystemdUnavailableError`) rather than reporting a guessed status - this happens on every non-Linux development machine, and on Linux hosts with no `systemctl` on `PATH`. The first unavailable check stops the whole systemd loop for that run, since "no systemd here" is a host-wide fact, not a per-unit one. |
+| `--systemd-unit` | no | yes | A systemd unit name to check with `systemctl is-active -- <unit>`; a name that is not a plausible unit name (letters, digits and `: _ . @ -`, never starting with `-`) is an error before anything runs. Skipped honestly on a non-systemd host (`SystemdUnavailableError`) rather than reporting a guessed status - this happens on every non-Linux development machine, and on Linux hosts with no `systemctl` on `PATH`. The first unavailable check stops the whole systemd loop for that run, since "no systemd here" is a host-wide fact, not a per-unit one. |
 | `--http-health-url` | no | yes | A URL to probe with a plain HTTP GET. A non-2xx response and a connection failure are both reported, but distinguished (`status_code` is set for the former, `None` for the latter). A URL may carry `user:password@`: the credentials are sent as a Basic `Authorization` header, never forwarded if the endpoint redirects, and stored redacted. A redirect is followed only to another `http`/`https` URL, and an endpoint that does not answer in HTTP at all is reported as unreachable. |
 | `--incident-store` | no | no | Path to a real, durable JSON file (`incident_store.py`) tracking incidents across separate `edge collect` runs against the same node. Given, the same ongoing problem on the same real component (same `sourceNode`+`component`) keeps its original `incidentId` and gets an `occurrenceCount` bump instead of a brand-new, unrelated incident every run; a component genuinely re-checked this run and found clean gets its own open record marked resolved. Omitted (the default), nothing changes from before - every incident still gets a fresh id on every run. |
 | `--out` | no | no | Write the snapshot JSON to this path instead of stdout. |
+
+A health endpoint that answers 2xx but whose JSON body says it is unwell
+(`"status": "degraded"`/`"unhealthy"`/`"error"`..., or any `...Healthy: false`
+field) is reported as unhealthy. Hidden folders and the `.backup-`,
+`.rolledback-` and `.failed-` copies a deploy leaves are not projects and are
+not scanned.
 
 Exit code `0` on success. `scan_project_manifests`/`check_systemd_unit_health`/
 `check_http_health` failures for an INDIVIDUAL project/unit/URL never abort
@@ -45,11 +51,10 @@ no incident is ever "resolved" from here in this delivery.
 hydra-umc-ops-agent control show snapshot.json
 ```
 
-Output is a plain-text report: node identity, collection time,
-correlation ID, project count, and every incident in the snapshot sorted
+Output is a plain-text report: node identity and collection time,
+project count, service and HTTP health results, and every incident in the snapshot sorted
 by real severity (`critical` first, then `warning`, then `info`). A
-snapshot with zero incidents prints a clean "no incidents" line rather
-than an empty section.
+snapshot with zero incidents prints `Incidents: 0`.
 
 Exit code `1` (with `ERROR: <reason>` on stderr) if the file does not
 exist, is not valid JSON, or is valid JSON that isn't a snapshot object
@@ -98,29 +103,58 @@ hydra-umc-ops-agent control propose snapshot.json \
     --description "Increase retry count to 3" \
     --diff-file fix.diff \
     --rationale "The service gives up too early on a transient network blip" \
+    [--allow-protected-paths] \
     [--out proposal.json]
 ```
 
 `--diff-file` must contain a real unified diff (a `--- `/`+++ `/`diff
---git ` header) - rejected otherwise, before it is ever stored. `--out`
+--git ` header) no larger than 256 KiB - rejected otherwise, before it is ever
+stored. A diff is also refused when a line it adds has the shape of a real
+secret (a known token format, a private key, a password in a URL, a long
+literal assigned to a secret-named key), or when it touches the files that
+decide how a change is checked or run (`.github/`, `tools/`, `scripts/`,
+`provisioning/`, `build-test.*`, `build.sh`/`build.bat`, `bump_*.py`,
+`install_*.sh`, `*.service`, `*.timer`, `Makefile`) unless
+`--allow-protected-paths` says so; the approver signs that decision. `--out`
 defaults to `proposal-<id>.json` in the current directory.
 
-## `control approve <proposal_file> --approved-by "<name>"`
+## `control keygen --name <name> --key-out <file> [--public-out <file>]`
 
-Delivery 3. Transitions a `pending` proposal to `approved`, attributed
-to a real, non-empty name. Fails if the proposal is not currently
-`pending` (`InvalidTransitionError`). `--out` defaults to overwriting
-`proposal_file` in place.
+Creates an approver's Ed25519 key pair (needs the `signing` extra). The
+private key is written readable only by its owner and an existing file is
+never overwritten; the command prints the entry to add to the **approver
+registry**, a JSON file of public keys given to the machine that deploys:
+
+```
+{"approvers": {"ana": "<base64 of her 32-byte public key>"}}
+```
+
+## `control approve <proposal_file> --approved-by <name> --key <private key> (--live-root <path> | --any-commit)`
+
+Delivery 3. Prints the proposal, the SHA-256 of the diff and the diff
+itself, asks for confirmation, and signs the approval. Fails if the
+proposal is not currently `pending` (`InvalidTransitionError`).
+
+| Flag | Meaning |
+|---|---|
+| `--approved-by` | The name under which the approver's public key is registered. |
+| `--key` | The approver's private key (PEM, from `control keygen`). It stays with the approver; the machine that deploys never needs it. |
+| `--live-root` | The checkout the approval is for: it is valid only while that checkout is on the commit it is on now. |
+| `--any-commit` | Approve for any state of the checkout instead (weaker). One of `--live-root` / `--any-commit` is required. |
+| `--valid-hours` | How long the approval stays valid (default 24). |
+| `--yes` | Do not ask; the diff is still printed. Without it, and without a terminal, nothing is signed. |
+| `--out` | Write the updated proposal here (default: overwrite `proposal_file`). |
+| `--audit-journal` | Audit journal file (default: `ops-agent-audit.jsonl` next to the proposal, or `OPS_AGENT_AUDIT_JOURNAL`). |
 
 ## `control reject <proposal_file> --rejected-by "<name>" --reason "..."`
 
 Delivery 3. Transitions a `pending` proposal to `rejected`, with a real,
-non-empty reason. Same rules as `approve` otherwise.
+non-empty reason. Same rules as `approve` otherwise (no key needed).
 
-## `control deploy-canary <proposal_file> --live-root <path> --build-test-command "..."`
+## `control deploy-canary <proposal_file> --live-root <path> --build-test-command "..." --approvers <registry>`
 
-Delivery 4. Refuses to run unless the proposal's own `status` is already
-`approved` (`ChangeNotApprovedError`). See
+Delivery 4. Refuses to run unless the proposal carries a valid signed
+approval (`ChangeNotApprovedError` / `ApprovalInvalidError`). See
 [CHANGE_LIFECYCLE.md](CHANGE_LIFECYCLE.md) for the full real
 stage/apply/verify/promote sequence and its safety guarantees.
 
@@ -128,24 +162,68 @@ stage/apply/verify/promote sequence and its safety guarantees.
 hydra-umc-ops-agent control deploy-canary proposal.json \
     --live-root /home/pi/HYDRA-UMC/HYDRA-UMC-SERVER \
     --build-test-command "bash build-test.sh" \
-    [--build-timeout 600] \
+    --approvers approvers.json \
+    [--service-unit hydra-umc-server.service] \
+    [--health-url http://127.0.0.1:3000/health] [--health-timeout 30] \
+    [--build-env-allow NAME]... \
+    [--build-timeout 600] [--audit-journal FILE] \
     [--out deploy-result.json]
 ```
 
-Exit code `0` only if the change was actually promoted; `1` (still with
-a real, complete JSON result, never a bare failure) if the build-test
-command failed, the diff didn't apply, or the proposal wasn't approved.
+| Flag | Meaning |
+|---|---|
+| `--approvers` | Registry of approvers' public keys (default: `OPS_AGENT_APPROVERS`). Without one nothing can be verified and the command refuses. |
+| `--build-env-allow` | An environment variable the build-test command may see (repeatable). It gets a minimal environment otherwise: no API keys, tokens or agent sockets. |
+| `--service-unit` | The systemd unit that runs from the checkout: stopped before the swap, started after it. |
+| `--health-url` | Health URL (default: `OPS_AGENT_HEALTH_URL`) the promoted checkout must answer healthy within `--health-timeout`; otherwise the previous checkout is put back. With only `--service-unit`, `systemctl is-active` is the check. |
+| `--audit-journal` | Audit journal file (default: a hidden `.hydra_umc_ops_agent_audit.jsonl` next to the checkout). |
 
-## `control verify <snapshot_file> --incident-id <id>`
+Exit code `0` only if the change was actually promoted and, when asked,
+healthy. A build-test failure or a rollback after a failed health check
+prints a complete JSON result (`promoted: false`, `stageReached`) and exits
+`1`. A proposal that is not approved, an approval that does not verify, a
+diff that does not apply, a dirty checkout, a protected-path violation or an
+unwritable audit journal is `ERROR: ...` on stderr with exit `1` and no JSON.
+Before deploying, an interrupted earlier promotion is recovered when the SDK
+extra is installed.
+
+## `control rollback --live-root <path> [--backup <path>]`
+
+Puts the newest (or the named) `<name>.backup-<id>` back in place of the live
+checkout; the checkout it replaces is kept as `<name>.rolledback-<id>`.
+Nothing is deleted. Written to the audit journal.
+
+## `control prune-backups --live-root <path> [--keep N] [--dry-run]`
+
+Removes all but the newest `N` backups (default 2) of the checkout; with
+`--dry-run` only lists them. Only ever runs when asked.
+
+## `control recover --projects-root <path>`
+
+Heals a promotion interrupted between its two renames, from the durable
+promotion journal of the optional SDK extra.
+
+## `control audit-verify <journal_file>`
+
+Checks the hash chain of an audit journal; exit `1` and one `PROBLEM:` line per
+break if an entry was removed, edited or reordered.
+
+## `control verify <snapshot_file> --incident-id <id> --node-name <this node>`
 
 Delivery 5. Re-runs the exact real check that originally produced the
-given incident. See [CHANGE_LIFECYCLE.md](CHANGE_LIFECYCLE.md) for which
-incident kinds this can and cannot automatically re-check.
+given incident, **on this machine** - so `--node-name` (this host's own node
+name) is required and must equal the incident's `sourceNode`; an incident from
+another node is refused rather than "verified" against the wrong localhost.
+`--health-url` (or `OPS_AGENT_HEALTH_URL`) supplies the real URL of an HTTP
+incident whose password the snapshot holds redacted. See
+[CHANGE_LIFECYCLE.md](CHANGE_LIFECYCLE.md) for which incident kinds this can
+and cannot automatically re-check.
 
 Exit code `0` if the incident is now resolved, `1` if it is confirmed
 still unresolved, `1` with `ERROR: ...` on stderr if it genuinely cannot
-be re-checked automatically (a systemd incident on a host with no
-`systemctl`; a manifest-scan incident with no `base_commit:` evidence, or
+be re-checked automatically (another node; a systemd incident on a host with no
+`systemctl` or with a unit name that is not valid; a redacted URL with no
+`--health-url`; a manifest-scan incident with no `base_commit:` evidence, or
 one re-checked without the optional `sdk` extra installed - see
 [CHANGE_LIFECYCLE.md](CHANGE_LIFECYCLE.md)).
 

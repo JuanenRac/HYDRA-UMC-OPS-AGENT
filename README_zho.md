@@ -15,10 +15,10 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="边缘与控制面角色">
 </p>
 
-> **状态：v0.1.5，脚手架阶段——6 项交付中的第 1-5 项(证据、诊断、经人工批准的变更、金丝雀部署、验证)。**
+> **状态：v0.1.6，功能可用阶段——6 项交付中的第 1-5 项(证据、诊断、经人工批准的变更、金丝雀部署、验证)。**
 > 每一个子命令都是真实功能，并已进行端到端测试——`control diagnose` 针对模拟的 AI 提供方测试(任何真实提供方都可用，见 [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md))；`control deploy-canary` 针对一个真实的、用后即弃的本地 git 仓库测试(见 [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md))。没有任何事先经过明确人工批准的内容会被部署。交付 6(语音/通知)经过真实调研后被确认为确实受阻，而非只是推迟——见下方的路线图部分。关于当前真实存在的确切命令面，见 [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md)。
 
-**诚实核查 - 今天真正能运行的部分：** 已经交付的五项内容——证据(`inventory.py`、`edge_agent.py`、`incident.py`)、诊断(`diagnosis.py`)、人工批准的变更(`change_proposal.py`)、金丝雀部署(`canary_deploy.py`)以及验证(`verification.py`),外加脱敏边界(`log_redaction.py`)和命令行界面(`cli.py`)——都是真实的，并且经过了端到端测试(12 个测试文件中共 202 个测试外加 6 个子测试全部通过)。金丝雀部署阶段是针对一个真实的、用后即弃的本地 git 仓库进行的真实测试，而不是模拟对象。诊断功能只针对一个模拟的 `AIProvider` 进行过测试——`AnthropicProvider`/`OpenAIProvider` 是同一协议的真实实现，但在本测试套件中，两者都从未针对真实的、实时的 Anthropic 或 OpenAI API 调用进行过测试(本环境中没有可用的密钥)。edge 和 control-plane 这两个角色目前只能通过一个保存下来的快照文件进行通信——它们之间尚不存在网络传输。交付 6(语音/通知)是真正被阻塞的，而不仅仅是被推迟：HYDRA-UMC-VOICE-UI 今天没有任何真实的出站通知接口可供集成。具体已交付的内容请见 `CHANGELOG.md`。
+**诚实核查 - 今天真正能运行的部分：** 已经交付的五项内容——证据(`inventory.py`、`edge_agent.py`、`incident.py`)、诊断(`diagnosis.py`)、人工批准的变更(`change_proposal.py`)、金丝雀部署(`canary_deploy.py`)以及验证(`verification.py`),外加脱敏边界(`log_redaction.py`)和命令行界面(`cli.py`)——都是真实的，并且经过了端到端测试(15 个测试文件中共 305 个测试外加 6 个子测试全部通过)。金丝雀部署阶段是针对一个真实的、用后即弃的本地 git 仓库进行的真实测试，而不是模拟对象。诊断功能只针对一个模拟的 `AIProvider` 进行过测试——`AnthropicProvider`/`OpenAIProvider` 是同一协议的真实实现，但在本测试套件中，两者都从未针对真实的、实时的 Anthropic 或 OpenAI API 调用进行过测试(本环境中没有可用的密钥)。edge 和 control-plane 这两个角色目前只能通过一个保存下来的快照文件进行通信——它们之间尚不存在网络传输。交付 6(语音/通知)是真正被阻塞的，而不仅仅是被推迟：HYDRA-UMC-VOICE-UI 今天没有任何真实的出站通知接口可供集成。具体已交付的内容请见 `CHANGELOG.md`。
 
 ---
 
@@ -44,10 +44,17 @@ $ hydra-umc-ops-agent edge collect \
 Wrote snapshot to snapshot.json (1 incident(s)).
 
 $ hydra-umc-ops-agent control show snapshot.json
-Node: cm5-cell-3   Collected: 2026-09-06T10:15:03Z   Correlation: 7c2c...
-Projects scanned: 27
+Node: cm5-cell-3  (collected 2026-01-01T10:15:03+00:00)
+
+Projects found: 27
+  - HYDRA-UMC-SERVER v0.1.0 (functional)
+  ...
+
+Service health checks: 1
+  - hydra-umc-server.service: NOT ACTIVE (failed)
+
 Incidents: 1
-  [CRITICAL] hydra-umc-server.service - systemd unit is not active
+  [CRITICAL] hydra-umc-server.service: systemd unit is not active: failed  (id=7c2c1e4a-...)
 
 $ ANTHROPIC_API_KEY=sk-ant-... hydra-umc-ops-agent control diagnose \
     snapshot.json --incident-id 7c2c1e4a-...
@@ -60,10 +67,14 @@ $ ANTHROPIC_API_KEY=sk-ant-... hydra-umc-ops-agent control diagnose \
 $ hydra-umc-ops-agent control propose snapshot.json --incident-id 7c2c1e4a-... \
     --project-name HYDRA-UMC-SERVER --description "Increase retry count to 3" \
     --diff-file fix.diff --rationale "gives up too early" --out proposal.json
-$ hydra-umc-ops-agent control approve proposal.json --approved-by "Juan Enrique"
+$ hydra-umc-ops-agent control keygen --name ana --key-out ana.pem --public-out ana.pub
+$ hydra-umc-ops-agent control approve proposal.json --approved-by ana --key ana.pem \
+    --live-root /home/pi/HYDRA-UMC/HYDRA-UMC-SERVER
 $ hydra-umc-ops-agent control deploy-canary proposal.json \
-    --live-root /home/pi/HYDRA-UMC/HYDRA-UMC-SERVER --build-test-command "bash build-test.sh"
-$ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-...
+    --live-root /home/pi/HYDRA-UMC/HYDRA-UMC-SERVER --build-test-command "bash build-test.sh" \
+    --approvers approvers.json --service-unit hydra-umc-server.service \
+    --health-url http://127.0.0.1:3000/health
+$ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --node-name cm5-cell-3
 ```
 
 上面的完整真实操作员流程见 [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md)。
@@ -79,6 +90,7 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-...
 - **诊断在设计上就与具体提供方无关。** `diagnose_incident()` 只依赖一个最小的 `AIProvider` Protocol——核心代码中从不硬编码任何具名的真实 AI 供应商。Anthropic 与 OpenAI 这两个真实提供方作为可选 extra 内置；调用方也可以传入实现同一单方法契约的任何其他对象。
 - **金丝雀部署在真实构建已经证明变更可行之前，绝不会触碰真实检出。** `deploy_canary()` 会拒绝在给定提案的 `status` 尚未变为 `approved` 时执行；随后把 diff 暂存到一个独立的本地克隆中，只有当该项目自身真实的 build-test 命令确实以退出码 `0` 结束时才会提升(两次改名的交换操作，先前的检出以真实备份形式保留)——这与 HYDRA-UMC-UPDATER 自身 `install.py` 已经使用的"经验证后原子化"模式完全一致。
 - **一份提案恰好只被裁决一次。** `approve_change()`/`reject_change()` 会对任何非 `pending` 状态的对象抛出 `InvalidTransitionError`——第二次裁决绝不会悄悄覆盖第一次，且每一次裁决都归属于一个真实的、非空的姓名。
+- **批准是一个签名，而不是一个字段。** `approve_change()` 用批准人自己的 Ed25519 私钥，对"究竟批准了什么"的声明进行签名：提案、diff 的 SHA-256、谁批准、有效期至何时、所针对检出目录的提交，以及是否允许受保护路径。`deploy_canary()` 只有在签名能通过批准人*公钥*注册表验证时才接受它，因此仅能写入提案文件的人无法批准任何东西。此外，若 diff 含有形似真实密钥的内容，或未声明就修改 CI、build-test 或服务文件，将被拒绝；build-test 在最小化的环境中运行；可以围绕切换停止并检查服务，并在失败时自动回滚；每一次提案、批准、部署、回滚和清理都会追加到按哈希链接的审计日志中。参见 [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md)。
 - **验证会重新执行完全相同的真实检查，绝不使用更宽松的版本。** `verify_incident_resolved()` 直接调用交付 1 自身的 `check_http_health()`/`check_systemd_unit_health()`/`check_project_manifest()`——本项目中任何地方都不存在第二套独立且容易产生偏差的健康检查实现。带有真实 `base_commit:`(检测时尽力捕获)的清单事件还会额外对照 HYDRA-UMC-SDK 共享的 `compare_runs()`"表面成功"检查——该检出的提交必须真的发生了变化，仅仅是磁盘上的文件看起来修好了并不够。参见 [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md)。
 - **交付 6 是被真实阻塞了，而不是简单地被跳过。** HYDRA-UMC-VOICE-UI 自身真实的契约(`gateway.py`)是一个有边界的、**入站**的"转录到意图"网关，如今没有任何真实的出站通知接口——在这里凭空造一个出来，就等于虚构一个根本不存在的集成点，而这正是本项目自身"绝不捏造"标准所不允许的。见下方的路线图部分。
 - **核心部分仅使用标准库。** `edge collect`/`control show`/`control propose`/`control approve`/`control reject`/`control verify` 都不需要任何依赖——HTTP 检查用 `urllib.request`，systemd 检查用 `subprocess`/`shutil.which`，金丝雀部署阶段以及清单事件的 `base_commit:` 捕获用 `git`(一个真实的外部二进制程序，而非 Python 包)。只有 `control diagnose`(`ai-*` extra)和清单事件的 `compare_runs()` 复检(`sdk` extra)需要可选依赖，且各自仅针对实际使用到的那部分功能。
@@ -89,6 +101,9 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-...
 HYDRA-UMC-OPS-AGENT/
 ├── src/hydra_umc_ops_agent/
 │   ├── _atomic.py          # 为存储、提案和结果提供持久的原子文件写入
+│   ├── approval_signing.py # 批准的 Ed25519 签名;批准人注册表
+│   ├── audit_journal.py    # 按哈希链接、仅追加的审计日志
+│   ├── diff_policy.py      # diff 可包含和可修改的内容(密钥形态、受保护路径、大小)
 │   ├── log_redaction.py    # 纯粹的秘密脱敏（KEY=VALUE、Bearer 令牌、PEM 块）
 │   ├── inventory.py        # 清单扫描 + systemd/HTTP 健康检查
 │   ├── incident.py         # MaintenanceIncident / IncidentBatch 契约
@@ -121,15 +136,17 @@ HYDRA-UMC-OPS-AGENT/
 ```bash
 chmod +x build.sh   # 仅需一次
 ./build.sh          # 创建 .venv，pip install -e ".[dev]"，编译检查 + 测试
-./run.sh                                          # 真实演示：针对本 GitHub 工作区执行
+./run.sh                                          # 真实演示：针对一个一次性示例项目执行
                                                    # edge collect，然后执行 control show
 ./run.sh edge collect --node-name n --projects-root DIR --out FILE
 ./run.sh control show snapshot.json
 pip install -e ".[ai-anthropic]"                  # 或 .[ai-openai] —— 仅 control diagnose 需要
 ANTHROPIC_API_KEY=sk-ant-... ./run.sh control diagnose snapshot.json --incident-id <id>
 ./run.sh control propose snapshot.json --incident-id <id> --project-name 名称 --description "..." --diff-file fix.diff --rationale "..." --out proposal.json
-./run.sh control approve proposal.json --approved-by "你的姓名"
-./run.sh control deploy-canary proposal.json --live-root 路径 --build-test-command "bash build-test.sh"
+./run.sh control keygen --name you --key-out you.pem --public-out you.pub
+./run.sh control approve proposal.json --approved-by you --key you.pem --live-root PATH
+./run.sh control deploy-canary proposal.json --live-root PATH --build-test-command "bash build-test.sh" --approvers approvers.json
+pip install -e ".[signing]"                       # needed to sign and to verify approvals (cryptography)
 pip install -e ".[sdk]"                           # 仅在需要复检清单事件的 base_commit 时才需要
 ./run.sh control verify snapshot.json --incident-id <id>
 ```
@@ -147,6 +164,7 @@ pip install -e ".[sdk]"                           # 仅在需要复检清单事�
   ".[ai-anthropic]"` 或 `".[ai-openai]"`。
 - `control diagnose` 以 `ERROR: no ... API key available` 失败：在运行前先设置 `ANTHROPIC_API_KEY`/`OPENAI_API_KEY`。
 - `control deploy-canary` 以 `ERROR: refusing to deploy ...` 失败：该提案尚未处于 `approved` 状态——先执行 `control approve`。
+- `control deploy-canary` 失败并提示 `ERROR: ... signed approval` / `not a registered approver` / `expired` / `approved for commit`：批准缺失、使用了不在注册表中的密钥、已过期,或是针对检出目录的另一个状态给出的。请用 `control approve --key 你的密钥 --live-root 路径` 重新批准。通过编辑文件批准的提案,或在批准尚未签名之前批准的提案,永远不会被接受。
 - `control deploy-canary` 报告 `promoted: false`：查看结果 JSON 中的 `buildOutput`——暂存环境的构建确实失败了，真实检出从未被触碰。见 [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md)。
 
 ## 🚀 路线图
@@ -155,14 +173,13 @@ pip install -e ".[sdk]"                           # 仅在需要复检清单事�
 
 - **交付 6 - 语音/通知集成——真正被阻塞了，而不是仅仅推迟。** 原计划是通过 HYDRA-UMC-VOICE-UI 呈现严重事件或已完成的金丝雀部署。对其自身代码(`gateway.py`)的真实调研发现，它是一个有边界的、**入站**的"转录到意图"网关(一块 Watch 发送文本，收到回复)，如今没有任何真实的出站通知接口。在这里硬造一个出来，就等于虚构一个 VOICE-UI 自身都不存在的集成点——这正是本项目自身"绝不捏造"标准所不允许的。等到 VOICE-UI(或其继任者)真正发展出一种"接收助手通知"的能力后，再重新审视这一点。
 - 边缘角色与控制面角色之间的真实传输通道（如今，把快照文件从一端搬到另一端仍是手动步骤）。
-- 针对一个已提升的金丝雀事后在生产环境中被证明有问题的回滚命令——`.backup-<id>` 目录是真实存在且会被保留的，但目前恢复它仍是一个手动步骤(见 [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md))。
 
 ## 🔗 相关项目
 
 本项目是同一作者(JuanenRac / Electro Hobby 3D)打造的 HYDRA-UMC 机器人生态系统的一部分。值得了解,因为某个请求实际上可能是关于这些项目之一,而非本仓库本身。
 
 **直接相关**
-- **[HYDRA-UMC-UPDATER](https://github.com/JuanenRac/HYDRA-UMC-UPDATER)** — 检测、安装并更新生态系统中的每一个检出目录；交付 4 中的金丝雀部署正是通过本项目自身已经存在的"经验证后原子化"更新路径来应用已批准的变更，而不是另建一套实现。
+- **[HYDRA-UMC-UPDATER](https://github.com/JuanenRac/HYDRA-UMC-UPDATER)** — 检测、安装并更新生态系统中的每个检出目录。这里的金丝雀部署遵循同样的“通过验证实现原子性”模式，但它是自己的实现，而不是对更新器的调用，因此两者可能不一致：更新器会拒绝对带有金丝雀本地提交的检出目录做快进更新，并指出是哪个提交。
 - **[HYDRA-UMC-OS-REBUILDER](https://github.com/JuanenRac/HYDRA-UMC-OS-REBUILDER)** — 另一个"Ecosystem Operations"同族项目：构建一份全新、完全最新的 CM5 镜像,而不是观测一台已经在运行的机器。
 - **[HYDRA-UMC-DEV-SERVER](https://github.com/JuanenRac/HYDRA-UMC-DEV-SERVER)** — 可复现的开发主机，构建候选版本，并将其持久任务队列与本项目自身的事件生命周期相协调；它从不批准自己的任务。
 - **[HYDRA-UMC-NODE-HEALING](https://github.com/JuanenRac/HYDRA-UMC-NODE-HEALING)** — 具备自身重试/退避与身份不匹配检测能力的真实基于 gRPC 的车队健康看门狗——这是一个与本项目自身基于清单/systemd/HTTP 的证据收集及事件生命周期相关但截然不同的课题(通过 gRPC 实时监测车队节点健康)。

@@ -6,11 +6,12 @@ HYDRA-UMC platform.
 ## Technology Stack
 
 - **Language**: Python 3.11+.
-- **Dependencies**: stdlib only, deliberately, for this delivery - the
-  edge role runs on a CM5 with the lowest reasonable privilege and
-  footprint; a dependency is added only once a specific later delivery's
-  own code genuinely needs it (e.g. an AI-provider SDK, once that
-  delivery actually exists), never speculatively.
+- **Dependencies**: stdlib only for the core - the edge role runs on a CM5
+  with the lowest reasonable privilege and footprint. Each dependency is an
+  optional extra that only the code which needs it imports: `cryptography`
+  (`signing`, to sign and verify approvals), an AI-provider SDK
+  (`ai-anthropic` / `ai-openai`), and HYDRA-UMC-SDK (`sdk`, for the
+  manifest re-check and the promotion journal). Never add one speculatively.
 
 ## Guidelines
 
@@ -26,12 +27,12 @@ HYDRA-UMC platform.
    established pattern: a distinct, typed reason a caller can act on,
    never a silently-returned default value standing in for "couldn't
    check". Follow the same shape for a new collector.
-3. **This delivery only ever observes.** Do not add a mutating action (a
+3. **The edge role only ever observes.** Do not add a mutating action (a
    restart, a config write, a patch, an AI-provider call) to `edge_agent.py`,
-   `incident.py`, or `cli.py` without first reading this project's own
-   README "Architecture & Design Decisions" section on why that is
-   deliberately deferred to a specific later delivery, and updating the
-   Roadmap there to match.
+   `incident.py`, or the `edge` commands. Changes happen only through the
+   signed-approval path (`change_proposal.py` -> `canary_deploy.py`), which is
+   the one place that may touch a checkout; keep every mutation behind it and
+   leave a record in the audit journal.
 4. **`MaintenanceIncident`'s field names mirror an explicit
    contract exactly** (`incidentId`, `sourceNode`, etc.) -
    don't rename a field for Python-style convenience; `to_dict()`/

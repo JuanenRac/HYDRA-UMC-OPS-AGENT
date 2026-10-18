@@ -16,9 +16,12 @@ restart) sees either the old content or the new content, never a mixture.
 """
 from __future__ import annotations
 
+import contextlib
 import os
 import tempfile
+import time
 from pathlib import Path
+from typing import Iterator
 
 
 def atomic_write_text(path: Path, text: str) -> None:
@@ -37,3 +40,50 @@ def atomic_write_text(path: Path, text: str) -> None:
         except OSError:
             pass
         raise
+
+
+@contextlib.contextmanager
+def exclusive_lock(path: Path, *, timeout_s: float = 30.0) -> Iterator[None]:
+    """Holds an exclusive lock for `path` (on a `<name>.lock` file beside it)
+    for the duration of the block, so two processes that read, change and
+    write the same file one after the other cannot overwrite each other's
+    result. Waits up to `timeout_s` for another holder, then raises
+    `TimeoutError`."""
+    lock_path = Path(path).with_name(Path(path).name + ".lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    handle = open(lock_path, "a+b")  # noqa: SIM115 - kept open for as long as the lock is held
+    deadline = time.monotonic() + timeout_s
+    try:
+        while True:
+            try:
+                if os.name == "nt":
+                    import msvcrt
+
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError(f"another process is holding {lock_path} - gave up after {timeout_s} s") from None
+                time.sleep(0.1)
+        try:
+            yield
+        finally:
+            try:
+                if os.name == "nt":
+                    import msvcrt
+
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    import fcntl
+
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            except OSError:
+                pass
+    finally:
+        handle.close()

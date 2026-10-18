@@ -98,7 +98,7 @@ class ScanProjectManifestsTests(unittest.TestCase):
         self.assertIn("missing/empty required field(s)", result.issues[0].reason)
         self.assertIn("version", result.issues[0].reason)
 
-    # F08 (found 2026-09-08 building a real end-to-end incident-lifecycle
+    # (found while building a real end-to-end incident-lifecycle
     # test): a retired `.backup-<uuid>` checkout - canary_deploy.py's own
     # (and HYDRA-UMC-UPDATER's own, exact same convention) real, never-
     # deleted rename-aside of the PREVIOUS checkout on every promotion -
@@ -128,7 +128,7 @@ class ScanProjectManifestsTests(unittest.TestCase):
 
 
 class CheckProjectManifestTests(unittest.TestCase):
-    """N01: check_project_manifest() re-validates ONE manifest by path -
+    """check_project_manifest() re-validates ONE manifest by path -
     factored out of scan_project_manifests()'s own loop, same real checks,
     just callable without a full root re-scan (see verification.py's own
     _verify_manifest_incident())."""

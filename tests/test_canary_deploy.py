@@ -16,6 +16,7 @@ from dataclasses import replace as _replace
 from unittest import mock
 from pathlib import Path
 
+from _approvals import APPROVERS, SIGNING_KEY
 from hydra_umc_ops_agent.canary_deploy import (
     ApprovalInvalidError,
     CanaryDeployError,
@@ -118,7 +119,7 @@ def _make_approved_proposal(diff_text: str):
         incident_id="inc-1", correlation_id="corr-1", project_name="test-project",
         description="Raise retries to 3", diff=diff_text, rationale="fixes the flaky check",
     )
-    return approve_change(proposal, approved_by="Test Approver")
+    return approve_change(proposal, approved_by="Test Approver", signing_key=SIGNING_KEY)
 
 
 class DeployCanaryHappyPathTests(unittest.TestCase):
@@ -128,7 +129,7 @@ class DeployCanaryHappyPathTests(unittest.TestCase):
             live_root = _make_live_repo(tmp_path)
             proposal = _make_approved_proposal(_GOOD_DIFF)
 
-            result = deploy_canary(proposal, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+            result = deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
 
             self.assertTrue(result.promoted)
             self.assertEqual(result.stage_reached, "promoted")
@@ -139,7 +140,7 @@ class DeployCanaryHappyPathTests(unittest.TestCase):
             self.assertEqual(len(backups), 1)
             self.assertIn('"retries": 0', (backups[0] / "config.json").read_text(encoding="utf-8"))
             # No leftover staging directory.
-            self.assertEqual(list(tmp_path.glob("ops-agent-canary-*")), [])
+            self.assertEqual(list(tmp_path.glob(".ops-agent-canary-*")), [])
 
 
 class DeployCanaryConsecutiveDeploysTests(unittest.TestCase):
@@ -157,7 +158,7 @@ class DeployCanaryConsecutiveDeploysTests(unittest.TestCase):
             live_root = _make_live_repo(tmp_path)
             proposal = _make_approved_proposal(_GOOD_DIFF)
 
-            result = deploy_canary(proposal, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+            result = deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
             self.assertTrue(result.promoted)
 
             status = subprocess.run(
@@ -171,11 +172,11 @@ class DeployCanaryConsecutiveDeploysTests(unittest.TestCase):
             live_root = _make_live_repo(tmp_path)
 
             first = _make_approved_proposal(_GOOD_DIFF)
-            first_result = deploy_canary(first, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+            first_result = deploy_canary(first, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
             self.assertTrue(first_result.promoted)
 
             second = _make_approved_proposal(_SECOND_DIFF)
-            second_result = deploy_canary(second, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+            second_result = deploy_canary(second, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
 
             self.assertTrue(second_result.promoted)
             self.assertIn('"retries": 5', (live_root / "config.json").read_text(encoding="utf-8"))
@@ -186,7 +187,7 @@ class DeployCanaryConsecutiveDeploysTests(unittest.TestCase):
             live_root = _make_live_repo(tmp_path)
             proposal = _make_approved_proposal(_GOOD_DIFF)
 
-            deploy_canary(proposal, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+            deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
 
             log = subprocess.run(
                 ["git", "log", "-1", "--format=%s"], cwd=str(live_root), capture_output=True, text=True, check=True,
@@ -216,7 +217,7 @@ class DeployCanaryDataPreservationTests(unittest.TestCase):
             (live_root / "private-local.json").write_text('{"real": "local state"}', encoding="utf-8")
             proposal = _make_approved_proposal(_GOOD_DIFF)
 
-            result = deploy_canary(proposal, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+            result = deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
 
             self.assertTrue(result.promoted, result.detail)
             self.assertEqual(
@@ -231,7 +232,7 @@ class DeployCanaryDataPreservationTests(unittest.TestCase):
             live_root, remote = _make_live_repo_with_real_upstream(tmp_path)
             proposal = _make_approved_proposal(_GOOD_DIFF)
 
-            result = deploy_canary(proposal, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+            result = deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
 
             self.assertTrue(result.promoted, result.detail)
             restored_origin = subprocess.run(
@@ -252,7 +253,7 @@ class DeployCanaryDataPreservationTests(unittest.TestCase):
             proposal = _make_approved_proposal(_GOOD_DIFF)
 
             with self.assertRaises(CanaryDeployError):
-                deploy_canary(proposal, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+                deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
 
             self.assertIn(
                 "USER_UNCOMMITTED", (live_root / "config.json").read_text(encoding="utf-8"),
@@ -278,7 +279,7 @@ class DeployCanaryApprovalBindingTests(unittest.TestCase):
             tampered = _replace(proposal, diff=_STILL_FAILING_DIFF)
 
             with self.assertRaises(ApprovalInvalidError):
-                deploy_canary(tampered, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+                deploy_canary(tampered, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
             self.assertEqual(list(tmp_path.glob("live-project.backup-*")), [])
             # A caller catching only the module's own CanaryDeployError
             # (cli.py's own _cmd_control_deploy_canary does exactly
@@ -297,7 +298,7 @@ class DeployCanaryApprovalBindingTests(unittest.TestCase):
             proposal = _make_approved_proposal(_GOOD_DIFF)  # approved for "test-project"
 
             with self.assertRaises(TargetProjectMismatchError):
-                deploy_canary(proposal, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+                deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
             self.assertIn('"retries": 0', (live_root / "config.json").read_text(encoding="utf-8"))
             self.assertEqual(list(tmp_path.glob("live-project.backup-*")), [])
 
@@ -308,7 +309,7 @@ class DeployCanaryApprovalBindingTests(unittest.TestCase):
             tmp_path = Path(tmp)
             live_root = _make_live_repo(tmp_path)
             proposal = _make_approved_proposal(_GOOD_DIFF)
-            result = deploy_canary(proposal, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+            result = deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
             self.assertTrue(result.promoted, result.detail)
 
 
@@ -321,7 +322,7 @@ class DeployCanarySafetyGateTests(unittest.TestCase):
                 description="x", diff=_GOOD_DIFF, rationale="x",
             )
             with self.assertRaises(ChangeNotApprovedError):
-                deploy_canary(pending, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+                deploy_canary(pending, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
             # Nothing was touched - original content untouched, no backup created.
             self.assertIn('"retries": 0', (live_root / "config.json").read_text(encoding="utf-8"))
 
@@ -342,7 +343,7 @@ class DeployCanarySafetyGateTests(unittest.TestCase):
             proposal = _make_approved_proposal(_GOOD_DIFF)
 
             with self.assertRaises(DirtyCheckError):
-                deploy_canary(proposal, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+                deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
             # Nothing was touched - not even a staging clone left behind.
             self.assertIn('"retries": 0', (live_root / "config.json").read_text(encoding="utf-8"))
             self.assertEqual(list(tmp_path.glob("live-project.backup-*")), [])
@@ -356,11 +357,11 @@ class DeployCanaryFailureModesTests(unittest.TestCase):
             proposal = _make_approved_proposal(_NON_APPLYING_DIFF)
 
             with self.assertRaises(DiffApplyError):
-                deploy_canary(proposal, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+                deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
 
             self.assertIn('"retries": 0', (live_root / "config.json").read_text(encoding="utf-8"))
             self.assertEqual(list(tmp_path.glob("live-project.backup-*")), [])
-            self.assertEqual(list(tmp_path.glob("ops-agent-canary-*")), [])
+            self.assertEqual(list(tmp_path.glob(".ops-agent-canary-*")), [])
 
     def test_a_failed_build_verification_leaves_the_live_checkout_untouched(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -368,14 +369,14 @@ class DeployCanaryFailureModesTests(unittest.TestCase):
             live_root = _make_live_repo(tmp_path)
             proposal = _make_approved_proposal(_STILL_FAILING_DIFF)
 
-            result = deploy_canary(proposal, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+            result = deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
 
             self.assertFalse(result.promoted)
             self.assertEqual(result.stage_reached, "diff_applied")
             self.assertIn("live checkout was never touched", result.detail)
             self.assertIn('"retries": 0', (live_root / "config.json").read_text(encoding="utf-8"))
             self.assertEqual(list(tmp_path.glob("live-project.backup-*")), [])
-            self.assertEqual(list(tmp_path.glob("ops-agent-canary-*")), [])
+            self.assertEqual(list(tmp_path.glob(".ops-agent-canary-*")), [])
 
     def test_promotion_self_heals_when_the_second_rename_fails(self):
         # a real regression this exact self-heal path never had
@@ -397,13 +398,13 @@ class DeployCanaryFailureModesTests(unittest.TestCase):
                 # promotion rename) fails - the first rename (live
                 # checkout -> backup) must go through normally so this
                 # test actually reaches the self-heal path.
-                if self.name.startswith("ops-agent-canary-"):
+                if self.name.startswith(".ops-agent-canary-"):
                     raise OSError("synthetic failure injected by test")
                 return original_rename(self, target)
 
             with mock.patch.object(Path, "rename", flaky_rename):
                 with self.assertRaises(CanaryDeployError) as ctx:
-                    deploy_canary(proposal, live_root=live_root, build_test_command=[sys.executable, "check.py"])
+                    deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
 
             self.assertIn("restored the previous checkout", str(ctx.exception))
             self.assertTrue(live_root.is_dir())

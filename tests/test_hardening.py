@@ -10,6 +10,7 @@ sockets, real files and a real throwaway git repository - nothing is mocked
 except the one rename that has to fail."""
 import base64
 import contextlib
+import dataclasses
 import io
 import json
 import os
@@ -24,6 +25,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from unittest import mock
 
+from _approvals import APPROVERS, SIGNING_KEY
 from hydra_umc_ops_agent import canary_deploy, cli
 from hydra_umc_ops_agent._atomic import atomic_write_text
 from hydra_umc_ops_agent.canary_deploy import CanaryDeployError, deploy_canary
@@ -289,7 +291,7 @@ class ProposalEdgeTests(unittest.TestCase):
             incident_id="i", correlation_id="c", project_name="P", description="d",
             diff="--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n", rationale="r",
         )
-        return approve_change(proposal, approved_by="Someone")
+        return approve_change(proposal, approved_by="Someone", signing_key=SIGNING_KEY)
 
     def test_a_failed_save_keeps_the_reviewed_proposal(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -316,8 +318,15 @@ class ProposalEdgeTests(unittest.TestCase):
             data = json.loads(path.read_text(encoding="utf-8"))
             data["approvedContentDigest"] = 12345
             path.write_text(json.dumps(data), encoding="utf-8")
+            # A saved file with a digest of the wrong type is refused when it is
+            # loaded; a proposal object built in memory with one is a mismatch.
+            with self.assertRaises(ProposalLoadError):
+                load_proposal(path)
+            data["approvedContentDigest"] = "0" * 64
+            path.write_text(json.dumps(data), encoding="utf-8")
+            loaded = load_proposal(path)
             with self.assertRaises(ApprovalContentMismatchError):
-                load_proposal(path).verify_approval_content()
+                dataclasses.replace(loaded, approved_content_digest=12345).verify_approval_content()
 
 
 def _git(args, cwd):
@@ -344,7 +353,7 @@ def _approved(diff: str, project: str = "p"):
     proposal = propose_change(
         incident_id="i", correlation_id="c", project_name=project, description="d", diff=diff, rationale="r",
     )
-    return approve_change(proposal, approved_by="Someone")
+    return approve_change(proposal, approved_by="Someone", signing_key=SIGNING_KEY)
 
 
 def _status(live: Path) -> str:
@@ -359,7 +368,7 @@ class DiffShapeTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as tmp:
             live = _make_repo(Path(tmp), {"old.txt": b"one\ntwo\nthree\n", "hydra-umc.project.json": b'{"name": "p"}'})
-            result = deploy_canary(_approved(diff), live_root=live, build_test_command=_PASS)
+            result = deploy_canary(_approved(diff), live_root=live, approvers=APPROVERS, build_test_command=_PASS)
             self.assertTrue(result.promoted, result.detail)
             self.assertFalse((live / "old.txt").exists())
             self.assertEqual((live / "new.txt").read_bytes().replace(b"\r\n", b"\n"), b"one\ntwo\nthree\nfour\n")
@@ -370,7 +379,7 @@ class DiffShapeTests(unittest.TestCase):
         diff = f"--- a/{name}\n+++ b/{name}\n@@ -1 +1 @@\n-before\n+after\n"
         with tempfile.TemporaryDirectory() as tmp:
             live = _make_repo(Path(tmp), {name: b"before\n", "hydra-umc.project.json": b'{"name": "p"}'})
-            result = deploy_canary(_approved(diff), live_root=live, build_test_command=_PASS)
+            result = deploy_canary(_approved(diff), live_root=live, approvers=APPROVERS, build_test_command=_PASS)
             self.assertTrue(result.promoted, result.detail)
             self.assertEqual((live / name).read_bytes().replace(b"\r\n", b"\n"), b"after\n")
             self.assertEqual(_status(live), "")
@@ -379,7 +388,7 @@ class DiffShapeTests(unittest.TestCase):
         diff = "--- a/f.txt\n+++ b/f.txt\n@@ -1,2 +1,2 @@\n alpha\r\n-beta\r\n+gamma\r\n"
         with tempfile.TemporaryDirectory() as tmp:
             live = _make_repo(Path(tmp), {"f.txt": b"alpha\r\nbeta\r\n", "hydra-umc.project.json": b'{"name": "p"}'})
-            result = deploy_canary(_approved(diff), live_root=live, build_test_command=_PASS)
+            result = deploy_canary(_approved(diff), live_root=live, approvers=APPROVERS, build_test_command=_PASS)
             self.assertTrue(result.promoted, result.detail)
             self.assertEqual((live / "f.txt").read_bytes(), b"alpha\r\ngamma\r\n")
 
@@ -409,7 +418,7 @@ class PromotionAndBuildTests(unittest.TestCase):
         original_rename = Path.rename
 
         def flaky(self, target):
-            if self.name.startswith("ops-agent-canary-"):
+            if self.name.startswith(".ops-agent-canary-"):
                 raise OSError("synthetic failure injected by test")
             return original_rename(self, target)
 
@@ -418,9 +427,9 @@ class PromotionAndBuildTests(unittest.TestCase):
             live = _make_repo(root, {"f.txt": b"a\n", "hydra-umc.project.json": b'{"name": "p"}'})
             with mock.patch.object(Path, "rename", flaky):
                 with self.assertRaises(CanaryDeployError) as ctx:
-                    deploy_canary(_approved(diff), live_root=live, build_test_command=_PASS)
+                    deploy_canary(_approved(diff), live_root=live, approvers=APPROVERS, build_test_command=_PASS)
             self.assertIn("still available at", str(ctx.exception))
-            candidates = list(root.glob("ops-agent-canary-*"))
+            candidates = list(root.glob(".ops-agent-canary-*"))
             self.assertEqual(len(candidates), 1, "the candidate the message points to must still exist")
             self.assertEqual((candidates[0] / "f.txt").read_bytes().replace(b"\r\n", b"\n"), b"b\n")
 
@@ -430,8 +439,8 @@ class PromotionAndBuildTests(unittest.TestCase):
             root = Path(tmp)
             live = _make_repo(root, {"f.txt": b"a\n", "hydra-umc.project.json": b'{"name": "p"}'})
             with self.assertRaises(CanaryDeployError):
-                deploy_canary(_approved(diff), live_root=live, build_test_command=[])
-            self.assertEqual(list(root.glob("ops-agent-canary-*")), [])
+                deploy_canary(_approved(diff), live_root=live, approvers=APPROVERS, build_test_command=[])
+            self.assertEqual(list(root.glob(".ops-agent-canary-*")), [])
 
     def test_an_ignored_symlink_is_carried_over_as_a_symlink(self):
         diff = "--- a/f.txt\n+++ b/f.txt\n@@ -1 +1 @@\n-a\n+b\n"
@@ -445,7 +454,7 @@ class PromotionAndBuildTests(unittest.TestCase):
                 os.symlink(storage, live / "data", target_is_directory=True)
             except (OSError, NotImplementedError):
                 self.skipTest("this platform does not allow creating symlinks here")
-            result = deploy_canary(_approved(diff), live_root=live, build_test_command=_PASS)
+            result = deploy_canary(_approved(diff), live_root=live, approvers=APPROVERS, build_test_command=_PASS)
             self.assertTrue(result.promoted, result.detail)
             self.assertTrue((live / "data").is_symlink(), "a link to external storage must not become a copy of it")
             self.assertTrue(os.path.samefile(live / "data", storage))
@@ -511,7 +520,7 @@ class CliRobustnessTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             snapshot = Path(tmp) / "snapshot.json"
             snapshot.write_text(json.dumps({"incidents": ["not an object", {"incidentId": "inc-1"}]}), encoding="utf-8")
-            code, _, err = self._run(["control", "verify", str(snapshot), "--incident-id", "inc-1"])
+            code, _, err = self._run(["control", "verify", str(snapshot), "--incident-id", "inc-1", "--node-name", "n"])
         self.assertEqual(code, 1)
         self.assertIn("no incident with id", err)
 
@@ -519,7 +528,7 @@ class CliRobustnessTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             snapshot = Path(tmp) / "snapshot.json"
             snapshot.write_text(json.dumps({"incidents": {"a": 1}}), encoding="utf-8")
-            code, _, err = self._run(["control", "verify", str(snapshot), "--incident-id", "inc-1"])
+            code, _, err = self._run(["control", "verify", str(snapshot), "--incident-id", "inc-1", "--node-name", "n"])
         self.assertEqual(code, 1)
         self.assertIn("no incident with id", err)
 

@@ -100,6 +100,25 @@ _PEM_BLOCK_RE = re.compile(
 
 _REDACTED = "[REDACTED]"
 
+# Credentials that carry no label at all - a token pasted bare into a log line
+# or an error message. Every shape here is a real, published format (GitHub
+# personal/OAuth/app tokens, Anthropic and OpenAI keys, AWS access key ids,
+# Slack tokens, JWTs). The generic `sk-` shape also requires a digit so an
+# ordinary hyphenated phrase that happens to start with those letters stays
+# readable.
+TOKEN_SHAPES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{30,}\b"),
+    re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"),
+    re.compile(r"\bsk-(?:ant-|proj-)?(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{20,}"),
+    re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b"),
+    re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}"),
+    re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}"),
+)
+
+# `Authorization: Basic dXNlcjpwYXNz` - only in its header form, so the word
+# "Basic" in ordinary prose is left alone.
+_BASIC_AUTH_RE = re.compile(r"(?i)\b((?:proxy-)?authorization\s*[:=]\s*)basic\s+[A-Za-z0-9+/=]{6,}")
+
 # A residual outside a few earlier known examples: a
 # secret-named key
 # whose value is itself a nested JSON object or array
@@ -177,6 +196,9 @@ def redact_secrets(text: str) -> str:
     result = re.sub(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----(?!.*-----END).*", _REDACTED, text, flags=re.DOTALL)
     result = _PEM_BLOCK_RE.sub(_REDACTED, result)
     result = _BEARER_RE.sub(f"Bearer {_REDACTED}", result)
+    result = _BASIC_AUTH_RE.sub(lambda m: f"{m.group(1)}Basic {_REDACTED}", result)
+    for shape in TOKEN_SHAPES:
+        result = shape.sub(_REDACTED, result)
     result = _URL_CREDENTIALS_RE.sub(lambda m: f"{m.group('scheme')}{m.group('user')}:{_REDACTED}@", result)
     result = _redact_nested_structured_values(result)
     result = _JSON_KEY_VALUE_RE.sub(lambda m: f"{m.group('key')}{_REDACTED}", result)

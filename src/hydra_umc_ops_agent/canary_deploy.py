@@ -20,6 +20,11 @@ and the upstream-remote reset in `_create_staging_clone()` now do real
 work, not just exist in name.
 
 Sequence, every step real:
+-1. Refuse unless the proposal carries a valid SIGNED approval: an Ed25519
+   signature by a registered approver over the exact diff, not expired, and
+   given for the commit the live checkout is on now (change_proposal.py).
+   Refuse a diff that touches the files that decide how a change is checked
+   (CI, build-test scripts, service units) unless the approver signed that.
 0. Refuse upfront if the live checkout has a real uncommitted edit to
    an already-tracked file - before any staging work at all.
 1. Clone the live checkout into an independent local staging directory
@@ -27,23 +32,30 @@ Sequence, every step real:
    touched yet), then reset that clone's own `origin` to the live
    checkout's real upstream (a plain `--local` clone would otherwise
    leave it pointing at the live path itself).
-2. Carry over the live checkout's own real untracked/ignored local data
-   (config, generated certificates, ... - never a build-artifact
-   directory) into the staging clone.
-3. Apply the approved proposal's own diff to that staging clone
+2. Apply the approved proposal's own diff to that staging clone
    (`git apply`) - if this fails, the live checkout was never touched.
+3. Carry over the live checkout's own real untracked/ignored local data
+   (config, generated certificates, ... - never a build-artifact
+   directory, at any depth) into the staging clone; a file the diff itself
+   adds or changes wins over a local file of the same name.
 4. Run the project's own real build-test command inside the staging
-   clone. A failure here is a real, expected possible outcome (that is
-   the whole point of staging first) - reported back, never raised as
+   clone, with a minimal environment (no tokens, keys or credentials of
+   the operator). A failure here is a real, expected possible outcome (that
+   is the whole point of staging first) - reported back, never raised as
    an exception, and the live checkout is still never touched.
-5. Only if that build passes: two back-to-back renames swap the staging
-   clone in for the live checkout, keeping the previous one at a real
-   `.backup-<id>` path - never deleted, matching HYDRA-UMC-UPDATER's own
-   promotion pattern. If the second rename fails, a best-effort self-heal
-   renames the backup back so a real installation still exists (shared
-   with UPDATER - a full transactional journal surviving a crash
-   in the narrow gap between the two renames is real, separate future
-   work this bounded mitigation does not attempt).
+5. Only if that build passes: with `service_unit` given, stop the service;
+   check again that the live checkout is still clean and copy its local data
+   once more (it may have changed during the build); then two back-to-back
+   renames swap the staging clone in for the live checkout, keeping the
+   previous one at a real `.backup-<id>` path - never deleted. A durable
+   promotion journal (the optional HYDRA-UMC-SDK one) records the swap so
+   `recover_interrupted_promotions()` can heal a crash between the renames.
+   If the second rename fails, a best-effort self-heal renames the backup
+   back so a real installation still exists.
+6. With `service_unit` / `health_url` given: start the service and wait for
+   its health check. If it does not become healthy in time, the previous
+   checkout is put back (the failed one is kept aside) and the service is
+   started again: stage `rolled_back`, `promoted` false.
 
 `deploy_canary()` refuses to run at all unless the given proposal's own
 `status` is already `approved` - this is the one check this whole module
@@ -51,21 +63,38 @@ exists to enforce, and it comes before anything else, every time.
 """
 from __future__ import annotations
 
+import json
 import os
+import re
 import shutil
 import signal
+import stat
 import subprocess
+import sys
 import tempfile
 import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Mapping, Sequence
 
-import json
-
+from .audit_journal import AuditJournalError, append_event
 from .change_proposal import STATUS_APPROVED, ChangeProposal, ChangeProposalError
+from .diff_policy import protected_paths_in, touched_paths as diff_touched_paths
+from .inventory import check_http_health, read_git_commit_hash, validate_unit_name
 from .log_redaction import redact_secrets
+
+try:  # optional: HYDRA-UMC-SDK's durable promotion journal (the `sdk` extra)
+    from hydra_umc_sdk.promotion_journal import PromotionJournal, PromotionPhase
+    from hydra_umc_sdk.promotion_journal import recover as _recover_promotions
+
+    _HAS_PROMOTION_JOURNAL = True
+except ImportError:  # pragma: no cover - depends on the environment
+    _HAS_PROMOTION_JOURNAL = False
+
+_PROMOTION_JOURNAL_NAME = ".hydra_umc_ops_agent_promotion_journal.json"
+_AUDIT_JOURNAL_NAME = ".hydra_umc_ops_agent_audit.jsonl"
 
 
 class CanaryDeployError(RuntimeError):
@@ -111,6 +140,15 @@ class ChangeNotApprovedError(CanaryDeployError):
     """The single most safety-critical check in this module - refuses to
     deploy anything that is not in the APPROVED status, no exceptions,
     regardless of how plausible the diff looks."""
+
+
+class ProtectedPathsError(CanaryDeployError):
+    """The diff touches files that decide how a change is checked or run
+    and the signed approval does not allow that."""
+
+
+class ServiceControlError(CanaryDeployError):
+    """The service could not be stopped before the swap; nothing was changed."""
 
 
 class StagingCloneError(CanaryDeployError):
@@ -171,7 +209,7 @@ def _read_tail(sink) -> str:
     return f"[... earlier output dropped, last {size - start} bytes kept ...]\n{text}" if start else text
 
 
-def _run(command: list[str], cwd: Path, timeout_s: float) -> tuple[int, str]:
+def _run(command: list[str], cwd: Path, timeout_s: float, env: Mapping[str, str] | None = None) -> tuple[int, str]:
     """Runs one real subprocess, capturing combined output (stdout and
     stderr interleaved, last `_OUTPUT_TAIL_BYTES` kept), honoring a real
     timeout - a canary build that hangs must never hang this process
@@ -191,7 +229,8 @@ def _run(command: list[str], cwd: Path, timeout_s: float) -> tuple[int, str]:
     with tempfile.TemporaryFile() as sink:
         try:
             proc = subprocess.Popen(
-                command, cwd=str(cwd), stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT, **options,
+                command, cwd=str(cwd), stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT,
+                env=None if env is None else dict(env), **options,
             )
         except (OSError, ValueError) as exc:
             return 127, f"could not run {command!r}: {exc}"
@@ -277,7 +316,7 @@ def _porcelain_entries(path: Path, *, ignored: bool, all_untracked: bool = False
     crashing the decode; a rename/copy entry carries its origin path as
     one extra NUL-separated field, which is skipped (the entry itself
     already names the path that exists now)."""
-    command = ["git", "status", "--porcelain", "-z"] + (["--ignored"] if ignored else []) + (["-uall"] if all_untracked else [])
+    command = ["git", "status", "--porcelain", "-z"] + (["--ignored=matching"] if ignored else []) + (["-uall"] if all_untracked else [])
     try:
         result = subprocess.run(command, cwd=str(path), check=False, capture_output=True, timeout=_GIT_TIMEOUT_S)
     except subprocess.TimeoutExpired as exc:
@@ -331,6 +370,14 @@ def _copy_local_entry(source: Path, destination: Path) -> None:
     symlink (a `data -> /mnt/storage` link must not turn into a copy of
     the whole volume), a directory is copied with its inner links kept."""
     if source.is_symlink():
+        if os.path.lexists(destination) and destination.is_symlink():
+            # Already linked by an earlier pass (the data is copied once before
+            # the build and once more just before the swap): replace the link
+            # of the staging clone, never follow it.
+            try:
+                destination.unlink()
+            except OSError:
+                return
         try:
             os.symlink(os.readlink(source), destination, target_is_directory=source.is_dir())
             return
@@ -340,12 +387,15 @@ def _copy_local_entry(source: Path, destination: Path) -> None:
             # The platform refused to create the link (Windows without the
             # privilege): fall through to copying what it points at.
     if source.is_dir():
-        shutil.copytree(source, destination, dirs_exist_ok=True, symlinks=True)
+        shutil.copytree(
+            source, destination, dirs_exist_ok=True, symlinks=True,
+            ignore=shutil.ignore_patterns(*_NEVER_CARRIED_OVER_DIR_NAMES),
+        )
     else:
         shutil.copy2(source, destination)
 
 
-def _carry_over_local_data(live_root: Path, staging_path: Path) -> None:
+def _carry_over_local_data(live_root: Path, staging_path: Path, skip: Sequence[str] = ()) -> None:
     """Copies every real untracked/ignored file or directory from
     `live_root` into `staging_path` before it is built/promoted -
     mirrors HYDRA-UMC-UPDATER's own `_carry_over_local_data()`
@@ -354,8 +404,15 @@ def _carry_over_local_data(live_root: Path, staging_path: Path) -> None:
     certificates, ...) is silently left behind in `.backup-*` on every
     canary promotion - the same real data-loss shape UPDATER itself
     used to have."""
+    skipped = [path.rstrip("/") for path in skip]
     for rel_path in _real_untracked_paths(live_root):
-        if rel_path.split("/")[0] in _NEVER_CARRIED_OVER_DIR_NAMES:
+        parts = rel_path.rstrip("/").split("/")
+        # Regenerable build output is skipped wherever it sits in the path.
+        if any(part in _NEVER_CARRIED_OVER_DIR_NAMES for part in parts):
+            continue
+        # A path the approved diff itself adds or changes is the diff's, not the live file's.
+        candidate = rel_path.rstrip("/")
+        if any(candidate == path or candidate.startswith(path + "/") or path.startswith(candidate + "/") for path in skipped):
             continue
         source = live_root / rel_path
         if not os.path.lexists(source):
@@ -375,7 +432,10 @@ def _create_staging_clone(live_root: Path, staging_parent: Path) -> Path:
     origin_code, origin_output = _run(["git", "remote", "get-url", "origin"], cwd=live_root, timeout_s=_GIT_TIMEOUT_S)
     real_origin_url = origin_output.strip() if origin_code == 0 else None
 
-    staging_path = staging_parent / f"ops-agent-canary-{uuid.uuid4().hex[:8]}"
+    # Hidden, so `edge collect` never reports it as a second copy of the
+    # project while a build runs, and private to the user running the deploy:
+    # it holds a copy of the live checkout's local data.
+    staging_path = staging_parent / f".ops-agent-canary-{uuid.uuid4().hex[:8]}"
     returncode, output = _run(
         ["git", "clone", "--local", "--no-hardlinks", str(live_root), str(staging_path)],
         cwd=staging_parent,
@@ -383,6 +443,11 @@ def _create_staging_clone(live_root: Path, staging_parent: Path) -> Path:
     )
     if returncode != 0 or not staging_path.is_dir():
         raise StagingCloneError(f"git clone --local --no-hardlinks of {live_root} failed (exit {returncode}): {output}")
+    if os.name != "nt":
+        try:
+            os.chmod(staging_path, 0o700)
+        except OSError:
+            pass
 
     # Real bug found while auditing CI: `_commit_applied_diff()` below
     # runs a real `git commit` against this clone, but a plain `git
@@ -418,12 +483,18 @@ def _create_staging_clone(live_root: Path, staging_parent: Path) -> Path:
         remote_code, remote_output = _run(
             ["git", "remote", "set-url", "origin", real_origin_url], cwd=staging_path, timeout_s=_GIT_TIMEOUT_S,
         )
-        if remote_code != 0:
-            _rmtree_best_effort(staging_path)
-            raise RemoteRestoreError(
-                f"could not restore the real upstream remote on the staging clone (exit {remote_code}): "
-                f"{remote_output}"
-            )
+    else:
+        # The live checkout has no upstream. The clone's `origin` would point
+        # at the live path - which becomes the backup after the swap - so
+        # later fetches would quietly "work" against a stale copy forever.
+        # Better no remote at all.
+        remote_code, remote_output = _run(["git", "remote", "remove", "origin"], cwd=staging_path, timeout_s=_GIT_TIMEOUT_S)
+    if remote_code != 0:
+        _rmtree_best_effort(staging_path)
+        raise RemoteRestoreError(
+            f"could not restore the real upstream remote on the staging clone (exit {remote_code}): "
+            f"{remote_output}"
+        )
     return staging_path
 
 
@@ -486,6 +557,18 @@ def _commit_applied_diff(staging_path: Path, touched_paths: list[str], *, deploy
         raise DiffCommitError(f"git commit failed against the staging clone (exit {commit_code}): {commit_output}")
 
 
+def _make_writable_and_retry(function, target, *_ignored) -> None:
+    """rmtree error handler: git writes its objects read-only, which makes the
+    removal of a clone that has had a commit made in it fail on Windows. Make
+    the file and its folder writable and try that one removal again."""
+    try:
+        os.chmod(target, stat.S_IRWXU)
+        os.chmod(os.path.dirname(target) or ".", stat.S_IRWXU)
+        function(target)
+    except OSError:
+        pass
+
+
 def _rmtree_best_effort(path: Path, *, attempts: int = 5, delay_s: float = 0.3) -> None:
     """Mirrors HYDRA-UMC-UPDATER's own install.py retry helper - a
     Windows antivirus/indexer can transiently hold a handle open on a
@@ -493,7 +576,12 @@ def _rmtree_best_effort(path: Path, *, attempts: int = 5, delay_s: float = 0.3) 
     never mask the real deploy result that already happened."""
     for attempt in range(attempts):
         try:
-            shutil.rmtree(path, ignore_errors=False)
+            if sys.version_info >= (3, 12):
+                shutil.rmtree(path, onexc=_make_writable_and_retry)
+            else:
+                shutil.rmtree(path, onerror=_make_writable_and_retry)
+            return
+        except FileNotFoundError:
             return
         except OSError:
             if attempt == attempts - 1:
@@ -512,6 +600,7 @@ class CanaryDeployResult:
     stage_reached: str
     build_output: str
     detail: str
+    backup_path: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -524,7 +613,59 @@ class CanaryDeployResult:
             "stageReached": self.stage_reached,
             "buildOutput": redact_secrets(self.build_output),
             "detail": self.detail,
+            "backupPath": self.backup_path,
         }
+
+
+# What a build-test command gets to see of the operator's environment. Everything
+# else - API keys, tokens, SSH agent sockets, cloud credentials - is left out, so
+# a build script (which the approved diff could change) cannot read or send them.
+_BUILD_ENV_KEEP = (
+    "PATH", "PATHEXT", "SYSTEMROOT", "SystemRoot", "WINDIR", "COMSPEC", "OS", "PROCESSOR_ARCHITECTURE",
+    "NUMBER_OF_PROCESSORS", "LANG", "LANGUAGE", "LC_ALL", "LC_CTYPE", "TZ", "TEMP", "TMP", "TMPDIR",
+)
+
+
+def build_environment(home: Path, allow: Sequence[str] = ()) -> dict[str, str]:
+    """The minimal environment of a build-test run: the variables a toolchain
+    cannot start without, a private empty HOME, and whatever names the operator
+    explicitly lists in `allow`."""
+    environment = {name: os.environ[name] for name in _BUILD_ENV_KEEP if name in os.environ}
+    environment["HOME"] = str(home)
+    environment["USERPROFILE"] = str(home)
+    for name in allow:
+        if name in os.environ:
+            environment[name] = os.environ[name]
+    return environment
+
+
+def _systemctl(action: str, unit: str, cwd: Path) -> tuple[int, str]:
+    return _run(["systemctl", action, "--", unit], cwd=cwd, timeout_s=60.0)
+
+
+def _wait_until_healthy(service_unit: str | None, health_url: str | None, timeout_s: float, cwd: Path) -> tuple[bool, str]:
+    """Polls the health URL (or, with none, `systemctl is-active`) until it
+    answers healthy or `timeout_s` has passed."""
+    deadline = time.monotonic() + timeout_s
+    detail = "no health check configured"
+    while True:
+        if health_url:
+            outcome = check_http_health(health_url, timeout_s=5.0)
+            healthy, detail = outcome.reachable, outcome.detail
+        elif service_unit:
+            code, output = _systemctl("is-active", service_unit, cwd)
+            healthy, detail = code == 0, output.strip() or f"systemctl is-active exited {code}"
+        else:
+            return True, detail
+        if healthy:
+            return True, detail
+        if time.monotonic() >= deadline:
+            return False, detail
+        time.sleep(min(2.0, max(0.1, deadline - time.monotonic())))
+
+
+def _audit(audit_path: Path, event: str, data: dict[str, object]) -> None:
+    append_event(audit_path, event, data)
 
 
 def deploy_canary(
@@ -532,8 +673,54 @@ def deploy_canary(
     *,
     live_root: Path,
     build_test_command: list[str],
+    approvers: Mapping[str, Any],
     staging_parent: Path | None = None,
     build_timeout_s: float = 600.0,
+    build_env_allow: Sequence[str] = (),
+    service_unit: str | None = None,
+    health_url: str | None = None,
+    health_timeout_s: float = 30.0,
+    audit_path: Path | None = None,
+    journal_path: Path | None = None,
+) -> CanaryDeployResult:
+    """Applies an approved proposal to a staged clone, verifies it and promotes
+    it. `approvers` is the registry of approvers' public keys (see
+    approval_signing.load_approvers): without a signature by one of them the
+    deploy refuses. The outcome is always written to the audit journal
+    (`audit_path`, by default a hidden file next to the checkout)."""
+    audit_path = audit_path or live_root.parent / _AUDIT_JOURNAL_NAME
+    try:
+        return _deploy_canary(
+            proposal, live_root=live_root, build_test_command=build_test_command, approvers=approvers,
+            staging_parent=staging_parent, build_timeout_s=build_timeout_s, build_env_allow=build_env_allow,
+            service_unit=service_unit, health_url=health_url, health_timeout_s=health_timeout_s,
+            audit_path=audit_path, journal_path=journal_path,
+        )
+    except CanaryDeployError as exc:
+        try:
+            _audit(audit_path, "deploy-refused", {
+                "proposalId": proposal.proposal_id, "projectName": proposal.project_name,
+                "liveRoot": str(live_root), "reason": str(exc)[:500],
+            })
+        except (AuditJournalError, OSError):
+            pass  # the refusal itself is what the caller reports; nothing was changed
+        raise
+
+
+def _deploy_canary(
+    proposal: ChangeProposal,
+    *,
+    live_root: Path,
+    build_test_command: list[str],
+    approvers: Mapping[str, Any],
+    staging_parent: Path | None,
+    build_timeout_s: float,
+    build_env_allow: Sequence[str],
+    service_unit: str | None,
+    health_url: str | None,
+    health_timeout_s: float,
+    audit_path: Path,
+    journal_path: Path | None,
 ) -> CanaryDeployResult:
     if proposal.status != STATUS_APPROVED:
         raise ChangeNotApprovedError(
@@ -542,13 +729,13 @@ def deploy_canary(
     if not live_root.is_dir():
         raise CanaryDeployError(f"live_root {live_root} is not a real directory")
 
-    # The approval's own content digest must still match this
-    # proposal's CURRENT project_name/diff - see
-    # verify_approval_content()'s own docstring. Then confirm the
-    # approved project_name is the one actually checked out here, not
-    # merely a string nothing ever cross-checked against reality.
+    # The approval must be a valid SIGNATURE of a registered approver over the
+    # proposal as it is today, not expired and given for this checkout's
+    # commit - a status field proves nothing, anyone able to write the file
+    # could set it. Then confirm the approved project_name is the one actually
+    # checked out here.
     try:
-        proposal.verify_approval_content()
+        proposal.verify_signed_approval(approvers, live_base_commit=read_git_commit_hash(live_root))
     except ChangeProposalError as exc:
         raise ApprovalInvalidError(str(exc)) from exc
     live_project_name = _read_live_project_name(live_root)
@@ -556,6 +743,12 @@ def deploy_canary(
         raise TargetProjectMismatchError(
             f"proposal {proposal.proposal_id} was approved for project {proposal.project_name!r}, "
             f"but {live_root} is really {live_project_name!r} - refusing to deploy a change to the wrong project"
+        )
+    protected = protected_paths_in(proposal.diff)
+    if protected and not proposal.allow_protected_paths:
+        raise ProtectedPathsError(
+            "the diff touches files that decide how a change is checked or run "
+            f"({', '.join(protected[:5])}) and the signed approval does not allow that"
         )
 
     # Refuse upfront, before any staging work, if the live
@@ -571,26 +764,44 @@ def deploy_canary(
 
     if not build_test_command or not all(isinstance(part, str) and part for part in build_test_command):
         raise CanaryDeployError("build_test_command must be a non-empty list of non-empty strings")
+    if service_unit is not None:
+        try:
+            validate_unit_name(service_unit)
+        except ValueError as exc:
+            raise CanaryDeployError(str(exc)) from exc
 
     deploy_id = str(uuid.uuid4())
     started_at = _utc_now_iso()
+    try:
+        _audit(audit_path, "deploy-start", {
+            "deployId": deploy_id, "proposalId": proposal.proposal_id, "projectName": proposal.project_name,
+            "approvedBy": proposal.decided_by, "diffSha256": proposal.approved_content_digest,
+            "liveRoot": str(live_root), "serviceUnit": service_unit,
+        })
+    except (AuditJournalError, OSError) as exc:
+        raise CanaryDeployError(f"could not write the audit journal {audit_path} - nothing was changed: {exc}") from exc
+
     staging_parent = staging_parent or live_root.parent
     staging_path = _create_staging_clone(live_root, staging_parent)
     stage_reached = "staged"
     keep_staging = False
+    service_stopped = False
     try:
-        # Carry over the live checkout's own real local data
-        # BEFORE the diff is applied/built - see _carry_over_local_data()'s
-        # own docstring. Done here (not merely before promotion) so the
-        # build-test command below sees the same real data the promoted
-        # checkout will actually run against.
-        _carry_over_local_data(live_root, staging_path)
         touched_paths = _apply_diff(staging_path, proposal.diff)
         stage_reached = "diff_applied"
+        # The diff first, then the live checkout's own local data: a file the
+        # diff adds or changes is the diff's, and a local file of the same name
+        # no longer makes `git apply` fail on "already exists".
+        # (The diff's own headers are consulted too: a new file that .gitignore
+        # ignores never shows up in `git status`.)
+        carry_over_skip = sorted(set(touched_paths) | set(diff_touched_paths(proposal.diff)))
+        _carry_over_local_data(live_root, staging_path, skip=carry_over_skip)
 
-        returncode, build_output = _run(build_test_command, cwd=staging_path, timeout_s=build_timeout_s)
+        with tempfile.TemporaryDirectory(prefix="ops-agent-home-") as home:
+            environment = build_environment(Path(home), build_env_allow)
+            returncode, build_output = _run(build_test_command, cwd=staging_path, timeout_s=build_timeout_s, env=environment)
         if returncode != 0:
-            return CanaryDeployResult(
+            result = CanaryDeployResult(
                 deploy_id=deploy_id,
                 proposal_id=proposal.proposal_id,
                 project_name=proposal.project_name,
@@ -601,6 +812,8 @@ def deploy_canary(
                 build_output=build_output,
                 detail=f"build verification failed (exit {returncode}) - the live checkout was never touched",
             )
+            _audit_result(audit_path, result)
+            return result
         stage_reached = "build_verified"
 
         # Commit the applied diff inside the staging clone BEFORE
@@ -610,20 +823,31 @@ def deploy_canary(
         _commit_applied_diff(staging_path, touched_paths, deploy_id=deploy_id, proposal_id=proposal.proposal_id)
         stage_reached = "diff_committed"
 
-        # Shared with HYDRA-UMC-UPDATER's own install.py;
-        # honest, bounded mitigation, not the full transactional
-        # journal/rollback the finding's own acceptance criteria
-        # describes - that needs designing once, shared by both
-        # implementations, as real, separate future work): each rename
-        # is individually atomic on the same filesystem, but a crash in
-        # the narrow gap between them would leave NO active checkout at
-        # all - the single worst outcome here. Best-effort self-heal: if
-        # the second rename fails, immediately try to rename backup_path
-        # back so a real installation still exists, rather than silently
-        # leaving the box with neither a live checkout nor a clear error
-        # about which path holds the real one.
+        # The build may have taken minutes. Stop the service (if one was named),
+        # then look again: a tracked file edited meanwhile stops the deploy, and
+        # local data written meanwhile is copied once more.
+        if service_unit:
+            code, output = _systemctl("stop", service_unit, live_root.parent)
+            if code != 0:
+                raise ServiceControlError(f"could not stop {service_unit} (exit {code}): {output.strip()} - nothing was changed")
+            service_stopped = True
+        dirty_now = _tracked_dirty_paths(live_root)
+        if dirty_now:
+            raise TrackedDirtyError(
+                f"{live_root} changed while the candidate was being built ({', '.join(dirty_now[:5])}) - "
+                "nothing was changed; deploy again once it is clean"
+            )
+        _carry_over_local_data(live_root, staging_path, skip=carry_over_skip)
+
         backup_path = live_root.parent / f"{live_root.name}.backup-{uuid.uuid4().hex[:8]}"
+        journal = None
+        record = None
+        if _HAS_PROMOTION_JOURNAL:
+            journal = PromotionJournal(journal_path or live_root.parent / _PROMOTION_JOURNAL_NAME)
+            record = journal.begin(live_root.name, live_root, staging_path, backup_path, health_check_url=health_url)
         live_root.rename(backup_path)
+        if journal and record:
+            journal.advance(record.promotion_id, PromotionPhase.BACKED_UP)
         try:
             staging_path.rename(live_root)
         except OSError as exc:
@@ -638,12 +862,56 @@ def deploy_canary(
                     f"promotion failed AND the self-heal restore also failed - {live_root} may not exist right now; "
                     f"the previous checkout should still be recoverable at {backup_path}: {exc}"
                 ) from exc
+            if journal and record:
+                journal.complete(record.promotion_id)
             raise CanaryDeployError(
                 f"promotion failed (exit path unavailable: {exc}) - restored the previous checkout at {live_root}; "
                 f"the verified candidate is still available at {staging_path} for manual inspection"
             ) from exc
+        if journal and record:
+            journal.advance(record.promotion_id, PromotionPhase.PROMOTED)
         stage_reached = "promoted"
-        return CanaryDeployResult(
+
+        if service_unit:
+            code, output = _systemctl("start", service_unit, live_root.parent)
+            service_stopped = False
+            healthy, health_detail = (False, f"could not start {service_unit}: {output.strip()}") if code != 0 else _wait_until_healthy(
+                service_unit, health_url, health_timeout_s, live_root.parent
+            )
+        elif health_url:
+            healthy, health_detail = _wait_until_healthy(None, health_url, health_timeout_s, live_root.parent)
+        else:
+            healthy, health_detail = True, "no health check configured"
+
+        if not healthy:
+            failed_path = live_root.parent / f"{live_root.name}.failed-{deploy_id[:8]}"
+            live_root.rename(failed_path)
+            backup_path.rename(live_root)
+            if journal and record:
+                journal.complete(record.promotion_id)
+            if service_unit:
+                _systemctl("start", service_unit, live_root.parent)
+            result = CanaryDeployResult(
+                deploy_id=deploy_id,
+                proposal_id=proposal.proposal_id,
+                project_name=proposal.project_name,
+                started_at=started_at,
+                finished_at=_utc_now_iso(),
+                promoted=False,
+                stage_reached="rolled_back",
+                build_output=build_output,
+                detail=(
+                    f"the promoted checkout did not become healthy ({health_detail}) - the previous checkout is back "
+                    f"at {live_root}; the failed one was kept at {failed_path}"
+                ),
+                backup_path=None,
+            )
+            _audit_result(audit_path, result)
+            return result
+
+        if journal and record:
+            journal.complete(record.promotion_id)
+        result = CanaryDeployResult(
             deploy_id=deploy_id,
             proposal_id=proposal.proposal_id,
             project_name=proposal.project_name,
@@ -652,8 +920,79 @@ def deploy_canary(
             promoted=True,
             stage_reached=stage_reached,
             build_output=build_output,
-            detail=f"promoted - the previous checkout was kept at {backup_path}, never deleted",
+            detail=f"promoted - the previous checkout was kept at {backup_path}, never deleted ({health_detail})",
+            backup_path=str(backup_path),
         )
+        _audit_result(audit_path, result)
+        return result
+    except CanaryDeployError:
+        if service_stopped and service_unit:
+            _systemctl("start", service_unit, live_root.parent)
+        raise
     finally:
         if stage_reached != "promoted" and not keep_staging:
             _rmtree_best_effort(staging_path)
+
+
+def _audit_result(audit_path: Path, result: CanaryDeployResult) -> None:
+    try:
+        _audit(audit_path, "deploy-finished", {
+            "deployId": result.deploy_id, "proposalId": result.proposal_id, "promoted": result.promoted,
+            "stageReached": result.stage_reached, "backupPath": result.backup_path, "detail": result.detail[:500],
+        })
+    except (AuditJournalError, OSError):
+        pass  # the deploy already happened; the start record is in the journal
+
+
+def recover_interrupted_promotions(projects_root: Path, journal_path: Path | None = None) -> list[str]:
+    """Heals a promotion this tool started and never finished (a crash, a
+    power cut between the two renames). Needs the optional SDK; without it
+    there is nothing durable to recover from and an empty list comes back."""
+    if not _HAS_PROMOTION_JOURNAL:
+        return []
+    return _recover_promotions(PromotionJournal(journal_path or projects_root / _PROMOTION_JOURNAL_NAME))
+
+
+_BACKUP_SUFFIX = re.compile(r"\.backup-[0-9a-f]{8}$")
+
+
+def list_backups(live_root: Path) -> list[Path]:
+    """The `<name>.backup-xxxxxxxx` folders next to `live_root`, newest first."""
+    found = [
+        candidate for candidate in live_root.parent.iterdir()
+        if candidate.is_dir() and candidate.name.startswith(live_root.name + ".backup-")
+        and _BACKUP_SUFFIX.search(candidate.name)
+    ]
+    return sorted(found, key=lambda candidate: candidate.stat().st_mtime, reverse=True)
+
+
+def rollback_deploy(live_root: Path, backup_path: Path | None = None) -> Path:
+    """Puts a backup back in place of `live_root` (the newest one unless one is
+    named). The checkout it replaces is kept beside it as
+    `<name>.rolledback-xxxxxxxx`; nothing is deleted. Returns the backup used."""
+    backups = list_backups(live_root)
+    chosen = backup_path if backup_path is not None else (backups[0] if backups else None)
+    if chosen is None:
+        raise CanaryDeployError(f"there is no backup of {live_root.name} next to it to roll back to")
+    if chosen not in backups:
+        raise CanaryDeployError(f"{chosen} is not a backup of {live_root.name} (expected {live_root.name}.backup-xxxxxxxx)")
+    set_aside = live_root.parent / f"{live_root.name}.rolledback-{uuid.uuid4().hex[:8]}"
+    try:
+        if live_root.exists():
+            live_root.rename(set_aside)
+        chosen.rename(live_root)
+    except OSError as exc:
+        raise CanaryDeployError(f"could not roll back {live_root}: {exc}") from exc
+    return chosen
+
+
+def prune_backups(live_root: Path, *, keep: int) -> list[Path]:
+    """Removes all but the newest `keep` backups of `live_root`; returns what was removed."""
+    if keep < 0:
+        raise CanaryDeployError("keep must not be negative")
+    removed: list[Path] = []
+    for old in list_backups(live_root)[keep:]:
+        _rmtree_best_effort(old)
+        if not old.exists():
+            removed.append(old)
+    return removed

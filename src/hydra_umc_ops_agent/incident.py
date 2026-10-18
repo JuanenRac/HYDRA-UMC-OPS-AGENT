@@ -67,7 +67,7 @@ class MaintenanceIncident:
     symptom: str
     evidence_refs: tuple[str, ...]
     redaction_level: str
-    requested_by: str
+    requested_by: str | None
     correlation_id: str
 
     def to_dict(self) -> dict[str, object]:
@@ -96,17 +96,32 @@ class MaintenanceIncident:
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> "MaintenanceIncident":
+        """Strict: a field of the wrong type is an error, not something quietly
+        turned into text (`null` used to become the string "None")."""
+
+        def text(key: str) -> str:
+            value = data[key]
+            if not isinstance(value, str):
+                raise TypeError(f"{key} must be a string, got {type(value).__name__}")
+            return value
+
+        requested_by = data["requestedBy"]
+        if requested_by is not None and not isinstance(requested_by, str):
+            raise TypeError(f"requestedBy must be a string or null, got {type(requested_by).__name__}")
+        refs = data.get("evidenceRefs", [])
+        if not isinstance(refs, list) or not all(isinstance(ref, str) for ref in refs):
+            raise TypeError("evidenceRefs must be a list of strings")
         return cls(
-            incident_id=str(data["incidentId"]),
-            source_node=str(data["sourceNode"]),
-            detected_at=str(data["detectedAt"]),
-            severity=str(data["severity"]),
-            component=str(data["component"]),
-            symptom=str(data["symptom"]),
-            evidence_refs=tuple(str(ref) for ref in data.get("evidenceRefs", [])),
-            redaction_level=str(data["redactionLevel"]),
-            requested_by=str(data["requestedBy"]),
-            correlation_id=str(data["correlationId"]),
+            incident_id=text("incidentId"),
+            source_node=text("sourceNode"),
+            detected_at=text("detectedAt"),
+            severity=text("severity"),
+            component=text("component"),
+            symptom=text("symptom"),
+            evidence_refs=tuple(refs),
+            redaction_level=text("redactionLevel"),
+            requested_by=requested_by,
+            correlation_id=text("correlationId"),
         )
 
 

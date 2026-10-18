@@ -5,9 +5,23 @@ version number follows this ecosystem's "odometer" scheme: PATCH +1 on
 every real build, rolling into MINOR past 9 (`0.0.9` -> `0.1.0`); MAJOR is
 bumped manually only. See `bump_version.py`.
 
-## Unreleased
+## [0.1.6] - Approvals are signatures; the deploy checks, restarts, rolls back and records itself
 
-(nothing yet)
+- **Signed approvals:** an approval used to be three fields of a JSON file (`status: approved`, a name and an unkeyed SHA-256 anyone could recompute), so whoever could write the proposal could approve it and get its diff and build script run. `control approve` now signs, with the approver's own Ed25519 private key, a statement of the proposal, the SHA-256 of the diff, who approves, until when (24 hours by default), the commit of the checkout it is for and whether protected paths are allowed. `deploy-canary` verifies it against a registry of approvers' *public* keys (`--approvers`) and refuses an unsigned or hand-edited approval, a signature by another key, a changed diff, an expired approval and a different commit. New `control keygen`; `approve` shows the diff and asks (or takes `--yes`). Needs the `signing` extra (`cryptography`).
+- **The build runs with a minimal environment:** the build-test used to inherit the operator's whole environment (API keys, tokens, agent sockets). It now gets only what a toolchain needs, an empty private `HOME`, and the names given with `--build-env-allow`. A diff that touches CI workflows, build-test scripts, service units, provisioning scripts or the project's bump scripts is refused unless the proposal says so and the approver signs it, and a diff over 256 KiB is refused.
+- **Health, service and rollback:** `--service-unit` stops the service before the swap and starts it after; `--health-url` (or `systemctl is-active`) must answer healthy or the previous checkout is put back (the failed one is kept as `.failed-<id>`) and the result is `rolled_back`. New `control rollback`, `control prune-backups` and `control recover`. The swap is recorded in the SDK's durable promotion journal when the `sdk` extra is installed. Before the swap the checkout is checked again for edits made during the build and its local data is copied once more.
+- **Audit journal:** every proposal, approval, rejection, deploy (and refusal), rollback and prune is appended to a hash-chained journal; `control audit-verify` finds a removed or edited entry. A deploy that cannot write its start record does not happen.
+- **Verification on the right host:** `control verify` takes `--node-name` and refuses an incident raised on another node (it used to check this machine's localhost and systemd and could "resolve" an outage of a different one). A URL stored with a redacted password is no longer checked as `[REDACTED]` (it crashed on some Python versions, and sent that text as the password otherwise): give the real one with `--health-url`. An empty `base_commit:` is no evidence, and a comparison the SDK rejects is a verification error, not a traceback.
+- **Unit names:** a systemd unit that starts with `-` (`--version`, `--host=...`) was taken by `systemctl` for an option and could close an incident falsely. Names are validated and `--` is passed.
+- **Diff secret check:** the detector refused ordinary code (`def login(user, password=None)`, `tokens = 5`, `PWD=/home`), blocking exactly the fixes that matter most. It now looks only at lines the diff adds and only at things shaped like a real secret: known token formats, private keys, passwords in URLs, long literals assigned to a secret-named key.
+- **Redaction:** bare tokens (GitHub, Anthropic, OpenAI, AWS, Slack, JWT) and `Authorization: Basic ...` headers are redacted in logs and snapshots.
+- **Staging and scanning:** the staging clone is hidden and private (`.ops-agent-canary-<id>`), so `edge collect` no longer lists it as a second copy of the project; the scan skips hidden folders and `.rolledback-`/`.failed-` copies. A checkout without an upstream gets no remote instead of one pointing at the backup. Local data is carried over skipping build output at any depth, and a file the diff adds wins over a local file of the same name instead of failing `git apply`.
+- **Incident store:** a store that is not UTF-8 is an error line; load, reconcile and save run under a lock so two simultaneous `edge collect` runs cannot erase each other's counters; an ongoing incident takes the correlation id of the latest pass (as the contract says); two observations of one component in a pass count once; `requestedBy: null` stays null and wrongly typed fields are refused.
+- **Health bodies:** a 2xx health answer whose JSON says `"status": "degraded"` or `...Healthy: false` is reported unhealthy.
+- **Diagnosis:** the incident is fenced as untrusted evidence in the prompt, each field is cut at 600 characters, provider requests have a timeout and bounded retries, and the model can be set with `OPS_AGENT_ANTHROPIC_MODEL` / `OPS_AGENT_OPENAI_MODEL` (the default id has never been confirmed against the live API).
+- **Scripts and CI:** the build compiles every module instead of seven; the CI step has its own name, installs the SDK extra so the SDK tests run, and runs `ruff`; the SDK extra is pinned to a commit; the demo no longer scans the folder above the project (it uses a throwaway sample project, or `OPS_AGENT_DEMO_ROOT`).
+- **Documentation:** the README in eight languages, the CLI reference, the change lifecycle, the incident contract, the security policy and the maturity criteria describe what the code does today (the real `control show` output, the signed approval, where each command must run, the real limits).
+- 305 tests (about a hundred new ones): signed approvals and each way to defeat them, the diff policy, the environment, service and rollback paths with a faked `systemctl`, the audit chain, verification on the wrong node, unit names, bare-token redaction and the store under concurrency.
 
 ## [0.1.5] - Credentialed health URLs, renames, bounded builds, atomic stores
 
@@ -147,9 +161,9 @@ transport between them yet. Also refreshed the stale v0.0.8 status line
 to the current v0.0.9 in every README. Documents the real, current
 state of what's implemented vs. planned; no behavior changed.
 
-## [0.0.8] - F08: a real, single diagnose-to-closure chain test + a real bug it found
+## [0.0.8] - A real, single diagnose-to-closure chain test + a real bug it found
 
-Every F08 stage already had its own isolated real CLI round-trip test,
+Every stage already had its own isolated real CLI round-trip test,
 but no single test threaded ONE real incident through diagnose ->
 propose -> approve -> deploy-canary -> re-verified closure in order.
 New

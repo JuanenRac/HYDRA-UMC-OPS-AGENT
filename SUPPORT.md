@@ -27,11 +27,11 @@ and its full, real output.
 
 ## ❌ What is NOT support?
 
-- This is Delivery 1 (read-only observability) of a 6-delivery plan - it
-  cannot yet invoke an AI provider, propose or apply a patch, or deploy
-  anything. Please do not open an Issue asking it to do something a later
-  delivery has not shipped yet; see the README's own Roadmap section for
-  what is planned and when.
+- Deliveries 1-5 of a 6-delivery plan exist (evidence, diagnosis,
+  human-approved change, canary deploy, verification). Delivery 6
+  (voice/notification) does not, and is blocked rather than postponed. Please
+  do not open an Issue asking for something a later delivery has not shipped;
+  see the README's own Roadmap section for what is planned.
 - This project coordinates other real HYDRA-UMC/URTC projects
   (HYDRA-UMC-OS, HYDRA-UMC-UPDATER, HYDRA-UMC-SDK, etc.) - a real bug
   inside one of THOSE projects' own code belongs on their own issue

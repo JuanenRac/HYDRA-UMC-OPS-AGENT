@@ -38,9 +38,10 @@ jobs:
               py_compile.compile(str(path), doraise=True)
           print(f"PYTHON_SYNTAX=PASS files={len(files)}")
           PY
-      - name: Validate Updater manifest and discovery tests
+      - name: Ops agent tests (with the SDK extra, so the manifest re-check and the promotion journal run)
         run: |
-          python -m pip install ".[dev]"
+          python -m pip install ".[dev,sdk]"
+          ruff check --select E9,F src tests tools
           PYTHONPATH=src python -m pytest tests -q
       - name: Validate v1 SDK contract fixtures
         if: ${{ hashFiles('clients/python/tests/test_validation.py') != '' }}

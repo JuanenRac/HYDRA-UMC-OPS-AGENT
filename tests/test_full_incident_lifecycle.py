@@ -3,7 +3,7 @@
 # Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
 # GPL-3.0 - see LICENSE
 # =============================================================================
-"""F08 ("Diagnostico OPS -> incidente saneado -> propuesta ligada a
+"""The full chain ("Diagnostico OPS -> incidente saneado -> propuesta ligada a
 hash/revision -> pruebas -> aprobacion -> staging UPDATER ->
 verificacion -> cierre o rollback") - found while auditing the code, with a
 real gap: every stage already had its own real CLI round-trip test
@@ -27,6 +27,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
+from _approvals import write_key_files
 from hydra_umc_ops_agent import cli
 from hydra_umc_ops_agent.cli import main
 from hydra_umc_ops_agent.diagnosis import DiagnosisResult
@@ -59,13 +60,14 @@ def _git(args: list[str], cwd: Path) -> None:
 
 
 class FullIncidentLifecycleTests(unittest.TestCase):
-    """One real incident, threaded through every real F08 stage in order,
+    """One real incident, threaded through every real stage in order,
     with a real re-collection proving closure at the end - not each
     stage's own isolated fixture."""
 
     def setUp(self):
         self._tmp = TemporaryDirectory()
         self.root = Path(self._tmp.name)
+        self.key_path, self.registry_path = write_key_files(self.root)
         self.projects_root = self.root / "projects"
         self.projects_root.mkdir()
         self.live_root = self.projects_root / "broken-project"
@@ -135,7 +137,7 @@ class FullIncidentLifecycleTests(unittest.TestCase):
         self.assertEqual(proposal["incidentId"], incident_id)
 
         # 4. Aprobacion.
-        exit_code = main(["control", "approve", str(proposal_file), "--approved-by", "Juan Enrique"])
+        exit_code = main(["control", "approve", str(proposal_file), "--approved-by", "Juan Enrique", "--key", self.key_path, "--any-commit", "--yes"])
         self.assertEqual(exit_code, 0)
         self.assertEqual(json.loads(proposal_file.read_text(encoding="utf-8"))["status"], "approved")
 
@@ -146,6 +148,7 @@ class FullIncidentLifecycleTests(unittest.TestCase):
         exit_code = main([
             "control", "deploy-canary", str(proposal_file),
             "--live-root", str(self.live_root),
+            "--approvers", self.registry_path,
             "--build-test-command", f"{sys.executable} -c \"{_MANIFEST_VALIDATOR}\"",
             "--out", str(deploy_result_file),
         ])
@@ -190,12 +193,13 @@ class FullIncidentLifecycleTests(unittest.TestCase):
             "--project-name", "broken-project", "--description", "typo'd field name",
             "--diff-file", str(diff_file), "--rationale", "x", "--out", str(proposal_file),
         ])
-        main(["control", "approve", str(proposal_file), "--approved-by", "Juan Enrique"])
+        main(["control", "approve", str(proposal_file), "--approved-by", "Juan Enrique", "--key", self.key_path, "--any-commit", "--yes"])
 
         deploy_result_file = self.root / "deploy-result.json"
         exit_code = main([
             "control", "deploy-canary", str(proposal_file),
             "--live-root", str(self.live_root),
+            "--approvers", self.registry_path,
             "--build-test-command", f"{sys.executable} -c \"{_MANIFEST_VALIDATOR}\"",
             "--out", str(deploy_result_file),
         ])

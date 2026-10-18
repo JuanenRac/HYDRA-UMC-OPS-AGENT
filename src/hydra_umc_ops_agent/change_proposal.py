@@ -9,6 +9,14 @@ happens to it. This module never applies a diff to anything - it only
 ever creates, approves, or rejects a real, stored proposal record. See
 canary_deploy.py (Delivery 4), which refuses to run against anything
 that is not in the APPROVED status this module alone can set.
+
+An approval is a signature, not a field. `approve_change()` signs, with the
+approver's own Ed25519 private key, a statement of exactly what is approved
+(see approval_signing.py), and `verify_signed_approval()` - which the deploy
+runs first - accepts it only if the signature checks out against the registry
+of approvers' public keys, has not expired, still matches the diff, and was
+given for the commit the checkout is on now. Editing the JSON file by hand
+therefore cannot produce an approval.
 """
 from __future__ import annotations
 
@@ -17,15 +25,21 @@ import json
 import re
 import uuid
 from dataclasses import dataclass, replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any, Mapping
 
+from . import approval_signing
 from ._atomic import atomic_write_text
+from .diff_policy import MAX_DIFF_BYTES, diff_looks_secret_shaped, protected_paths_in
 from .log_redaction import redact_secrets
 
 STATUS_PENDING = "pending"
 STATUS_APPROVED = "approved"
 STATUS_REJECTED = "rejected"
+
+#: How long an approval stays valid unless the approver says otherwise.
+DEFAULT_APPROVAL_VALIDITY = timedelta(hours=24)
 
 # A real unified diff always has one of these - `git apply` (canary_deploy.py's
 # own consumer) would reject anything else anyway, but rejecting it HERE,
@@ -38,6 +52,14 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def _parse_time(value: str) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+
+
 class ChangeProposalError(RuntimeError):
     """Base for every real, distinct failure this module can report."""
 
@@ -46,16 +68,28 @@ class InvalidDiffError(ChangeProposalError):
     """The supplied diff text does not look like a real unified diff."""
 
 
+class DiffTooLargeError(InvalidDiffError):
+    """The diff is larger than a hot fix may be."""
+
+
+class ProtectedPathError(InvalidDiffError):
+    """The diff touches files that decide how a change is verified or run
+    (CI workflows, build-test scripts, service units, provisioning scripts)
+    and the proposal did not say so explicitly."""
+
+
 class SecretShapedDiffError(ChangeProposalError):
-    """A diff that looks like it contains a real secret
-    (log_redaction.py's own detectors - a JSON/URL-credential/PEM
-    shape) is refused outright at proposal time, instead of being
-    silently accepted and then redacted-in-place later - redacting the
-    one field that must round-trip byte-for-byte for `git apply` to
-    stay a faithful preview of what was actually reviewed is exactly
-    the bug this refusal exists to prevent. Remove the real secret from
-    the diff (it belongs in a secrets manager/environment variable, not
-    committed at all) before proposing this change."""
+    """A diff whose added lines hold something with the shape of a real secret
+    (a known token format, a private key, a password in a URL, a long literal
+    assigned to a secret-named key) is refused outright at proposal time,
+    instead of being silently accepted and then redacted-in-place later -
+    redacting the one field that must round-trip byte-for-byte for `git apply`
+    to stay a faithful preview of what was actually reviewed is exactly the
+    bug this refusal exists to prevent. Remove the real secret from the diff
+    (it belongs in a secrets manager/environment variable, not committed at
+    all) before proposing this change. Ordinary source code that merely
+    mentions a password (a parameter, a read from the environment) is not
+    refused."""
 
 
 class ProposalLoadError(ChangeProposalError):
@@ -70,9 +104,25 @@ class InvalidTransitionError(ChangeProposalError):
     overwrite the first."""
 
 
-def _validate_diff_text(diff_text: str) -> None:
+class ApprovalContentMismatchError(ChangeProposalError):
+    """The proposal's current project/diff no longer match what was approved,
+    or the approval carries nothing to compare against. A saved proposal file
+    is mutable JSON: editing `projectName`/`diff` after approval while leaving
+    `status: "approved"` untouched must never get a reviewed change applied to
+    something else."""
+
+
+class ApprovalSignatureError(ChangeProposalError):
+    """The approval is not backed by a valid signature of a registered
+    approver: it is unsigned, signed by an unknown or different key, expired,
+    or given for another commit than the checkout is on."""
+
+
+def _validate_diff_text(diff_text: str, *, allow_protected_paths: bool) -> None:
     if not diff_text.strip():
         raise InvalidDiffError("diff text is empty")
+    if len(diff_text.encode("utf-8")) > MAX_DIFF_BYTES:
+        raise DiffTooLargeError(f"diff is larger than {MAX_DIFF_BYTES} bytes - a hot fix must be smaller than that")
     if not _DIFF_HEADER_RE.search(diff_text):
         raise InvalidDiffError(
             "diff text does not look like a real unified diff (expected a '--- ' / '+++ ' / 'diff --git ' header line)"
@@ -80,10 +130,20 @@ def _validate_diff_text(diff_text: str) -> None:
     # Reject a secret-shaped diff HERE, before it is ever
     # stored - see SecretShapedDiffError's own docstring for why this
     # replaces redacting it after the fact.
-    if redact_secrets(diff_text) != diff_text:
+    if diff_looks_secret_shaped(diff_text):
         raise SecretShapedDiffError(
-            "diff text looks like it contains a real secret (a JSON/URL-credential/PEM shape) - "
-            "remove it before proposing this change; a diff must round-trip byte-for-byte once approved"
+            "a line this diff adds looks like it holds a real secret (a token, a private key, a password in a URL "
+            "or a long literal assigned to a secret-named key) - remove it before proposing this change; "
+            "a diff must round-trip byte-for-byte once approved"
+        )
+    protected = protected_paths_in(diff_text)
+    if protected and not allow_protected_paths:
+        raise ProtectedPathError(
+            "this diff touches files that decide how a change is verified or run ("
+            + ", ".join(protected[:5])
+            + (f" +{len(protected) - 5} more" if len(protected) > 5 else "")
+            + ") - a change must not rewrite the check that judges it; propose it with allow_protected_paths "
+            "(--allow-protected-paths) if that is really intended, and the approver signs that decision"
         )
 
 
@@ -93,23 +153,12 @@ def _content_digest(project_name: str, diff: str) -> str:
     patch it applies. Deliberately excludes description/rationale
     (commentary, never applied) so editing those after approval (e.g.
     fixing a typo in the human-readable rationale) doesn't spuriously
-    invalidate a real approval - see approve_change()'s own docstring
-    for what this binds and why."""
+    invalidate a real approval."""
     return hashlib.sha256(f"{project_name}\n{diff}".encode("utf-8")).hexdigest()
 
 
-class ApprovalContentMismatchError(ChangeProposalError):
-    """An
-    approval's own `status == "approved"` used to be the ONLY thing
-    deploy_canary() checked - nothing tied that approval to the exact
-    project or diff a human actually reviewed. A saved proposal file is
-    real, mutable JSON on disk: editing `projectName`/`diff` after
-    approval while leaving `status: "approved"` untouched used to let a
-    reviewed-and-approved change for one project get silently applied
-    to a completely different one. Raised whenever the proposal's
-    current project_name/diff no longer match the real digest that was
-    computed and stored at the moment of approval - editing the
-    approved content invalidates the approval outright."""
+def _diff_sha256(diff: str) -> str:
+    return hashlib.sha256(diff.encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -130,19 +179,37 @@ class ChangeProposal:
     decided_by: str | None = None
     decided_at: str | None = None
     decision_reason: str | None = None
-    # Set only by approve_change(), a real SHA-256 over the
-    # exact project_name+diff that were true at the moment of approval
-    # - see _content_digest()'s own docstring. None for a proposal that
-    # was never approved (pending/rejected).
+    # SHA-256 over the project_name+diff true at the moment of approval.
     approved_content_digest: str | None = None
+    # The proposal explicitly allows the diff to touch protected paths; part of
+    # what the approver signs.
+    allow_protected_paths: bool = False
+    # Set only by approve_change(): until when the approval holds, the commit
+    # of the checkout it was given for (None: any commit), and the Ed25519
+    # signature over all of it.
+    approval_expires_at: str | None = None
+    approved_base_commit: str | None = None
+    approval_signature: str | None = None
+
+    def _envelope(self) -> dict[str, Any]:
+        """The statement the approver signs - rebuilt from the CURRENT values
+        of the proposal, so a field edited after approval no longer matches."""
+        return {
+            "proposalId": self.proposal_id,
+            "incidentId": self.incident_id,
+            "projectName": self.project_name,
+            "diffSha256": _diff_sha256(self.diff),
+            "approvedBy": self.decided_by,
+            "decidedAt": self.decided_at,
+            "expiresAt": self.approval_expires_at,
+            "baseCommit": self.approved_base_commit,
+            "allowProtectedPaths": self.allow_protected_paths,
+        }
 
     def verify_approval_content(self) -> None:
         """Raises ApprovalContentMismatchError unless this proposal's
         CURRENT project_name/diff still match the digest recorded at
-        the moment of approval - see ApprovalContentMismatchError's own
-        docstring. canary_deploy.py calls this before doing anything
-        else, in addition to (never instead of) the existing
-        status == approved check."""
+        the moment of approval."""
         if self.status != STATUS_APPROVED:
             return  # not this check's concern - ChangeNotApprovedError already owns that
         if self.approved_content_digest is None:
@@ -160,24 +227,59 @@ class ChangeProposal:
                 "the approved content changed after approval; a new approval is required"
             )
 
+    def verify_signed_approval(
+        self,
+        approvers: Mapping[str, Any],
+        *,
+        live_base_commit: str | None = None,
+        now: datetime | None = None,
+    ) -> None:
+        """Raises unless this proposal carries a valid signed approval: the
+        content digest still matches, an approver named in the registry
+        signed exactly the current envelope, the approval has not expired,
+        and - when it was given for a particular commit - `live_base_commit`
+        is that commit. Raises ApprovalContentMismatchError or
+        ApprovalSignatureError (both ChangeProposalError)."""
+        self.verify_approval_content()
+        if self.status != STATUS_APPROVED:
+            raise ApprovalSignatureError(f"proposal {self.proposal_id} is {self.status!r}, not approved")
+        if not self.approval_signature or not self.decided_by or not self.decided_at or not self.approval_expires_at:
+            raise ApprovalSignatureError(
+                f"proposal {self.proposal_id} carries no signed approval - an approval made by editing "
+                "the file, or before approvals were signed, is not accepted; approve it again with `control approve`"
+            )
+        public_key = approvers.get(self.decided_by)
+        if public_key is None:
+            raise ApprovalSignatureError(
+                f"{self.decided_by!r} is not a registered approver (registered: {', '.join(sorted(approvers)) or 'none'})"
+            )
+        if not approval_signing.verify_envelope(public_key, self._envelope(), self.approval_signature):
+            raise ApprovalSignatureError(
+                f"the signature on proposal {self.proposal_id} is not a valid signature by {self.decided_by!r} "
+                "of what the proposal says today - it was altered after approval or signed with another key"
+            )
+        expires = _parse_time(self.approval_expires_at)
+        current_time = now or datetime.now(timezone.utc)
+        if expires is None or current_time > expires:
+            raise ApprovalSignatureError(
+                f"the approval of proposal {self.proposal_id} expired at {self.approval_expires_at}; approve it again"
+            )
+        if self.approved_base_commit is not None and live_base_commit != self.approved_base_commit:
+            raise ApprovalSignatureError(
+                f"proposal {self.proposal_id} was approved for commit {self.approved_base_commit[:12]}, but the checkout "
+                f"is at {live_base_commit[:12] if live_base_commit else 'an unknown commit'} - approve it again for this state"
+            )
+
     def to_dict(self) -> dict[str, object]:
-        # This
-        # dict is not just a display view - save_proposal()/load_proposal()
+        # This dict is not just a display view - save_proposal()/load_proposal()
         # round-trip THROUGH it, and canary_deploy.py's own _apply_diff()
         # later runs `git apply` on whatever `.diff` comes back out.
-        # Redacting `diff` here used to mean a real, approved proposal's
-        # own patch silently changed bytes the moment it was saved -
-        # `loaded.diff != proposal.diff` - which could invalidate the
-        # patch's own context or, worse, still apply cleanly against
-        # DIFFERENT lines than the ones a human actually reviewed and
-        # approved. `diff` is the immutable, applicable artifact and must
-        # round-trip byte-for-byte - see propose_change()'s own new
-        # secret-shaped-diff refusal for how a real secret is kept out of
-        # it in the first place, instead of being redacted after the
-        # fact. `description`/`rationale`/`decisionReason` are pure
-        # human-readable commentary nothing ever applies literally, so
-        # redacting THOSE for display remains real, harmless
-        # defense-in-depth.
+        # `diff` is the immutable, applicable artifact and must round-trip
+        # byte-for-byte - see propose_change()'s secret-shaped-diff refusal
+        # for how a real secret is kept out of it in the first place.
+        # `description`/`rationale`/`decisionReason` are pure human-readable
+        # commentary nothing ever applies literally, so redacting THOSE for
+        # display remains real, harmless defense-in-depth.
         return {
             "proposalId": self.proposal_id,
             "incidentId": self.incident_id,
@@ -192,24 +294,50 @@ class ChangeProposal:
             "decidedAt": self.decided_at,
             "decisionReason": redact_secrets(self.decision_reason) if self.decision_reason else self.decision_reason,
             "approvedContentDigest": self.approved_content_digest,
+            "allowProtectedPaths": self.allow_protected_paths,
+            "approvalExpiresAt": self.approval_expires_at,
+            "approvedBaseCommit": self.approved_base_commit,
+            "approvalSignature": self.approval_signature,
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> "ChangeProposal":
+        def required_text(key: str) -> str:
+            value = data[key]
+            if not isinstance(value, str):
+                raise ProposalLoadError(f"{key} must be a string, got {type(value).__name__}")
+            return value
+
+        def optional_text(key: str) -> str | None:
+            value = data.get(key)
+            if value is not None and not isinstance(value, str):
+                raise ProposalLoadError(f"{key} must be a string or null, got {type(value).__name__}")
+            return value
+
+        allow_protected = data.get("allowProtectedPaths", False)
+        if not isinstance(allow_protected, bool):
+            raise ProposalLoadError("allowProtectedPaths must be true or false")
+        status = data.get("status", STATUS_PENDING)
+        if status not in (STATUS_PENDING, STATUS_APPROVED, STATUS_REJECTED):
+            raise ProposalLoadError(f"status must be pending, approved or rejected, got {status!r}")
         return cls(
-            proposal_id=str(data["proposalId"]),
-            incident_id=str(data["incidentId"]),
-            correlation_id=str(data["correlationId"]),
-            created_at=str(data["createdAt"]),
-            project_name=str(data["projectName"]),
-            description=str(data["description"]),
-            diff=str(data["diff"]),
-            rationale=str(data["rationale"]),
-            status=str(data.get("status", STATUS_PENDING)),
-            decided_by=data.get("decidedBy"),
-            decided_at=data.get("decidedAt"),
-            decision_reason=data.get("decisionReason"),
-            approved_content_digest=data.get("approvedContentDigest"),
+            proposal_id=required_text("proposalId"),
+            incident_id=required_text("incidentId"),
+            correlation_id=required_text("correlationId"),
+            created_at=required_text("createdAt"),
+            project_name=required_text("projectName"),
+            description=required_text("description"),
+            diff=required_text("diff"),
+            rationale=required_text("rationale"),
+            status=str(status),
+            decided_by=optional_text("decidedBy"),
+            decided_at=optional_text("decidedAt"),
+            decision_reason=optional_text("decisionReason"),
+            approved_content_digest=optional_text("approvedContentDigest"),
+            allow_protected_paths=allow_protected,
+            approval_expires_at=optional_text("approvalExpiresAt"),
+            approved_base_commit=optional_text("approvedBaseCommit"),
+            approval_signature=optional_text("approvalSignature"),
         )
 
 
@@ -221,12 +349,13 @@ def propose_change(
     description: str,
     diff: str,
     rationale: str,
+    allow_protected_paths: bool = False,
 ) -> ChangeProposal:
     """Creates a new, real PENDING proposal. Every field is required and
     non-empty - a proposal a human is about to review is not allowed to
     have a blank rationale or description, and its diff must already
     look like a real unified diff."""
-    _validate_diff_text(diff)
+    _validate_diff_text(diff, allow_protected_paths=allow_protected_paths)
     for field_name, value in (
         ("incident_id", incident_id),
         ("correlation_id", correlation_id),
@@ -245,24 +374,46 @@ def propose_change(
         description=description,
         diff=diff,
         rationale=rationale,
+        allow_protected_paths=allow_protected_paths,
     )
 
 
-def approve_change(proposal: ChangeProposal, *, approved_by: str) -> ChangeProposal:
+def approve_change(
+    proposal: ChangeProposal,
+    *,
+    approved_by: str,
+    signing_key: Any,
+    base_commit: str | None = None,
+    valid_for: timedelta = DEFAULT_APPROVAL_VALIDITY,
+    now: datetime | None = None,
+) -> ChangeProposal:
+    """Approves a pending proposal by signing it. `approved_by` must be the
+    name under which the approver's public key is registered, `signing_key`
+    is that person's Ed25519 private key (see approval_signing.py), and
+    `base_commit` is the commit of the checkout the approval is for (None:
+    valid for any commit - weaker, and said so in the signed statement)."""
     if proposal.status != STATUS_PENDING:
         raise InvalidTransitionError(
             f"cannot approve proposal {proposal.proposal_id} - status is {proposal.status!r}, not {STATUS_PENDING!r}"
         )
     if not approved_by or not approved_by.strip():
         raise ChangeProposalError("approved_by must not be empty - an approval must be attributable to a real person")
-    # Bind this approval to exactly the project/diff a human
-    # reviewed right now - see _content_digest()/ApprovalContentMismatchError's
-    # own docstrings.
-    digest = _content_digest(proposal.project_name, proposal.diff)
-    return replace(
-        proposal, status=STATUS_APPROVED, decided_by=approved_by, decided_at=_utc_now_iso(), decision_reason=None,
-        approved_content_digest=digest,
+    if valid_for <= timedelta(0):
+        raise ChangeProposalError("an approval must stay valid for a positive amount of time")
+    current_time = now or datetime.now(timezone.utc)
+    approved = replace(
+        proposal,
+        status=STATUS_APPROVED,
+        decided_by=approved_by,
+        decided_at=current_time.isoformat(timespec="seconds"),
+        decision_reason=None,
+        # Bind this approval to exactly the project/diff a human reviewed right now.
+        approved_content_digest=_content_digest(proposal.project_name, proposal.diff),
+        approval_expires_at=(current_time + valid_for).isoformat(timespec="seconds"),
+        approved_base_commit=base_commit,
     )
+    signature = approval_signing.sign_envelope(signing_key, approved._envelope())
+    return replace(approved, approval_signature=signature)
 
 
 def reject_change(proposal: ChangeProposal, *, rejected_by: str, reason: str) -> ChangeProposal:

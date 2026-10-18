@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="Ruoli edge e control-plane">
 </p>
 
-> **Stato: v0.1.5, scaffolding - Consegne 1-5 di 6 (evidenza, diagnosi,
+> **Stato: v0.1.6, functional - Consegne 1-5 di 6 (evidenza, diagnosi,
 > cambiamento approvato da una persona, distribuzione canary,
 > verifica).** Ogni sottocomando è reale e testato end to end - `control
 > diagnose` contro un provider di IA simulato (qualsiasi provider reale
@@ -29,7 +29,7 @@
 > [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md) per la superficie di
 > comandi esatta che esiste oggi.
 
-**Controllo di onestà - cosa funziona davvero oggi:** le cinque consegne già rilasciate - evidenza (`inventory.py`, `edge_agent.py`, `incident.py`), diagnosi (`diagnosis.py`), modifica approvata da un umano (`change_proposal.py`), deploy canary (`canary_deploy.py`), e verifica (`verification.py`), più il confine di redazione (`log_redaction.py`) e la CLI (`cli.py`) - sono reali e testate end-to-end (202 test più 6 subtest superati nei tutti gli 12 file di test). La fase di deploy canary è realmente esercitata contro un vero repository git locale usa-e-getta, non un mock. La diagnosi viene testata solo contro un `AIProvider` simulato - `AnthropicProvider`/`OpenAIProvider` sono vere implementazioni dello stesso protocollo, ma nessuna delle due è stata esercitata contro una vera chiamata live all'API di Anthropic o OpenAI in questa suite di test (nessuna chiave disponibile in questo ambiente). I ruoli edge e control-plane oggi comunicano solo tramite un file di snapshot salvato - non esiste ancora un trasporto di rete tra loro. La Consegna 6 (voce/notifiche) è genuinamente bloccata, non semplicemente rimandata: HYDRA-UMC-VOICE-UI oggi non ha alcuna vera superficie di notifica in uscita con cui integrarsi. Vedi `CHANGELOG.md` per ciò che è stato consegnato esattamente finora.
+**Controllo di onestà - cosa funziona davvero oggi:** le cinque consegne già rilasciate - evidenza (`inventory.py`, `edge_agent.py`, `incident.py`), diagnosi (`diagnosis.py`), modifica approvata da un umano (`change_proposal.py`), deploy canary (`canary_deploy.py`), e verifica (`verification.py`), più il confine di redazione (`log_redaction.py`) e la CLI (`cli.py`) - sono reali e testate end-to-end (305 test più 6 subtest superati nei tutti gli 15 file di test). La fase di deploy canary è realmente esercitata contro un vero repository git locale usa-e-getta, non un mock. La diagnosi viene testata solo contro un `AIProvider` simulato - `AnthropicProvider`/`OpenAIProvider` sono vere implementazioni dello stesso protocollo, ma nessuna delle due è stata esercitata contro una vera chiamata live all'API di Anthropic o OpenAI in questa suite di test (nessuna chiave disponibile in questo ambiente). I ruoli edge e control-plane oggi comunicano solo tramite un file di snapshot salvato - non esiste ancora un trasporto di rete tra loro. La Consegna 6 (voce/notifiche) è genuinamente bloccata, non semplicemente rimandata: HYDRA-UMC-VOICE-UI oggi non ha alcuna vera superficie di notifica in uscita con cui integrarsi. Vedi `CHANGELOG.md` per ciò che è stato consegnato esattamente finora.
 
 ---
 
@@ -95,10 +95,17 @@ $ hydra-umc-ops-agent edge collect \
 Wrote snapshot to snapshot.json (1 incident(s)).
 
 $ hydra-umc-ops-agent control show snapshot.json
-Node: cm5-cell-3   Collected: 2026-09-06T10:15:03Z   Correlation: 7c2c...
-Projects scanned: 27
+Node: cm5-cell-3  (collected 2026-01-01T10:15:03+00:00)
+
+Projects found: 27
+  - HYDRA-UMC-SERVER v0.1.0 (functional)
+  ...
+
+Service health checks: 1
+  - hydra-umc-server.service: NOT ACTIVE (failed)
+
 Incidents: 1
-  [CRITICAL] hydra-umc-server.service - systemd unit is not active
+  [CRITICAL] hydra-umc-server.service: systemd unit is not active: failed  (id=7c2c1e4a-...)
 
 $ ANTHROPIC_API_KEY=sk-ant-... hydra-umc-ops-agent control diagnose \
     snapshot.json --incident-id 7c2c1e4a-...
@@ -111,10 +118,14 @@ $ ANTHROPIC_API_KEY=sk-ant-... hydra-umc-ops-agent control diagnose \
 $ hydra-umc-ops-agent control propose snapshot.json --incident-id 7c2c1e4a-... \
     --project-name HYDRA-UMC-SERVER --description "Increase retry count to 3" \
     --diff-file fix.diff --rationale "gives up too early" --out proposal.json
-$ hydra-umc-ops-agent control approve proposal.json --approved-by "Juan Enrique"
+$ hydra-umc-ops-agent control keygen --name ana --key-out ana.pem --public-out ana.pub
+$ hydra-umc-ops-agent control approve proposal.json --approved-by ana --key ana.pem \
+    --live-root /home/pi/HYDRA-UMC/HYDRA-UMC-SERVER
 $ hydra-umc-ops-agent control deploy-canary proposal.json \
-    --live-root /home/pi/HYDRA-UMC/HYDRA-UMC-SERVER --build-test-command "bash build-test.sh"
-$ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-...
+    --live-root /home/pi/HYDRA-UMC/HYDRA-UMC-SERVER --build-test-command "bash build-test.sh" \
+    --approvers approvers.json --service-unit hydra-umc-server.service \
+    --health-url http://127.0.0.1:3000/health
+$ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --node-name cm5-cell-3
 ```
 
 Vedi [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md) per il flusso
@@ -178,6 +189,7 @@ comandi completa e reale.
   `InvalidTransitionError` su qualsiasi cosa non sia una proposta
   `pending` - una seconda decisione non sovrascrive mai silenziosamente
   la prima, e ogni decisione è attribuita a un nome reale, non vuoto.
+- **Un'approvazione è una firma, non un campo.** `approve_change()` firma, con la chiave privata Ed25519 dell'approvatore stesso, una dichiarazione di esattamente cosa viene approvato: la proposta, lo SHA-256 del diff, chi approva, fino a quando, il commit del checkout a cui è destinata e se i percorsi protetti sono consentiti. `deploy_canary()` la accetta solo se la firma risulta valida rispetto a un registro di chiavi *pubbliche* di approvatori, quindi chi può solo scrivere il file della proposta non può approvare nulla. Un diff viene inoltre rifiutato se contiene qualcosa che ha la forma di un vero segreto o se tocca file di CI, build-test o di servizio senza dichiararlo; il build-test gira con un ambiente minimo; un servizio può essere fermato e controllato attorno allo scambio con ripristino automatico; e ogni proposta, approvazione, deploy, rollback e pulizia viene aggiunto a un registro di audit concatenato con hash. Vedi [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md).
 - **La verifica riesegue LO STESSO controllo reale, mai uno più
   permissivo.** `verify_incident_resolved()` chiama direttamente le
   proprie `check_http_health()`/`check_systemd_unit_health()`/
@@ -213,6 +225,9 @@ comandi completa e reale.
 HYDRA-UMC-OPS-AGENT/
 ├── src/hydra_umc_ops_agent/
 │   ├── _atomic.py          # Scritture di file durevoli e atomiche per archivi, proposte e risultati
+│   ├── approval_signing.py # Firme Ed25519 delle approvazioni; registro degli approvatori
+│   ├── audit_journal.py    # Registro di audit concatenato con hash, solo in aggiunta
+│   ├── diff_policy.py      # Cosa può contenere e toccare un diff (forme di segreto, percorsi protetti, dimensione)
 │   ├── log_redaction.py    # Redazione pura di segreti (KEY=VALUE, token Bearer, blocchi PEM)
 │   ├── inventory.py        # Scansione manifesti + controlli di salute systemd/HTTP
 │   ├── incident.py         # Contratto MaintenanceIncident / IncidentBatch
@@ -245,15 +260,17 @@ HYDRA-UMC-OPS-AGENT/
 ```bash
 chmod +x build.sh   # una tantum
 ./build.sh          # crea .venv, pip install -e ".[dev]", compile-check + test
-./run.sh                                          # demo reale: edge collect contro questo
-                                                   # workspace GitHub, poi control show
+./run.sh                                          # demo reale: edge collect contro un progetto
+                                                   # d'esempio usa e getta, poi control show
 ./run.sh edge collect --node-name n --projects-root DIR --out FILE
 ./run.sh control show snapshot.json
 pip install -e ".[ai-anthropic]"                  # oppure .[ai-openai] - necessario solo per control diagnose
 ANTHROPIC_API_KEY=sk-ant-... ./run.sh control diagnose snapshot.json --incident-id <id>
 ./run.sh control propose snapshot.json --incident-id <id> --project-name NOME --description "..." --diff-file fix.diff --rationale "..." --out proposal.json
-./run.sh control approve proposal.json --approved-by "Il Tuo Nome"
-./run.sh control deploy-canary proposal.json --live-root PERCORSO --build-test-command "bash build-test.sh"
+./run.sh control keygen --name you --key-out you.pem --public-out you.pub
+./run.sh control approve proposal.json --approved-by you --key you.pem --live-root PATH
+./run.sh control deploy-canary proposal.json --live-root PATH --build-test-command "bash build-test.sh" --approvers approvers.json
+pip install -e ".[signing]"                       # needed to sign and to verify approvals (cryptography)
 pip install -e ".[sdk]"                           # necessario solo per riverificare il base_commit di un incidente di manifest
 ./run.sh control verify snapshot.json --incident-id <id>
 ```
@@ -284,6 +301,7 @@ tests/` direttamente) per la suite di test locale completa.
   imposta `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` prima di eseguirlo.
 - `control deploy-canary` fallisce con `ERROR: refusing to deploy ...`:
   la proposta non è ancora `approved` - esegui prima `control approve`.
+- `control deploy-canary` fallisce con `ERROR: ... signed approval` / `not a registered approver` / `expired` / `approved for commit`: l'approvazione manca, è stata fatta con una chiave non presente nel registro, è scaduta o è stata data per un altro stato del checkout. Approva di nuovo con `control approve --key TUACHIAVE --live-root PERCORSO`. Una proposta approvata modificando il file, o prima che le approvazioni fossero firmate, non viene mai accettata.
 - `control deploy-canary` riporta `promoted: false`: leggi
   `buildOutput` nel JSON di risultato - il build di staging è
   davvero fallito, e il checkout reale non è mai stato toccato. Vedi
@@ -309,17 +327,13 @@ e CHANGELOG di questo progetto. Cosa resta:
   propria di "annuncio in ingresso dell'assistente".
 - Un vero trasporto tra i ruoli edge e control-plane (oggi, spostare un
   file di snapshot tra i due è un passaggio manuale).
-- Un comando di rollback per un canary già promosso che in seguito si
-  rivela sbagliato in produzione - la directory `.backup-<id>` è reale
-  ed è conservata, ma ripristinarla oggi è un passaggio manuale (vedi
-  [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md)).
 
 ## 🔗 Progetti Correlati
 
 Questo progetto fa parte dell'ecosistema robotico HYDRA-UMC dello stesso autore (JuanenRac / Electro Hobby 3D). Vale la pena conoscerlo, poiché una richiesta potrebbe in realtà riguardare uno di questi invece di questo repository.
 
 **Direttamente Correlati**
-- **[HYDRA-UMC-UPDATER](https://github.com/JuanenRac/HYDRA-UMC-UPDATER)** — rileva, installa e aggiorna ogni checkout dell'ecosistema; una distribuzione canary della Consegna 4 applica un cambiamento approvato attraverso la propria via di aggiornamento atomica-per-verifica già esistente di questo progetto, invece di una seconda implementazione.
+- **[HYDRA-UMC-UPDATER](https://github.com/JuanenRac/HYDRA-UMC-UPDATER)** — rileva, installa e aggiorna ogni checkout dell'ecosistema. Un deploy canary qui segue lo stesso schema di atomicità per verifica ma è un'implementazione propria, non una chiamata all'updater, quindi i due possono divergere: l'updater rifiuta di avanzare in fast-forward un checkout che porta un commit locale di un canary, e dice quale.
 - **[HYDRA-UMC-OS-REBUILDER](https://github.com/JuanenRac/HYDRA-UMC-OS-REBUILDER)** — un altro fratello "Ecosystem Operations": costruisce un'immagine CM5 nuova e completamente aggiornata, invece di osservarne una già in esecuzione.
 - **[HYDRA-UMC-DEV-SERVER](https://github.com/JuanenRac/HYDRA-UMC-DEV-SERVER)** — host di sviluppo riproducibile che compila candidati e coordina la propria coda di attività durevole con il ciclo di vita degli incidenti di questo progetto; non approva mai le proprie attività.
 - **[HYDRA-UMC-NODE-HEALING](https://github.com/JuanenRac/HYDRA-UMC-NODE-HEALING)** — un vero watchdog di salute della flotta basato su gRPC, con il proprio retry/backoff e rilevamento di discrepanza d'identità - un argomento correlato ma distinto (salute dei nodi di flotta dal vivo via gRPC) dalla propria raccolta di evidenza tramite manifesto/systemd/HTTP e dal ciclo di vita degli incidenti di questo progetto.

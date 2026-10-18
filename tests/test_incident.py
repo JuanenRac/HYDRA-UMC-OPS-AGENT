@@ -115,7 +115,7 @@ class IncidentBatchTests(unittest.TestCase):
 
 
 class AddManifestIssueBaseCommitTests(unittest.TestCase):
-    """N01: add_manifest_issue() best-effort captures the checkout's own
+    """add_manifest_issue() best-effort captures the checkout's own
     real git commit as an extra evidence_refs entry - never a new
     MaintenanceIncident field (see incident.py's own EVIDENCE_BASE_COMMIT_
     PREFIX comment)."""

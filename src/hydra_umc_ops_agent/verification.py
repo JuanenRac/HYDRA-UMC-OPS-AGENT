@@ -117,15 +117,41 @@ class VerificationResult:
         return cls(incident_id=incident_id, verified_at=verified_at, resolved=resolved, detail=detail)
 
 
-def verify_incident_resolved(incident: MaintenanceIncident, *, timeout_s: float = 5.0) -> VerificationResult:
+def verify_incident_resolved(
+    incident: MaintenanceIncident,
+    *,
+    timeout_s: float = 5.0,
+    local_node_name: str | None = None,
+    http_health_url: str | None = None,
+) -> VerificationResult:
     """Re-runs the real check implied by the incident's own symptom text.
     Only the two Delivery-1 check kinds that can be re-run automatically
     are handled here - a manifest-scan incident has no automated re-check
     (re-running `edge collect` against the same projects-root is the real
     way to confirm one of those is gone, since it is a structural fact
-    about a file, not a live service to re-poll)."""
+    about a file, not a live service to re-poll).
+
+    The check runs on THIS machine: its localhost, its systemd, its disk. An
+    incident raised on another node would be "verified" against the wrong
+    machine - a different service answering on the same port closes a real
+    outage - so when `local_node_name` (this host's own node name, the one it
+    collects snapshots under) is given and differs from the incident's
+    `source_node`, nothing is checked. `http_health_url` replaces the stored
+    URL of an HTTP incident, whose password a snapshot only holds redacted."""
+    if local_node_name is not None and incident.source_node != local_node_name:
+        raise VerificationError(
+            f"incident {incident.incident_id} was raised on node {incident.source_node!r}, but this host is "
+            f"{local_node_name!r}: a check run here would look at this machine's localhost and systemd, not that "
+            "node's - run `control verify` on that node"
+        )
     if incident.symptom.startswith(_HTTP_SYMPTOM_PREFIX):
-        result = check_http_health(incident.component, timeout_s=timeout_s)
+        url = http_health_url or incident.component
+        if "[REDACTED]" in url:
+            raise VerificationError(
+                "the URL stored in the snapshot has its password redacted, so it cannot be checked as stored - "
+                "pass the real URL with --health-url (or through the environment variable the CLI reads)"
+            )
+        result = check_http_health(url, timeout_s=timeout_s)
         return VerificationResult(incident_id=incident.incident_id, verified_at=_utc_now_iso(), resolved=result.reachable, detail=result.detail)
 
     if incident.symptom.startswith(_SYSTEMD_SYMPTOM_PREFIX):
@@ -133,6 +159,8 @@ def verify_incident_resolved(incident: MaintenanceIncident, *, timeout_s: float 
             result = check_systemd_unit_health(incident.component, timeout_s=timeout_s)
         except SystemdUnavailableError as exc:
             raise VerificationError(f"cannot verify a systemd-unit incident on this host: {exc}") from exc
+        except ValueError as exc:
+            raise VerificationError(f"cannot verify this systemd-unit incident: {exc}") from exc
         return VerificationResult(incident_id=incident.incident_id, verified_at=_utc_now_iso(), resolved=result.active, detail=result.detail)
 
     if incident.symptom.startswith(_MANIFEST_SYMPTOM_PREFIX):
@@ -144,7 +172,8 @@ def verify_incident_resolved(incident: MaintenanceIncident, *, timeout_s: float 
 def _find_base_commit(evidence_refs: tuple[str, ...]) -> str | None:
     for ref in evidence_refs:
         if ref.startswith(EVIDENCE_BASE_COMMIT_PREFIX):
-            return ref[len(EVIDENCE_BASE_COMMIT_PREFIX):]
+            commit = ref[len(EVIDENCE_BASE_COMMIT_PREFIX):].strip()
+            return commit or None  # an empty `base_commit:` is no evidence at all
     return None
 
 
@@ -197,5 +226,8 @@ def _verify_manifest_incident(incident: MaintenanceIncident) -> VerificationResu
         "observed": {"outcome": "reproduced" if isinstance(checked, ManifestScanIssue) else "not-reproduced"},
         "timestamp_utc": now,
     }
-    comparison = compare_runs(before, after)
+    try:
+        comparison = compare_runs(before, after)
+    except ValueError as exc:  # the SDK's ContractValidationError is a ValueError
+        raise VerificationError(f"the before/after evidence of this incident is not a valid scenario outcome: {exc}") from exc
     return VerificationResult(incident_id=incident.incident_id, verified_at=now, resolved=comparison.is_promotable, detail=comparison.reason)

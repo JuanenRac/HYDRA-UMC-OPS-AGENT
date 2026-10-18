@@ -37,7 +37,7 @@ ship out of the box:
 
 | Provider | CLI value | Optional extra | Credential env var | Default model |
 |---|---|---|---|---|
-| Anthropic | `--provider anthropic` (default) | `pip install -e ".[ai-anthropic]"` | `ANTHROPIC_API_KEY` | `claude-sonnet-5` |
+| Anthropic | `--provider anthropic` (default) | `pip install -e ".[ai-anthropic]"` | `ANTHROPIC_API_KEY` | `claude-sonnet-5` (never confirmed against the live API; override with `--model` or `OPS_AGENT_ANTHROPIC_MODEL`) |
 | OpenAI | `--provider openai` | `pip install -e ".[ai-openai]"` | `OPENAI_API_KEY` | `gpt-4o-mini` |
 
 Each provider's own SDK is imported lazily, so every other part of this

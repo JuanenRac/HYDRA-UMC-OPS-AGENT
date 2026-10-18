@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from _approvals import SIGNING_KEY
 from hydra_umc_ops_agent.change_proposal import (
     STATUS_APPROVED,
     STATUS_PENDING,
@@ -69,7 +70,7 @@ class ProposeChangeTests(unittest.TestCase):
 class ApproveRejectTests(unittest.TestCase):
     def test_approve_transitions_to_approved_with_a_real_approver(self):
         proposal = _make_proposal()
-        approved = approve_change(proposal, approved_by="Juan Enrique")
+        approved = approve_change(proposal, approved_by="Juan Enrique", signing_key=SIGNING_KEY)
         self.assertEqual(approved.status, STATUS_APPROVED)
         self.assertEqual(approved.decided_by, "Juan Enrique")
         self.assertIsNotNone(approved.decided_at)
@@ -79,10 +80,10 @@ class ApproveRejectTests(unittest.TestCase):
     def test_approve_requires_a_real_non_empty_approver(self):
         proposal = _make_proposal()
         with self.assertRaises(ChangeProposalError):
-            approve_change(proposal, approved_by="   ")
+            approve_change(proposal, approved_by="   ", signing_key=SIGNING_KEY)
 
     def test_approve_stamps_a_real_content_digest(self):
-        approved = approve_change(_make_proposal(), approved_by="Juan Enrique")
+        approved = approve_change(_make_proposal(), approved_by="Juan Enrique", signing_key=SIGNING_KEY)
         self.assertIsNotNone(approved.approved_content_digest)
         approved.verify_approval_content()  # must not raise
 
@@ -94,14 +95,14 @@ class ApproveRejectTests(unittest.TestCase):
         # untouched used to let deploy_canary() apply completely
         # different content than what was actually reviewed.
         from dataclasses import replace as _replace
-        approved = approve_change(_make_proposal(), approved_by="Juan Enrique")
+        approved = approve_change(_make_proposal(), approved_by="Juan Enrique", signing_key=SIGNING_KEY)
         tampered = _replace(approved, diff=_REAL_DIFF.replace("3", "999"))
         with self.assertRaises(ChangeProposalError):
             tampered.verify_approval_content()
 
     def test_editing_the_project_name_after_approval_invalidates_it(self):
         from dataclasses import replace as _replace
-        approved = approve_change(_make_proposal(), approved_by="Juan Enrique")
+        approved = approve_change(_make_proposal(), approved_by="Juan Enrique", signing_key=SIGNING_KEY)
         tampered = _replace(approved, project_name="A-COMPLETELY-DIFFERENT-PROJECT")
         with self.assertRaises(ChangeProposalError):
             tampered.verify_approval_content()
@@ -112,9 +113,9 @@ class ApproveRejectTests(unittest.TestCase):
         _make_proposal().verify_approval_content()  # pending - must not raise
 
     def test_cannot_approve_an_already_approved_proposal(self):
-        proposal = approve_change(_make_proposal(), approved_by="A")
+        proposal = approve_change(_make_proposal(), approved_by="A", signing_key=SIGNING_KEY)
         with self.assertRaises(InvalidTransitionError):
-            approve_change(proposal, approved_by="B")
+            approve_change(proposal, approved_by="B", signing_key=SIGNING_KEY)
 
     def test_reject_transitions_to_rejected_with_a_real_reason(self):
         proposal = _make_proposal()
@@ -132,14 +133,14 @@ class ApproveRejectTests(unittest.TestCase):
             reject_change(proposal, rejected_by="B", reason="still no")
 
     def test_cannot_reject_an_already_approved_proposal(self):
-        proposal = approve_change(_make_proposal(), approved_by="A")
+        proposal = approve_change(_make_proposal(), approved_by="A", signing_key=SIGNING_KEY)
         with self.assertRaises(InvalidTransitionError):
             reject_change(proposal, rejected_by="B", reason="changed my mind")
 
 
 class SerializationTests(unittest.TestCase):
     def test_round_trip_to_dict_from_dict(self):
-        proposal = approve_change(_make_proposal(), approved_by="Juan")
+        proposal = approve_change(_make_proposal(), approved_by="Juan", signing_key=SIGNING_KEY)
         restored = type(proposal).from_dict(proposal.to_dict())
         self.assertEqual(restored, proposal)
 
@@ -154,7 +155,7 @@ class SerializationTests(unittest.TestCase):
         # The diff must now be refused at proposal time instead, before
         # anything is ever stored under that (wrong) assumption.
         with self.assertRaises(SecretShapedDiffError):
-            _make_proposal(diff=_REAL_DIFF + "\n# DB_PASSWORD=hunter2\n")
+            _make_proposal(diff=_REAL_DIFF + '+DB_PASSWORD = "9f8a7c6b5d4e3f2a1b0c9d8e"\n')
 
     def test_the_diff_survives_a_real_save_load_round_trip_byte_for_byte(self):
         # `diff` is the immutable, applicable artifact -

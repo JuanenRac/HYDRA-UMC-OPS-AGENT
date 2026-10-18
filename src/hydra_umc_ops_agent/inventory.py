@@ -21,6 +21,7 @@ from __future__ import annotations
 import base64
 import http.client
 import json
+import re
 import shutil
 import subprocess
 import urllib.error
@@ -71,6 +72,20 @@ def _request_for(url: str) -> urllib.request.Request:
     return request
 
 
+# A systemd unit name: letters, digits and `: _ . @ -`, never starting with a
+# dash. Anything else could be read by `systemctl` as an option.
+_UNIT_NAME_RE = re.compile(r"^[A-Za-z0-9:_.@\\][A-Za-z0-9:_.@\\-]*$")
+
+
+def validate_unit_name(unit_name: str) -> str:
+    """Returns `unit_name` if it is a plausible systemd unit name, else raises
+    ValueError. A name such as `--version` or `--host=other` would otherwise be
+    taken by `systemctl` for an option and answer about something else."""
+    if not isinstance(unit_name, str) or not _UNIT_NAME_RE.fullmatch(unit_name) or len(unit_name) > 256:
+        raise ValueError(f"{unit_name!r} is not a valid systemd unit name")
+    return unit_name
+
+
 class SystemdUnavailableError(RuntimeError):
     """Raised when `systemctl` itself is not available on this host (a
     non-Linux development machine, or a Linux host without systemd) - a
@@ -105,6 +120,7 @@ class ManifestScanResult:
     issues: tuple[ManifestScanIssue, ...]
 
 
+_RETIRED_COPY_MARKERS = (".backup-", ".rolledback-", ".failed-")
 _MANIFEST_FILENAME = "hydra-umc.project.json"
 # A real manifest is a few hundred bytes; anything past this is not one, and
 # reading it whole into memory on every scan is not worth finding out.
@@ -183,18 +199,17 @@ def scan_project_manifests(root: Path) -> ManifestScanResult:
     for entry in sorted(root.iterdir()):
         if not entry.is_dir():
             continue
-        # Real gap found 2026-09-08 while building a real end-to-end
-        # incident-lifecycle test (F08): canary_deploy.py's own
-        # deploy_canary() (and HYDRA-UMC-UPDATER's own install.py,
-        # exact same convention) renames the PREVIOUS checkout aside to
-        # `<name>.backup-<uuid>` on every real promotion, by design,
-        # never deleted. Without this skip, a re-scan of the same
-        # projects_root after a real promotion picks the retired,
-        # never-updated backup back up as if it were a live project -
-        # its manifest is whatever it was the moment it was retired, so
-        # a real, already-fixed incident would falsely reappear forever,
-        # every single scan, from that point on.
-        if ".backup-" in entry.name:
+        # canary_deploy.py's deploy_canary() (and HYDRA-UMC-UPDATER's
+        # install.py, same convention) renames the PREVIOUS checkout aside to
+        # `<name>.backup-<id>` on every promotion, by design, never deleted;
+        # a rollback leaves `.rolledback-` and `.failed-` copies, and both
+        # tools stage candidates in hidden folders (`.ops-agent-canary-*`,
+        # `.<name>.update-*`). Without this skip, a re-scan picks those up as
+        # if they were live projects - a retired copy's manifest is whatever
+        # it was the moment it was retired, so an already-fixed incident
+        # would falsely reappear forever, and a staging folder would show up
+        # as a second copy of the project while a build runs.
+        if entry.name.startswith(".") or any(marker in entry.name for marker in _RETIRED_COPY_MARKERS):
             continue
         manifest_path = entry / _MANIFEST_FILENAME
         if not manifest_path.is_file():
@@ -223,12 +238,13 @@ def check_systemd_unit_health(unit_name: str, *, timeout_s: float = 5.0) -> Serv
     HYDRA-UMC-OS-REBUILDER's own check_build_platform() pattern: fail
     loudly and specifically before pretending to check anything.
     """
+    validate_unit_name(unit_name)
     systemctl = shutil.which("systemctl")
     if systemctl is None:
         raise SystemdUnavailableError("systemctl not found on PATH - not a real systemd host")
     try:
         result = subprocess.run(
-            [systemctl, "is-active", unit_name],
+            [systemctl, "is-active", "--", unit_name],
             capture_output=True, text=True, timeout=timeout_s, check=False,
         )
     except subprocess.TimeoutExpired:
@@ -247,13 +263,49 @@ class HttpHealthResult:
     detail: str
 
 
+_REDACTION_MARKER = "[REDACTED]"
+_UNHEALTHY_STATUS_WORDS = {"degraded", "unhealthy", "error", "down", "fail", "failed", "failing", "critical"}
+_HEALTH_BODY_LIMIT = 65536
+
+
+def _interpret_health_body(response, detail: str) -> tuple[bool, str]:
+    """A 2xx health endpoint that says in its JSON body that it is not well
+    (`"status": "degraded"`, `"persistenceHealthy": false`) is not healthy.
+    A body that is not JSON, or says nothing of the kind, changes nothing."""
+    try:
+        content_type = response.headers.get("Content-Type", "") if hasattr(response, "headers") else ""
+        if "json" not in content_type.lower():
+            return True, detail
+        body = json.loads(response.read(_HEALTH_BODY_LIMIT).decode("utf-8", errors="replace"))
+    except (OSError, ValueError, http.client.HTTPException):
+        return True, detail
+    if not isinstance(body, dict):
+        return True, detail
+    status = body.get("status")
+    if isinstance(status, str) and status.strip().lower() in _UNHEALTHY_STATUS_WORDS:
+        return False, f"{detail}, but the endpoint reports status {status!r}"
+    for key, value in body.items():
+        if isinstance(key, str) and key.lower().endswith("healthy") and value is False:
+            return False, f"{detail}, but the endpoint reports {key}=false"
+    return True, detail
+
+
 def check_http_health(url: str, *, timeout_s: float = 5.0) -> HttpHealthResult:
     """Real HTTP GET (stdlib urllib, no dependency) against a project's own
     health endpoint - a genuine network failure (refused connection, DNS,
     timeout) and a real-but-unhealthy HTTP response (a real 5xx, say) are
     reported as two distinct, honest outcomes, never collapsed into one
     bare boolean that would hide which one actually happened."""
-    scheme = urllib.parse.urlsplit(url).scheme.lower()
+    if _REDACTION_MARKER in url:
+        return HttpHealthResult(
+            url=url, reachable=False, status_code=None,
+            detail="the URL carries a redacted password (as stored in a snapshot) - it cannot be checked "
+            "without the real credentials",
+        )
+    try:
+        scheme = urllib.parse.urlsplit(url).scheme.lower()
+    except ValueError as exc:
+        return HttpHealthResult(url=url, reachable=False, status_code=None, detail=f"not a valid URL: {exc}")
     if scheme not in _SUPPORTED_HTTP_SCHEMES:
         return HttpHealthResult(
             url=url, reachable=False, status_code=None,
@@ -272,12 +324,11 @@ def check_http_health(url: str, *, timeout_s: float = 5.0) -> HttpHealthResult:
                     url=url, reachable=False, status_code=None,
                     detail="response did not report a real HTTP status code",
                 )
-            return HttpHealthResult(
-                url=url,
-                reachable=200 <= status_code < 300,
-                status_code=status_code,
-                detail=f"HTTP {status_code}",
-            )
+            reachable = 200 <= status_code < 300
+            detail = f"HTTP {status_code}"
+            if reachable:
+                reachable, detail = _interpret_health_body(response, detail)
+            return HttpHealthResult(url=url, reachable=reachable, status_code=status_code, detail=detail)
     except urllib.error.HTTPError as exc:
         # A real response was received - the server IS reachable - it just
         # reported a non-2xx status. Distinct from URLError below.

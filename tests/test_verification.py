@@ -60,7 +60,7 @@ class VerifyHttpIncidentTests(unittest.TestCase):
     def test_a_now_healthy_http_incident_is_reported_resolved(self):
         port = self._serve(_OkHandler)
         url = f"http://127.0.0.1:{port}/health"
-        incident = _make_incident(url, f"health endpoint check failed: unreachable: earlier failure")
+        incident = _make_incident(url, "health endpoint check failed: unreachable: earlier failure")
         result = verify_incident_resolved(incident)
         self.assertTrue(result.resolved)
         self.assertEqual(result.incident_id, "inc-1")
@@ -110,7 +110,7 @@ def _init_and_commit_manifest(root: Path, **fields) -> Path:
 
 @unittest.skipUnless(_SDK_INSTALLED, "the optional 'hydra-umc-sdk' extra is not installed")
 class VerifyManifestIncidentWithBaseCommitTests(unittest.TestCase):
-    """N01: once a manifest incident carries a real `base_commit:` (see
+    """Once a manifest incident carries a real `base_commit:` (see
     incident.py's own add_manifest_issue()), verification re-checks the
     manifest AND runs the shared compare_runs T07/control against
     the checkout's real current commit."""
@@ -146,7 +146,7 @@ class VerifyManifestIncidentWithBaseCommitTests(unittest.TestCase):
         self.assertFalse(result.resolved)
 
     def test_an_uncommitted_hand_edit_is_reported_unresolved_as_apparent_success(self):
-        # The whole point of N01: the file now LOOKS fine, but the
+        # The whole point: the file now LOOKS fine, but the
         # checkout's own commit never actually moved - a real, plausible
         # "fixed on disk, never committed" trap this must not miss.
         manifest = _init_and_commit_manifest(self.root)

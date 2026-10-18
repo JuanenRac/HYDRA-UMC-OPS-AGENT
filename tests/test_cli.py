@@ -16,6 +16,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from _approvals import SIGNING_KEY, write_key_files
 from hydra_umc_ops_agent import cli
 from hydra_umc_ops_agent.cli import main
 from hydra_umc_ops_agent.diagnosis import DiagnosisResult, MissingApiKeyError
@@ -204,6 +205,7 @@ class Delivery345CliTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.root = Path(self._tmp.name)
+        self.key_path, self.registry_path = write_key_files(self.root)
 
     def tearDown(self):
         self._tmp.cleanup()
@@ -233,7 +235,7 @@ class Delivery345CliTests(unittest.TestCase):
         proposal = json.loads(proposal_file.read_text(encoding="utf-8"))
         self.assertEqual(proposal["status"], "pending")
 
-        exit_code = main(["control", "approve", str(proposal_file), "--approved-by", "Juan Enrique"])
+        exit_code = main(["control", "approve", str(proposal_file), "--approved-by", "Juan Enrique", "--key", self.key_path, "--any-commit", "--yes"])
         self.assertEqual(exit_code, 0)
         approved = json.loads(proposal_file.read_text(encoding="utf-8"))
         self.assertEqual(approved["status"], "approved")
@@ -283,7 +285,7 @@ class Delivery345CliTests(unittest.TestCase):
                 incident_id="inc-x", correlation_id="corr-x", project_name="test-project",
                 description="raise retries", diff=_REAL_DIFF, rationale="fixes the flaky check",
             ),
-            approved_by="Juan Enrique",
+            approved_by="Juan Enrique", signing_key=SIGNING_KEY,
         )
         save_proposal(proposal, proposal_file)
 
@@ -291,6 +293,7 @@ class Delivery345CliTests(unittest.TestCase):
         exit_code = main([
             "control", "deploy-canary", str(proposal_file),
             "--live-root", str(live_root),
+            "--approvers", self.registry_path,
             "--build-test-command", f"{sys.executable} check.py",
             "--out", str(result_file),
         ])
@@ -303,7 +306,7 @@ class Delivery345CliTests(unittest.TestCase):
         snapshot_file, incident_id = self._real_incident_snapshot()
         stderr = io.StringIO()
         with contextlib.redirect_stderr(stderr):
-            exit_code = main(["control", "verify", str(snapshot_file), "--incident-id", incident_id])
+            exit_code = main(["control", "verify", str(snapshot_file), "--incident-id", incident_id, "--node-name", "cm5-test"])
         # The health URL used by _real_incident_snapshot() never listens, so
         # the real re-check must still fail - exit code 1, not a crash.
         self.assertEqual(exit_code, 1)
