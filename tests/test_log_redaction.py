@@ -174,6 +174,20 @@ class CommandLineAndHeaderShapesTests(unittest.TestCase):
         self.assertIn("git.example.org", cleaned)
 
 
+class RedactionCostTests(unittest.TestCase):
+    def test_a_huge_run_without_a_secret_is_redacted_in_linear_time(self):
+        import time
+        for payload in ("x" * 1_000_000, "a-" * 300_000, "http" + "p" * 300_000, "xxxx://" * 20_000):
+            started = time.monotonic()
+            self.assertEqual(redact_secrets(payload), payload)
+            self.assertLess(time.monotonic() - started, 10.0, payload[:6])
+
+    def test_url_credentials_are_still_redacted_with_the_bounded_patterns(self):
+        cleaned = redact_secrets("see https://admin:hunter2@host/x and https://abcdef0123456789abcdef@git/y")
+        self.assertNotIn("hunter2", cleaned)
+        self.assertNotIn("abcdef0123456789abcdef", cleaned)
+
+
 class RedactJsonTests(unittest.TestCase):
     def test_redact_json_cleans_nested_values_and_secret_named_keys(self):
         cleaned = redact_json({"url": "http://admin:hunter2@host/", "list": ["--token abc12345"], "password": "x", "n": 3, "ok": True})

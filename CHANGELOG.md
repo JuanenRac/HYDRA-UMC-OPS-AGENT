@@ -9,7 +9,8 @@ bumped manually only. See `bump_version.py`.
 
 - **Redaction:** a secret passed as a separate command-line argument (`--token VALUE`, `-password VALUE`) is now redacted, as are `Cookie` / `Set-Cookie` headers, a bare `Basic <base64>` credential (the word "Basic" in prose is left alone) and a token used as the whole user part of a URL. The existing bare-token formats stay as they were.
 - **One redaction point:** every JSON result the commands print or write and every audit journal entry goes through `redact_json()`, which also replaces the value of any key named like a secret, so a new field cannot forget to redact itself.
-- 317 tests: each new shape and its false-positive guards, the output and file boundaries and the audit journal.
+- **Redaction was quadratic:** the patterns that start with an identifier-like run rescanned the rest of the run from every position, so a megabyte of letters in a log or snapshot took days to redact. They now start only at the beginning of a run and the URL patterns bound each part (a password over 1024 characters inside a URL is the one thing left unredacted); a megabyte now takes under a second.
+- 319 tests: each new shape and its false-positive guards, the output and file boundaries, the audit journal and the cost of redacting a huge input.
 
 ## [0.1.6] - Approvals are signatures; the deploy checks, restarts, rolls back and records itself
 
