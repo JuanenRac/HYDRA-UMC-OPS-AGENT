@@ -1,7 +1,7 @@
 # =============================================================================
 # HYDRA-UMC-OPS-AGENT - src/hydra_umc_ops_agent/incident_store.py
 # Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
-# GPL-3.0 - see LICENSE
+# GPL-3.0-or-later - see LICENSE
 # =============================================================================
 """A real fix: `incident.py`'s own `IncidentBatch`
 generates a fresh `uuid4()` every single time `collect_snapshot()` runs -

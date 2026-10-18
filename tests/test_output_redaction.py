@@ -1,7 +1,7 @@
 # =============================================================================
 # HYDRA-UMC-OPS-AGENT - tests/test_output_redaction.py
 # Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
-# GPL-3.0 - see LICENSE
+# GPL-3.0-or-later - see LICENSE
 # =============================================================================
 """Everything this tool prints, writes as evidence or appends to the audit
 journal goes through one redaction function."""

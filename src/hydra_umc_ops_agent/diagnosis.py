@@ -1,7 +1,7 @@
 # =============================================================================
 # HYDRA-UMC-OPS-AGENT - src/hydra_umc_ops_agent/diagnosis.py
 # Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
-# GPL-3.0 - see LICENSE
+# GPL-3.0-or-later - see LICENSE
 # =============================================================================
 """Delivery 2 - Diagnosis: an AI-provider-assisted read of the evidence
 Delivery 1 already collects (a single real `MaintenanceIncident`), producing

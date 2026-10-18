@@ -1,7 +1,7 @@
 # =============================================================================
 # HYDRA-UMC-OPS-AGENT - src/hydra_umc_ops_agent/diff_policy.py
 # Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
-# GPL-3.0 - see LICENSE
+# GPL-3.0-or-later - see LICENSE
 # =============================================================================
 """What a proposed diff is allowed to contain and to touch.
 

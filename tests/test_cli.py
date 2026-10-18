@@ -1,7 +1,7 @@
 # =============================================================================
 # HYDRA-UMC-OPS-AGENT - tests/test_cli.py
 # Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
-# GPL-3.0 - see LICENSE
+# GPL-3.0-or-later - see LICENSE
 # =============================================================================
 """Real end-to-end CLI tests - `edge collect` writing a real file, then
 `control show` reading that exact file back, exactly the two-role real flow

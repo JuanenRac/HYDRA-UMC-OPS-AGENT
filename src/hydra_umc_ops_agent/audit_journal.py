@@ -1,7 +1,7 @@
 # =============================================================================
 # HYDRA-UMC-OPS-AGENT - src/hydra_umc_ops_agent/audit_journal.py
 # Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
-# GPL-3.0 - see LICENSE
+# GPL-3.0-or-later - see LICENSE
 # =============================================================================
 """An append-only record of what was proposed, approved, rejected, deployed
 and verified: one JSON object per line, each carrying the SHA-256 of the line

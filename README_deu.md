@@ -9,13 +9,13 @@
 ### 🔎 Schreibgeschützte Beobachtung von Wartungsvorfällen für das gesamte Ökosystem
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Licencia-GPL%203.0-blue.svg" alt="GPL 3.0">
+  <img src="https://img.shields.io/badge/Licencia-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
   <img src="https://img.shields.io/badge/Language-Python%203.11%2B-blue.svg" alt="Python">
   <img src="https://img.shields.io/badge/Core-stdlib%20only-brightgreen.svg" alt="stdlib-only core">
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="Edge- und Control-Plane-Rollen">
 </p>
 
-> **Status: v0.1.7, Functional - Lieferungen 1-5 von 6 (Beweis,
+> **Status: v0.1.8, Functional - Lieferungen 1-5 von 6 (Beweis,
 > Diagnose, von einer Person genehmigte Änderung, Canary-Deployment,
 > Verifizierung).** Jeder Unterbefehl ist echt und Ende-zu-Ende getestet
 > - `control diagnose` gegen einen simulierten KI-Anbieter (jeder echte
@@ -442,4 +442,4 @@ Dieses Projekt ist Teil des HYDRA-UMC-Robotik-Ökosystems desselben Autors (Juan
 
 ## 📜 LIZENZ
 
-GPL-3.0 (Software) / CC BY-SA 4.0 (Dokumentation) - siehe [LICENSE.md](LICENSE.md).
+GPL-3.0-or-later (Software) / CC BY-SA 4.0 (Dokumentation) - siehe [LICENSE.md](LICENSE.md).

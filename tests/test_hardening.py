@@ -1,7 +1,7 @@
 # =============================================================================
 # HYDRA-UMC-OPS-AGENT - tests/test_hardening.py
 # Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
-# GPL-3.0 - see LICENSE
+# GPL-3.0-or-later - see LICENSE
 # =============================================================================
 """Behaviour at the edges: an endpoint that is not HTTP, a manifest that is not
 UTF-8, a credentialed health URL across runs, a half-written store, a diff that

@@ -5,6 +5,11 @@ version number follows this ecosystem's "odometer" scheme: PATCH +1 on
 every real build, rolling into MINOR past 9 (`0.0.9` -> `0.1.0`); MAJOR is
 bumped manually only. See `bump_version.py`.
 
+## [0.1.8]
+
+- Build version synchronized with `hydra-umc.project.json` and the repository-native version source.
+- The licence is written as GPL-3.0-or-later in every header and in the package metadata.
+
 ## [0.1.7] - Redaction covers command-line arguments, cookies and Basic credentials, at one point
 
 - **Redaction:** a secret passed as a separate command-line argument (`--token VALUE`, `-password VALUE`) is now redacted, as are `Cookie` / `Set-Cookie` headers, a bare `Basic <base64>` credential (the word "Basic" in prose is left alone) and a token used as the whole user part of a URL. The existing bare-token formats stay as they were.

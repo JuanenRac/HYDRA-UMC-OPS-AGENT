@@ -9,13 +9,13 @@
 ### 🔎 Observabilidade só de leitura de incidentes de manutenção para todo o ecossistema
 
 <p align="center">
-  <img src="https://img.shields.io/badge/License-GPL%203.0-blue.svg" alt="GPL 3.0">
+  <img src="https://img.shields.io/badge/License-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
   <img src="https://img.shields.io/badge/Language-Python%203.11%2B-blue.svg" alt="Python">
   <img src="https://img.shields.io/badge/Core-stdlib%20only-brightgreen.svg" alt="núcleo só com a biblioteca padrão">
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="papéis de periferia e de plano de controlo">
 </p>
 
-> **Estado: v0.1.7, funcional (functional) - Entregas 1-5 de 6
+> **Estado: v0.1.8, funcional (functional) - Entregas 1-5 de 6
 > (evidências, diagnóstico, alteração aprovada por uma pessoa, implementação
 > canário, verificação).** Cada subcomando é real e está testado de ponta a
 > ponta - o `control diagnose` contra um fornecedor de IA simulado (qualquer
@@ -424,5 +424,5 @@ Este projeto faz parte do ecossistema de robótica HYDRA-UMC do mesmo autor (Jua
 
 ## 📜 LICENÇA
 
-GPL-3.0 (software) / CC BY-SA 4.0 (documentação) - veja [LICENSE.md](LICENSE.md).
+GPL-3.0-or-later (software) / CC BY-SA 4.0 (documentação) - veja [LICENSE.md](LICENSE.md).
 

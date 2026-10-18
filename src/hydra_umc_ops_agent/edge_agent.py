@@ -1,7 +1,7 @@
 # =============================================================================
 # HYDRA-UMC-OPS-AGENT - src/hydra_umc_ops_agent/edge_agent.py
 # Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
-# GPL-3.0 - see LICENSE
+# GPL-3.0-or-later - see LICENSE
 # =============================================================================
 """The real edge role for Delivery 1: orchestrates inventory.py's own
 collectors into one NodeSnapshot and derives incident.py's own incidents

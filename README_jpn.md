@@ -9,13 +9,13 @@
 ### 🔎 エコシステム全体を対象とした、読み取り専用の保守インシデント可観測性
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Licencia-GPL%203.0-blue.svg" alt="GPL 3.0">
+  <img src="https://img.shields.io/badge/Licencia-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
   <img src="https://img.shields.io/badge/Language-Python%203.11%2B-blue.svg" alt="Python">
   <img src="https://img.shields.io/badge/Core-stdlib%20only-brightgreen.svg" alt="stdlib-only core">
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="エッジとコントロールプレーンの役割">
 </p>
 
-> **ステータス: v0.1.7、functional - 6 件の納品のうち第 1-5 弾(証拠、
+> **ステータス: v0.1.8、functional - 6 件の納品のうち第 1-5 弾(証拠、
 > 診断、人による承認済みの変更、カナリアデプロイ、検証)。** すべての
 > サブコマンドが本物であり、エンドツーエンドでテスト済みです——
 > `control diagnose` は模擬の AI プロバイダーに対して(本物のプロバイ
@@ -436,4 +436,4 @@ Windows では: 先に `build.bat`、その後 `run.bat`(引数なしの場合�
 
 ## 📜 ライセンス
 
-GPL-3.0(ソフトウェア)/ CC BY-SA 4.0(ドキュメント)—— 詳細は [LICENSE.md](LICENSE.md) を参照してください。
+GPL-3.0-or-later(ソフトウェア)/ CC BY-SA 4.0(ドキュメント)—— 詳細は [LICENSE.md](LICENSE.md) を参照してください。

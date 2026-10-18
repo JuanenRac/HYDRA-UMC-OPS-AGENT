@@ -9,13 +9,13 @@
 ### 🔎 Observabilité en lecture seule des incidents de maintenance pour tout l'écosystème
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Licencia-GPL%203.0-blue.svg" alt="GPL 3.0">
+  <img src="https://img.shields.io/badge/Licencia-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
   <img src="https://img.shields.io/badge/Language-Python%203.11%2B-blue.svg" alt="Python">
   <img src="https://img.shields.io/badge/Core-stdlib%20only-brightgreen.svg" alt="stdlib-only core">
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="Rôles edge et control-plane">
 </p>
 
-> **État : v0.1.7, functional - Livraisons 1-5 sur 6 (preuve,
+> **État : v0.1.8, functional - Livraisons 1-5 sur 6 (preuve,
 > diagnostic, changement approuvé par une personne, déploiement canari,
 > vérification).** Chaque sous-commande est réelle et testée de bout en
 > bout - `control diagnose` contre un fournisseur d'IA simulé (tout
@@ -436,4 +436,4 @@ Ce projet fait partie de l'écosystème robotique HYDRA-UMC du même auteur (Jua
 
 ## 📜 LICENCE
 
-GPL-3.0 (logiciel) / CC BY-SA 4.0 (documentation) - voir [LICENSE.md](LICENSE.md).
+GPL-3.0-or-later (logiciel) / CC BY-SA 4.0 (documentation) - voir [LICENSE.md](LICENSE.md).

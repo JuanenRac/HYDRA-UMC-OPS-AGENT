@@ -1,7 +1,7 @@
 # =============================================================================
 # HYDRA-UMC-OPS-AGENT - tests/test_full_incident_lifecycle.py
 # Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
-# GPL-3.0 - see LICENSE
+# GPL-3.0-or-later - see LICENSE
 # =============================================================================
 """The full chain ("Diagnostico OPS -> incidente saneado -> propuesta ligada a
 hash/revision -> pruebas -> aprobacion -> staging UPDATER ->
