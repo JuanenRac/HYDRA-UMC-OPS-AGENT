@@ -36,6 +36,10 @@ REM   run.bat edge collect --node-name n --projects-root DIR --out FILE
 REM   run.bat control show snapshot.json
 REM This delivery is CLI-only (no GUI yet) - see cli.py's own header comment.
 setlocal enabledelayedexpansion
+rem Keep the window open for people, never in automation (CI / HYDRA_UMC_CI).
+set "KEEP_OPEN=pause"
+if defined CI set "KEEP_OPEN=ver >nul"
+if "%HYDRA_UMC_CI%"=="1" set "KEEP_OPEN=ver >nul"
 cd /d "%~dp0"
 
 if exist .venv\Scripts\python.exe (
@@ -68,4 +72,4 @@ if "%~1"=="" (
 )
 
 :done
-pause
+%KEEP_OPEN%

@@ -30,15 +30,19 @@ REM Builds HYDRA-UMC-OPS-AGENT: creates/activates a venv, installs the project
 REM (editable, with dev extras), verifies it compiles/imports cleanly, and
 REM runs the real test suite. Run this before run.bat.
 setlocal enabledelayedexpansion
+rem Keep the window open for people, never in automation (CI / HYDRA_UMC_CI).
+set "KEEP_OPEN=pause"
+if defined CI set "KEEP_OPEN=ver >nul"
+if "%HYDRA_UMC_CI%"=="1" set "KEEP_OPEN=ver >nul"
 cd /d "%~dp0"
 REM HYDRA_UMC_SCRIPT_STANDARD_VERSION_STEP
 echo [1/5] Incrementing project version and synchronising its manifest...
 python bump_version.py
-if errorlevel 1 ( echo NATIVE VERSION BUMP FAILED. & pause & exit /b 1 )
+if errorlevel 1 ( echo NATIVE VERSION BUMP FAILED. & %KEEP_OPEN% & exit /b 1 )
 REM HYDRA_UMC_SCRIPT_STANDARD_VERSION_CAPTURE_BEFORE
 for /f "usebackq delims=" %%V in (`python -c "import json; print(json.load(open(r'%~dp0hydra-umc.project.json', encoding='utf-8'))['version'])"`) do set "HYDRA_UMC_VERSION_BEFORE=%%V"
 python "%~dp0bump_manifest_version.py" --sync
-if errorlevel 1 ( echo VERSION SYNCHRONIZATION FAILED. & pause & exit /b 1 )
+if errorlevel 1 ( echo VERSION SYNCHRONIZATION FAILED. & %KEEP_OPEN% & exit /b 1 )
 if errorlevel 1 goto :error
 REM HYDRA_UMC_SCRIPT_STANDARD_VERSION_CAPTURE_AFTER
 for /f "usebackq delims=" %%V in (`python -c "import json; print(json.load(open(r'%~dp0hydra-umc.project.json', encoding='utf-8'))['version'])"`) do set "HYDRA_UMC_VERSION_AFTER=%%V"
@@ -91,11 +95,11 @@ echo  ===============================================================
 echo   Build complete. Run run.bat to see a real edge collect + control show demo.
 echo  ===============================================================
 echo.
-pause
+%KEEP_OPEN%
 exit /b 0
 
 :error
 echo.
 echo   BUILD FAILED - see the output above.
-pause
+%KEEP_OPEN%
 exit /b 1
