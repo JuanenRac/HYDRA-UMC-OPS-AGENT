@@ -5,7 +5,7 @@
 # =============================================================================
 import unittest
 
-from hydra_umc_ops_agent.log_redaction import redact_lines, redact_secrets
+from hydra_umc_ops_agent.log_redaction import TOKEN_SHAPES, redact_json, redact_lines, redact_secrets
 
 
 class RedactSecretsTests(unittest.TestCase):
@@ -125,6 +125,63 @@ class RedactSecretsTests(unittest.TestCase):
         self.assertNotIn("MIIEpQIBAAKCAQEA1234567890abcdef", result)
         self.assertIn("before", result)
         self.assertIn("after", result)
+
+
+class CommandLineAndHeaderShapesTests(unittest.TestCase):
+    def test_a_secret_given_as_a_separate_command_line_argument_is_redacted(self):
+        line = redact_secrets("streamer --token hunter2-token-value --password=swordfish --port 8080 -api-key abc123456")
+        for secret in ("hunter2-token-value", "swordfish", "abc123456"):
+            self.assertNotIn(secret, line)
+        self.assertIn("--port 8080", line)
+
+    def test_a_flag_followed_by_another_flag_swallows_nothing(self):
+        self.assertEqual(redact_secrets("run --token --verbose"), "run --token --verbose")
+
+    def test_a_flag_without_a_secret_word_is_left_alone(self):
+        text = "deploy --host example.org --retries 3"
+        self.assertEqual(redact_secrets(text), text)
+
+    def test_basic_credentials_are_redacted_with_or_without_the_header_name(self):
+        self.assertNotIn("dXNlcjpwYXNzd29yZA", redact_secrets("Authorization: Basic dXNlcjpwYXNzd29yZA=="))
+        self.assertNotIn("dXNlcjpwYXNzd29yZA", redact_secrets("sent Basic dXNlcjpwYXNzd29yZA== to the proxy"))
+
+    def test_the_word_basic_in_prose_is_left_alone(self):
+        text = "Basic configuration is loaded from the default profile"
+        self.assertEqual(redact_secrets(text), text)
+
+    def test_cookie_headers_are_redacted_whole(self):
+        cleaned = redact_secrets("Cookie: session=abcdef0123456789; theme=dark\nSet-Cookie: sid=zzz999; HttpOnly\nnext line")
+        self.assertNotIn("abcdef0123456789", cleaned)
+        self.assertNotIn("zzz999", cleaned)
+        self.assertIn("next line", cleaned)
+
+    def test_known_token_shapes_stay_redacted(self):
+        samples = (
+            "ghp_" + "a" * 36,
+            "github_pat_" + "B" * 30,
+            "AKIA" + "ABCDEFGHIJKLMNOP",
+            "sk-ant-api03-" + "x1" * 15,
+            "xoxb-1234567890-abcdefghij",
+            "eyJhbGciOiJI.eyJzdWIiOiIx.SflKxwRJSMeKKF2QT4",
+        )
+        self.assertGreaterEqual(len(TOKEN_SHAPES), 6)
+        for sample in samples:
+            self.assertEqual(redact_secrets(f"value {sample} end"), "value [REDACTED] end", sample)
+
+    def test_a_token_used_as_the_whole_url_userinfo_is_redacted(self):
+        cleaned = redact_secrets("clone https://abcdef0123456789abcdef@git.example.org/x/y")
+        self.assertNotIn("abcdef0123456789abcdef", cleaned)
+        self.assertIn("git.example.org", cleaned)
+
+
+class RedactJsonTests(unittest.TestCase):
+    def test_redact_json_cleans_nested_values_and_secret_named_keys(self):
+        cleaned = redact_json({"url": "http://admin:hunter2@host/", "list": ["--token abc12345"], "password": "x", "n": 3, "ok": True})
+        self.assertNotIn("hunter2", str(cleaned))
+        self.assertNotIn("abc12345", str(cleaned))
+        self.assertEqual(cleaned["password"], "[REDACTED]")
+        self.assertEqual(cleaned["n"], 3)
+        self.assertIs(cleaned["ok"], True)
 
 
 class RedactLinesTests(unittest.TestCase):

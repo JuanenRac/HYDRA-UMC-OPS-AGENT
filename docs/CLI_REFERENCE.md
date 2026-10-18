@@ -4,6 +4,19 @@
 subcommand groups, one per role (`edge`, `control`). There is no
 default/bare invocation - a command is always required.
 
+## Redaction of what is printed and written
+
+Every JSON result a command prints or writes with `--out` (snapshots,
+diagnoses, deploy and verification results) and every entry appended to the
+audit journal passes through one function, `redact_json()` in
+`log_redaction.py`. It redacts `KEY=VALUE` and JSON secrets, `--token VALUE`
+style command-line arguments, `Bearer` and `Basic` credentials, cookie
+headers, passwords and tokens in URLs, private keys and the known token
+formats (GitHub, Anthropic, OpenAI, AWS, Slack, JWT), and replaces the value
+of any key named like a secret. The one thing printed unredacted is the diff
+`control show` displays to the approver, because that exact text is what gets
+signed.
+
 ## `edge collect`
 
 Runs on the edge role (a CM5, or any host being observed). Produces one

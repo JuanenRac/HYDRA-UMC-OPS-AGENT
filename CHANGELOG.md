@@ -5,6 +5,12 @@ version number follows this ecosystem's "odometer" scheme: PATCH +1 on
 every real build, rolling into MINOR past 9 (`0.0.9` -> `0.1.0`); MAJOR is
 bumped manually only. See `bump_version.py`.
 
+## [0.1.7] - Redaction covers command-line arguments, cookies and Basic credentials, at one point
+
+- **Redaction:** a secret passed as a separate command-line argument (`--token VALUE`, `-password VALUE`) is now redacted, as are `Cookie` / `Set-Cookie` headers, a bare `Basic <base64>` credential (the word "Basic" in prose is left alone) and a token used as the whole user part of a URL. The existing bare-token formats stay as they were.
+- **One redaction point:** every JSON result the commands print or write and every audit journal entry goes through `redact_json()`, which also replaces the value of any key named like a secret, so a new field cannot forget to redact itself.
+- 317 tests: each new shape and its false-positive guards, the output and file boundaries and the audit journal.
+
 ## [0.1.6] - Approvals are signatures; the deploy checks, restarts, rolls back and records itself
 
 - **Signed approvals:** an approval used to be three fields of a JSON file (`status: approved`, a name and an unkeyed SHA-256 anyone could recompute), so whoever could write the proposal could approve it and get its diff and build script run. `control approve` now signs, with the approver's own Ed25519 private key, a statement of the proposal, the SHA-256 of the diff, who approves, until when (24 hours by default), the commit of the checkout it is for and whether protected paths are allowed. `deploy-canary` verifies it against a registry of approvers' *public* keys (`--approvers`) and refuses an unsigned or hand-edited approval, a signature by another key, a changed diff, an expired approval and a different commit. New `control keygen`; `approve` shows the diff and asks (or takes `--yes`). Needs the `signing` extra (`cryptography`).

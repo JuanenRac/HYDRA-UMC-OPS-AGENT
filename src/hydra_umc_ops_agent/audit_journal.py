@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from ._atomic import exclusive_lock
-from .log_redaction import redact_secrets
+from .log_redaction import redact_json
 
 GENESIS_HASH = "0" * 64
 
@@ -33,13 +33,7 @@ class AuditJournalError(RuntimeError):
 
 
 def _redacted(value: Any) -> Any:
-    if isinstance(value, str):
-        return redact_secrets(value)
-    if isinstance(value, dict):
-        return {str(key): _redacted(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_redacted(item) for item in value]
-    return value
+    return redact_json(value)
 
 
 def _hash_of(entry: dict[str, Any]) -> str:

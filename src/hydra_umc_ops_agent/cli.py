@@ -39,6 +39,7 @@ from pathlib import Path
 
 from . import __version__
 from ._atomic import atomic_write_text
+from .log_redaction import redact_json
 from .approval_signing import (
     ApprovalSigningError,
     generate_keypair,
@@ -89,6 +90,12 @@ def _split_command(command: str) -> list[str]:
     return list(lexer)
 
 
+def _dump(value: object) -> str:
+    """The one place a structured result becomes text for stdout or a file:
+    every string in it, and every value under a secret-named key, is redacted."""
+    return json.dumps(redact_json(value), indent=2)
+
+
 def _write_output(path: str, payload: str) -> bool:
     """Writes `payload` to `path` all-or-nothing; a path that cannot be
     written is one clear line on stderr, not a traceback."""
@@ -125,7 +132,7 @@ def _cmd_edge_collect(args: argparse.Namespace) -> int:
     except (IncidentStoreError, OSError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
-    payload = json.dumps(snapshot.to_dict(), indent=2)
+    payload = _dump(snapshot.to_dict())
     if args.out:
         if not _write_output(args.out, payload):
             return 1
@@ -180,7 +187,7 @@ def _cmd_control_diagnose(args: argparse.Namespace) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
-    payload = json.dumps(result.to_dict(), indent=2)
+    payload = _dump(result.to_dict())
     if args.out:
         if not _write_output(args.out, payload):
             return 1
@@ -382,7 +389,7 @@ def _cmd_control_deploy_canary(args: argparse.Namespace) -> int:
     except CanaryDeployError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
-    payload = json.dumps(result.to_dict(), indent=2)
+    payload = _dump(result.to_dict())
     if args.out:
         if not _write_output(args.out, payload):
             return 1
@@ -411,7 +418,7 @@ def _cmd_control_verify(args: argparse.Namespace) -> int:
     except VerificationError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
-    payload = json.dumps(result.to_dict(), indent=2)
+    payload = _dump(result.to_dict())
     if args.out:
         if not _write_output(args.out, payload):
             return 1
