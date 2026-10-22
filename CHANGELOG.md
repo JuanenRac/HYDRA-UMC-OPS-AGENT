@@ -7,6 +7,7 @@ bumped manually only. See `bump_version.py`.
 
 ## [Unreleased]
 
+- **Pinned to SDK 0.3.6** (dependency and contract checkout in CI).
 - The banner follows the animated style of the ecosystem banners, with the name, the kind and the technologies of the project.
 - Added `tools/hydra_project_tool.py`: the same `validate`, `test`, `version`, `status` and `bump` commands in every repository. The checks run with `HYDRA_UMC_CI=1` and fail if the version changes; only `bump` changes it.
 - The SDK is now fetched at a release tag instead of the main branch, so a change of the SDK cannot break this repository by itself.
