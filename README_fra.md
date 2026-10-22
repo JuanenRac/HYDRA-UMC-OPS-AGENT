@@ -261,7 +261,7 @@ HYDRA-UMC-OPS-AGENT/
 ├── build.sh / build.bat     # venv + installation éditable + compile-check + tests
 ├── build-test.sh / .bat     # Validation de build uniquement, sans rien modifier
 ├── run.sh / run.bat         # Démo réelle edge collect + control show (sans argument), ou relaie une vraie commande CLI
-├── bump_version.py          # Incrément type "odomètre" de l'écosystème (pyproject.toml + __init__.py)
+├── bump_version.py          # Incrément de version type compteur kilométrique (exécuté seulement par la commande `bump` explicite)
 └── bump_manifest_version.py # Synchronise la version de hydra-umc.project.json avec la native (--sync)
 ```
 

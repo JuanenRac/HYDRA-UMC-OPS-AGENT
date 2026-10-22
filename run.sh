@@ -43,12 +43,13 @@ cd "$(dirname "$0")"
 # CI/piped/non-interactive runs).
 trap '[ -t 0 ] && read -r -p "Press Enter to close..." _' EXIT
 
-if [ -f .venv/bin/activate ]; then
-    # shellcheck disable=SC1091
-    source .venv/bin/activate
-elif [ -f .venv/Scripts/activate ]; then
-    # shellcheck disable=SC1091
-    source .venv/Scripts/activate
+# The python of the venv is used directly (no activate script); without a venv the python on the PATH is used.
+if [ -x .venv/bin/python ]; then
+    VPY=".venv/bin/python"
+elif [ -x .venv/Scripts/python.exe ]; then
+    VPY=".venv/Scripts/python.exe"
+else
+    VPY="python3"
 fi
 
 if [ "$#" -eq 0 ]; then
@@ -63,16 +64,16 @@ if [ "$#" -eq 0 ]; then
         printf '%s\n' '{ "name": "sample-project"' > "$demo_root/sample-project/hydra-umc.project.json"
     fi
     demo_snapshot="$demo_dir/snapshot.json"
-    python -m hydra_umc_ops_agent.cli edge collect --node-name demo-node --projects-root "$demo_root" --out "$demo_snapshot"
+    "$VPY" -m hydra_umc_ops_agent.cli edge collect --node-name demo-node --projects-root "$demo_root" --out "$demo_snapshot"
     status=$?
     if [ "$status" -eq 0 ]; then
         echo
-        python -m hydra_umc_ops_agent.cli control show "$demo_snapshot"
+        "$VPY" -m hydra_umc_ops_agent.cli control show "$demo_snapshot"
         status=$?
     fi
     rm -rf "$demo_dir"
 else
-    python -m hydra_umc_ops_agent.cli "$@"
+    "$VPY" -m hydra_umc_ops_agent.cli "$@"
     status=$?
 fi
 exit "$status"

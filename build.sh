@@ -19,7 +19,7 @@ printf '%s\n' "* Email     : electrohobby3d@gmail.com"
 printf '%s\n' "* Copyright : (C) 2026 JuanenRac"
 printf '%s\n' "* License   : GPL-3.0-or-later - see LICENSE"
 printf '%s\n' "* ------------------------------------------------------------------------- *"
-printf '%s\n' "* 1. Increment the project version and synchronise its manifest."
+printf '%s\n' "* 1. Read the project version (building never changes it; use the explicit bump command)."
 printf '%s\n' "* 2. Run this project's declared build, verification and packaging commands."
 printf '%s\n' "* 3. Report the result and keep an interactive terminal open."
 printf '%s\n' "*******************************************************************************"
@@ -41,54 +41,44 @@ cd "$(dirname "$0")"
 # stdin is actually a terminal (never in CI/piped/non-interactive runs).
 trap '[ -t 0 ] && read -r -p "Press Enter to close..." _' EXIT
 # HYDRA_UMC_SCRIPT_STANDARD_VERSION_STEP
-printf '%s\n' "[1/5] Incrementing project version and synchronising its manifest..."
-python3 bump_version.py || exit 1
-# HYDRA_UMC_SCRIPT_STANDARD_VERSION_CAPTURE_BEFORE
-HYDRA_UMC_VERSION_BEFORE="$(python3 -c 'import json, pathlib, sys; print(json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))["version"])' "$(dirname "$0")/hydra-umc.project.json")"
-python3 "$(dirname "$0")/bump_manifest_version.py" --sync || exit 1
-# HYDRA_UMC_SCRIPT_STANDARD_VERSION_CAPTURE_AFTER
-HYDRA_UMC_VERSION_AFTER="$(python3 -c 'import json, pathlib, sys; print(json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))["version"])' "$(dirname "$0")/hydra-umc.project.json")"
-printf '\n*******************************************************************************\n'
-printf '%s\n' '* VERSION INCREMENT COMPLETED'
-printf '%s\n' "* v${HYDRA_UMC_VERSION_BEFORE:-unknown} -> v${HYDRA_UMC_VERSION_AFTER:-unknown}"
-printf '%s\n' '* Project manifest has been synchronised by the project build flow.'
-printf '%s\n' '*******************************************************************************'
-printf '\n'
+printf '%s\n' "[1/5] Reading the project version (building never changes it)..."
+HYDRA_UMC_VERSION_BUILT="$(python3 -c 'import json, pathlib, sys; print(json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))["version"])' "$(dirname "$0")/hydra-umc.project.json")"
+printf '%s\n' "      Building v${HYDRA_UMC_VERSION_BUILT:-unknown} (building never changes the version)"
+echo
 echo "      Done."
 echo
 
 echo "[2/5] Creating/activating virtual environment..."
-if [ ! -d .venv ]; then
-    python3 -m venv .venv
+# The venv is made with python3 (or python); the scripts use the python of the venv directly instead of an activate script: the python that is first on the PATH
+# may be a stripped one (for example the one of ESP-IDF) whose venv has none.
+if [ ! -x .venv/bin/python ] && [ ! -x .venv/Scripts/python.exe ]; then
+    (python3 -m venv .venv 2>/dev/null || python -m venv .venv)
 fi
-# shellcheck disable=SC1091
-# venv layout differs by OS: bin/activate on Linux/macOS, Scripts/activate
-# on Windows (also true for a Windows Python venv used from Git Bash).
-if [ -f .venv/bin/activate ]; then
-    source .venv/bin/activate
-elif [ -f .venv/Scripts/activate ]; then
-    source .venv/Scripts/activate
+if [ -x .venv/bin/python ]; then
+    VPY=".venv/bin/python"
+elif [ -x .venv/Scripts/python.exe ]; then
+    VPY=".venv/Scripts/python.exe"
 else
-    echo "ERROR: could not find the venv activate script." >&2
+    echo "ERROR: the venv has no python; delete the .venv folder and run this again." >&2
     exit 1
 fi
 echo "      Done."
 echo
 
 echo "[3/5] Installing project (editable, with dev extras) into the venv..."
-python -m pip install --upgrade pip >/dev/null
-python -m pip install -e ".[dev]"
+"$VPY" -m pip install --upgrade pip >/dev/null
+"$VPY" -m pip install -e ".[dev]"
 echo "      Done."
 echo
 
 echo "[4/5] Verifying the package compiles/imports without errors..."
-python -m compileall -q src
-python -c "import hydra_umc_ops_agent; print('import OK - version', hydra_umc_ops_agent.__version__)"
+"$VPY" -m compileall -q src
+"$VPY" -c "import hydra_umc_ops_agent; print('import OK - version', hydra_umc_ops_agent.__version__)"
 echo "      Done."
 echo
 
 echo "[5/5] Running the real test suite (pytest)..."
-python -m pytest tests/ -q
+"$VPY" -m pytest tests/ -q
 echo "      Done."
 echo
 
@@ -96,3 +86,4 @@ echo " ==============================================================="
 echo "  Build complete. Run ./run.sh to see a real edge collect + control show demo."
 echo " ==============================================================="
 echo
+printf '%s\n' "Built v${HYDRA_UMC_VERSION_BUILT:-unknown}. Building never changes the version; to raise it run: python tools/hydra_project_tool.py bump"

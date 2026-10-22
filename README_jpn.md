@@ -258,7 +258,7 @@ HYDRA-UMC-OPS-AGENT/
 ├── build.sh / build.bat     # venv + 編集可能インストール + コンパイルチェック + テスト
 ├── build-test.sh / .bat     # 何も変更しない、ビルド検証のみ
 ├── run.sh / run.bat         # 本物の edge collect + control show デモ(引数なしの場合)、または本物の CLI コマンドを転送
-├── bump_version.py          # エコシステム全体の「走行距離計」式インクリメント(pyproject.toml + __init__.py)
+├── bump_version.py          # オドメーター式バージョンインクリメント（明示的な `bump` コマンドのみが実行）
 └── bump_manifest_version.py # hydra-umc.project.json のバージョンをネイティブのものと同期(--sync)
 ```
 
