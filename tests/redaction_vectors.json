@@ -1,0 +1,238 @@
+{
+  "description": "Cases every implementation of the secret redaction has to pass. 'text' is redact_secrets(input), 'json' is redact_json(input), 'lines' is redact_lines(input). The marker is [REDACTED].",
+  "marker": "[REDACTED]",
+  "text": [
+    {
+      "name": "env-password",
+      "input": "DB_PASSWORD=hunter2 host=db",
+      "expected": "DB_PASSWORD=[REDACTED] host=db"
+    },
+    {
+      "name": "env-quoted-spaces",
+      "input": "API_KEY = \"abc def ghi\" next=1",
+      "expected": "API_KEY = [REDACTED] next=1"
+    },
+    {
+      "name": "colon-token",
+      "input": "token: s3cr3tvalue",
+      "expected": "token: [REDACTED]"
+    },
+    {
+      "name": "json-string",
+      "input": "{\"password\": \"FAKE-pw\", \"user\": \"ana\"}",
+      "expected": "{\"password\": [REDACTED], \"user\": \"ana\"}"
+    },
+    {
+      "name": "json-number",
+      "input": "{\"secret\":12345,\"ok\":1}",
+      "expected": "{\"secret\":[REDACTED],\"ok\":1}"
+    },
+    {
+      "name": "json-nested-object",
+      "input": "{\"password\": {\"value\": \"FAKE\"}, \"x\": 1}",
+      "expected": "{\"password\": [REDACTED], \"x\": 1}"
+    },
+    {
+      "name": "json-nested-array",
+      "input": "{\"api_key\": [\"FAKE\", \"FAKE2\"], \"x\": 1}",
+      "expected": "{\"api_key\": [REDACTED], \"x\": 1}"
+    },
+    {
+      "name": "bearer-header",
+      "input": "Authorization: Bearer abc.def.ghi",
+      "expected": "Authorization: Bearer [REDACTED]"
+    },
+    {
+      "name": "basic-header",
+      "input": "Authorization: Basic dXNlcjpwYXNz",
+      "expected": "Authorization: Basic [REDACTED]"
+    },
+    {
+      "name": "basic-bare",
+      "input": "sent Basic dXNlcjpwYXNzd29yZA== to proxy",
+      "expected": "sent Basic [REDACTED] to proxy"
+    },
+    {
+      "name": "basic-in-prose-kept",
+      "input": "Basic configuration is required",
+      "expected": "Basic configuration is required"
+    },
+    {
+      "name": "url-password",
+      "input": "mqtt://admin:pa55w0rd@broker.local:1883/topic",
+      "expected": "mqtt://admin:[REDACTED]@broker.local:1883/topic"
+    },
+    {
+      "name": "url-token-userinfo",
+      "input": "https://ghp_abcdefghijklmnopqrstuvwxyz0123456789@github.com/x/y.git",
+      "expected": "https://[REDACTED]@github.com/x/y.git"
+    },
+    {
+      "name": "url-no-credentials-kept",
+      "input": "https://example.com/path?a=1",
+      "expected": "https://example.com/path?a=1"
+    },
+    {
+      "name": "pem-complete",
+      "input": "before\n-----BEGIN RSA PRIVATE KEY-----\nMIIEow\nabc\n-----END RSA PRIVATE KEY-----\nafter",
+      "expected": "before\n[REDACTED]\nafter"
+    },
+    {
+      "name": "pem-truncated",
+      "input": "log\n-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkq",
+      "expected": "log\n[REDACTED]"
+    },
+    {
+      "name": "cookie",
+      "input": "Cookie: session=abc123; theme=dark\nHost: x",
+      "expected": "Cookie: [REDACTED]\nHost: x"
+    },
+    {
+      "name": "set-cookie",
+      "input": "Set-Cookie: sid=zzz; HttpOnly",
+      "expected": "Set-Cookie: [REDACTED]"
+    },
+    {
+      "name": "github-token",
+      "input": "pushed with ghp_abcdefghijklmnopqrstuvwxyz0123456789 today",
+      "expected": "pushed with [REDACTED] today"
+    },
+    {
+      "name": "aws-key-id",
+      "input": "key AKIAABCDEFGHIJKLMNOP leaked",
+      "expected": "key [REDACTED] leaked"
+    },
+    {
+      "name": "slack-token",
+      "input": "xoxb-1234567890-abcdef",
+      "expected": "[REDACTED]"
+    },
+    {
+      "name": "openai-key",
+      "input": "OPENAI sk-proj-abc123def456ghi789jkl012mno345",
+      "expected": "OPENAI [REDACTED]"
+    },
+    {
+      "name": "jwt",
+      "input": "jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijk end",
+      "expected": "jwt [REDACTED] end"
+    },
+    {
+      "name": "cli-flag-value",
+      "input": "run --password hunter2 --verbose",
+      "expected": "run --password [REDACTED] --verbose"
+    },
+    {
+      "name": "cli-short-flag",
+      "input": "tool -token abc123 -v",
+      "expected": "tool -token [REDACTED] -v"
+    },
+    {
+      "name": "cli-flag-before-flag-kept",
+      "input": "run --token --verbose",
+      "expected": "run --token --verbose"
+    },
+    {
+      "name": "hyphenated-phrase-kept",
+      "input": "sk-learn-style is a normal phrase",
+      "expected": "sk-learn-style is a normal phrase"
+    },
+    {
+      "name": "plain-text-kept",
+      "input": "Service hydra-umc-server is active (running) since Mon",
+      "expected": "Service hydra-umc-server is active (running) since Mon"
+    },
+    {
+      "name": "empty",
+      "input": "",
+      "expected": ""
+    },
+    {
+      "name": "two-secrets-one-line",
+      "input": "password=a token=b",
+      "expected": "password=[REDACTED] token=[REDACTED]"
+    },
+    {
+      "name": "authorization-word-kept",
+      "input": "authorization is required here",
+      "expected": "authorization is required here"
+    }
+  ],
+  "json": [
+    {
+      "name": "json-secret-key-value",
+      "input": {
+        "password": "x",
+        "user": "ana"
+      },
+      "expected": {
+        "password": "[REDACTED]",
+        "user": "ana"
+      }
+    },
+    {
+      "name": "json-nested",
+      "input": {
+        "a": [
+          {
+            "token": "t",
+            "n": 1
+          },
+          "Bearer zzz"
+        ]
+      },
+      "expected": {
+        "a": [
+          {
+            "token": "[REDACTED]",
+            "n": 1
+          },
+          "Bearer [REDACTED]"
+        ]
+      }
+    },
+    {
+      "name": "json-bool-kept",
+      "input": {
+        "secret": true,
+        "n": 2
+      },
+      "expected": {
+        "secret": true,
+        "n": 2
+      }
+    },
+    {
+      "name": "json-tuple-list",
+      "input": {
+        "x": [
+          "password=1",
+          "ok"
+        ]
+      },
+      "expected": {
+        "x": [
+          "password=[REDACTED]",
+          "ok"
+        ]
+      }
+    }
+  ],
+  "lines": [
+    {
+      "name": "pem-split-over-lines",
+      "input": [
+        "a",
+        "-----BEGIN PRIVATE KEY-----",
+        "MIIE",
+        "-----END PRIVATE KEY-----",
+        "b"
+      ],
+      "expected": [
+        "a",
+        "[REDACTED]",
+        "b"
+      ]
+    }
+  ]
+}

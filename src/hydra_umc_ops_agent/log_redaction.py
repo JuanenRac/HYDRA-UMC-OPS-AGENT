@@ -1,25 +1,21 @@
 # =============================================================================
-# HYDRA-UMC-OPS-AGENT - src/hydra_umc_ops_agent/log_redaction.py
+# HYDRA-UMC-SDK - tools/canonical/redaction.py
 # Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
 # GPL-3.0-or-later - see LICENSE
 # =============================================================================
-"""Real, pure log/text sanitization - this repo's own
-non-negotiable security limit: "no envía secretos, tokens,
-claves SSH, archivos .env ni logs sin saneamiento al control-plane o a
-proveedores IA" (never sends secrets, tokens, SSH keys, .env files or
-un-sanitized logs to the control-plane or an AI provider).
+"""One shared, pure redaction of secrets for text and JSON-like values.
 
-Deliberately a fixed, explicit list of REAL, well-known secret shapes, never
-a fuzzy "looks random enough" heuristic - a heuristic invites both false
-positives (redacting an innocuous long identifier, destroying real diagnostic
-value) and false negatives (a genuine secret shaped just differently enough
-to dodge a vague pattern). Every pattern here corresponds to one real,
-concrete leak this project's own contract explicitly calls out.
+This file has a single canonical copy (`tools/canonical/redaction.py` of HYDRA-UMC-SDK) that is vendored,
+byte for byte, into the Python projects that send text out of their process (the ops agent and the local
+technician); `tools/sync_repo_tools.py` keeps the copies identical. The cases every implementation has to
+pass, in any language, are in `contracts/redaction/vectors.json`.
 
-This module never decides WHAT to collect - inventory.py does that. It only
-ever narrows what a caller already gathered, so the same real function
-guards every path data leaves this process on (a saved snapshot file, a
-future network transport, a future AI-provider request).
+Deliberately a fixed, explicit list of real, well-known secret shapes, never a fuzzy "looks random enough"
+heuristic: a heuristic invites both false positives (redacting an innocuous long identifier) and false
+negatives (a genuine secret shaped just differently enough to dodge a vague pattern).
+
+The module never decides what to collect; it only narrows what a caller already gathered, so the same
+function guards every path data leaves a process on (a saved snapshot, a network transport, an AI request).
 """
 from __future__ import annotations
 
