@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased]
+## [0.1.9] - Pinned to SDK 0.3.6
 
 - The secret redaction is the shared copy kept by the SDK (`tools/canonical/redaction.py`), identical to the one of the local technician, and it passes the same shared cases (`tests/redaction_vectors.json`): headers, cookies, URL credentials, known token shapes, command-line flags, nested JSON and private-key blocks.
 - Building no longer changes the version; raising it is the explicit `bump` command (`python tools/hydra_project_tool.py bump`). The build scripts only report the version they built, and CI fails if a build script runs a bump.

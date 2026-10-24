@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="エッジとコントロールプレーンの役割">
 </p>
 
-> **ステータス: v0.1.8、functional - 6 件の納品のうち第 1-5 弾(証拠、
+> **ステータス: v0.1.9、functional - 6 件の納品のうち第 1-5 弾(証拠、
 > 診断、人による承認済みの変更、カナリアデプロイ、検証)。** すべての
 > サブコマンドが本物であり、エンドツーエンドでテスト済みです——
 > `control diagnose` は模擬の AI プロバイダーに対して(本物のプロバイ
@@ -39,7 +39,7 @@
 
 | | |
 |---|---|
-| バージョン | `0.1.8` |
+| バージョン | `0.1.9` |
 | 成熟度 | 機能する |
 | テスト | 319 |
 | 技術 | Python 3.11+ / JSON Schema / systemd (edge role, Linux only) / Anthropic API and/or OpenAI API (optional, provider-agnostic diagnosis) / git (staging clone + git apply for the real canary deploy path) |

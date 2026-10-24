@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="Ruoli edge e control-plane">
 </p>
 
-> **Stato: v0.1.8, functional - Consegne 1-5 di 6 (evidenza, diagnosi,
+> **Stato: v0.1.9, functional - Consegne 1-5 di 6 (evidenza, diagnosi,
 > cambiamento approvato da una persona, distribuzione canary,
 > verifica).** Ogni sottocomando è reale e testato end to end - `control
 > diagnose` contro un provider di IA simulato (qualsiasi provider reale
@@ -39,7 +39,7 @@
 
 | | |
 |---|---|
-| Versione | `0.1.8` |
+| Versione | `0.1.9` |
 | Maturità | Funzionale |
 | Test | 319 |
 | Tecnologia | Python 3.11+ / JSON Schema / systemd (edge role, Linux only) / Anthropic API and/or OpenAI API (optional, provider-agnostic diagnosis) / git (staging clone + git apply for the real canary deploy path) |
