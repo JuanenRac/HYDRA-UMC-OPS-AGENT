@@ -244,6 +244,7 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --
 ```
 HYDRA-UMC-OPS-AGENT/
 ├── src/hydra_umc_ops_agent/
+│   ├── __init__.py         # パッケージバージョン
 │   ├── _atomic.py          # ストア・提案・結果のための永続的かつアトミックなファイル書き込み
 │   ├── approval_signing.py # 承認の Ed25519 署名; 承認者の登録簿
 │   ├── audit_journal.py    # ハッシュで連鎖する追記専用の監査ジャーナル
@@ -257,17 +258,22 @@ HYDRA-UMC-OPS-AGENT/
 │   ├── change_proposal.py  # 納品 3: 不変で人による承認済みの ChangeProposal ライフサイクル
 │   ├── canary_deploy.py    # 納品 4: ステージング + 適用 + 検証 + 昇格、承認済みのみ
 │   ├── verification.py     # 納品 5: インシデントの背後にある本物のチェックを再実行
-│   └── cli.py               # 上記すべての納品向けの edge/control サブコマンドエントリーポイント
+│   ├── cli.py               # 上記すべての納品向けの edge/control サブコマンドエントリーポイント
+│   └── incident_store.py    # 永続的で重複を排除したインシデント層: (ノード, コンポーネント) ごとに未解決レコードを1件、再確認して正常だった場合のみ解決
 ├── tests/                  # 11 モジュールすべてに対する本物のテスト、ローカル http.server フィクスチャ、模擬 AI プロバイダー、カナリアデプロイ用の本物の使い捨て git リポジトリを含む
 ├── docs/
 │   ├── CLI_REFERENCE.md     # すべてのサブコマンド、そのフラグ、終了コード契約
 │   ├── INCIDENT_CONTRACT.md # MaintenanceIncident/NodeSnapshot の本物の JSON 形
 │   ├── DIAGNOSIS.md         # 納品 2 自身の契約、プロバイダーと安全境界
-│   └── CHANGE_LIFECYCLE.md  # 納品 3-5 自身の契約と安全境界
+│   ├── CHANGE_LIFECYCLE.md  # 納品 3-5 自身の契約と安全境界
+│   └── MATURITY_CRITERIA.md # 成熟度の終了基準 (一段上がるために満たすべき条件)
 ├── images/                 # メディアとアプリアイコン
 ├── tools/
 │   ├── build_test.py        # バージョン管理を伴わないビルド/コンパイルチェック
-│   └── ci_validate.py       # CI が使用するマニフェスト/CHANGELOG/ドキュメントの検証
+│   ├── ci_validate.py       # CI が使用するマニフェスト/CHANGELOG/ドキュメントの検証
+│   ├── _doc_policy.py       # ファミリー共通のドキュメント規則 (HYDRA-UMC-SDK のコピーで、同期を維持)
+│   ├── _readme_parity.py    # 8つの README が同じ構造であることの検査 (HYDRA-UMC-SDK のコピーで、同期を維持)
+│   └── hydra_project_tool.py # すべてのリポジトリで共通のコマンド: validate、test、ci、version、status、bump
 ├── build.sh / build.bat     # venv + 編集可能インストール + コンパイルチェック + テスト
 ├── build-test.sh / .bat     # 何も変更しない、ビルド検証のみ
 ├── run.sh / run.bat         # 本物の edge collect + control show デモ(引数なしの場合)、または本物の CLI コマンドを転送

@@ -126,6 +126,7 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --
 ```
 HYDRA-UMC-OPS-AGENT/
 ├── src/hydra_umc_ops_agent/
+│   ├── __init__.py         # 包版本
 │   ├── _atomic.py          # 为存储、提案和结果提供持久的原子文件写入
 │   ├── approval_signing.py # 批准的 Ed25519 签名;批准人注册表
 │   ├── audit_journal.py    # 按哈希链接、仅追加的审计日志
@@ -139,17 +140,22 @@ HYDRA-UMC-OPS-AGENT/
 │   ├── change_proposal.py  # 交付 3：不可变的、经人工批准的 ChangeProposal 生命周期
 │   ├── canary_deploy.py    # 交付 4：stage + apply + verify + promote，仅在获批后执行
 │   ├── verification.py     # 交付 5：重新执行某个事件背后的真实检查
-│   └── cli.py               # 上述每一项交付的 edge/control 子命令入口点
+│   ├── cli.py               # 上述每一项交付的 edge/control 子命令入口点
+│   └── incident_store.py    # 持久且去重的事件层: 每个 (节点, 组件) 一条未结记录,仅当该组件被重新检查且正常时才关闭
 ├── tests/                  # 覆盖全部 11 个模块的真实测试，含一个本地 http.server fixture、一个模拟的 AI 提供方，以及一个用于金丝雀部署的真实、用后即弃的 git 仓库
 ├── docs/
 │   ├── CLI_REFERENCE.md     # 每个子命令、其参数、退出码契约
 │   ├── INCIDENT_CONTRACT.md # MaintenanceIncident/NodeSnapshot 的真实 JSON 结构
 │   ├── DIAGNOSIS.md         # 交付 2 自身的契约、提供方与安全边界
-│   └── CHANGE_LIFECYCLE.md  # 交付 3-5 自身的契约与安全边界
+│   ├── CHANGE_LIFECYCLE.md  # 交付 3-5 自身的契约与安全边界
+│   └── MATURITY_CRITERIA.md # 成熟度退出标准 (升一级必须满足的条件)
 ├── images/                 # 媒体资源与应用图标
 ├── tools/
 │   ├── build_test.py        # 不涉及版本变更的构建/编译检查
-│   └── ci_validate.py       # CI 使用的清单/CHANGELOG/文档校验
+│   ├── ci_validate.py       # CI 使用的清单/CHANGELOG/文档校验
+│   ├── _doc_policy.py       # 家族共享的文档规则 (HYDRA-UMC-SDK 的副本,保持同步)
+│   ├── _readme_parity.py    # 检查八个 README 结构一致 (HYDRA-UMC-SDK 的副本,保持同步)
+│   └── hydra_project_tool.py # 每个仓库相同的命令: validate、test、ci、version、status、bump
 ├── build.sh / build.bat     # 创建 venv + 可编辑安装 + 编译检查 + 测试
 ├── build-test.sh / .bat     # 仅执行构建校验，不修改任何内容
 ├── run.sh / run.bat         # 真实的 edge collect + control show 演示（不带参数时），或转发一条真实的 CLI 命令

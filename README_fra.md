@@ -247,6 +247,7 @@ surface de commandes complète et réelle.
 ```
 HYDRA-UMC-OPS-AGENT/
 ├── src/hydra_umc_ops_agent/
+│   ├── __init__.py         # Version du paquet
 │   ├── _atomic.py          # Écritures de fichier durables et atomiques pour les magasins, propositions et résultats
 │   ├── approval_signing.py # Signatures Ed25519 des approbations ; registre des approbateurs
 │   ├── audit_journal.py    # Journal d'audit chaîné par hachage, en ajout seul
@@ -260,17 +261,22 @@ HYDRA-UMC-OPS-AGENT/
 │   ├── change_proposal.py  # Livraison 3 : cycle de vie immuable de ChangeProposal, approuvé par une personne
 │   ├── canary_deploy.py    # Livraison 4 : stage + apply + verify + promote, uniquement sur approbation
 │   ├── verification.py     # Livraison 5 : relance la vérification réelle derrière un incident
-│   └── cli.py               # Point d'entrée des sous-commandes edge/control pour chaque livraison ci-dessus
+│   ├── cli.py               # Point d'entrée des sous-commandes edge/control pour chaque livraison ci-dessus
+│   └── incident_store.py    # La couche durable et dédupliquée des incidents : un enregistrement ouvert par (nœud, composant), résolu seulement si ce composant a été revérifié et est sain
 ├── tests/                  # Vrais tests pour les 11 modules, incl. un fixture local http.server, un fournisseur d'IA simulé et un vrai dépôt git jetable pour le déploiement canari
 ├── docs/
 │   ├── CLI_REFERENCE.md     # Chaque sous-commande, ses flags, le contrat des codes de sortie
 │   ├── INCIDENT_CONTRACT.md # La forme JSON réelle de MaintenanceIncident/NodeSnapshot
 │   ├── DIAGNOSIS.md         # Le contrat, les fournisseurs et la frontière de sécurité propres à la Livraison 2
-│   └── CHANGE_LIFECYCLE.md  # Le contrat et la frontière de sécurité propres aux Livraisons 3-5
+│   ├── CHANGE_LIFECYCLE.md  # Le contrat et la frontière de sécurité propres aux Livraisons 3-5
+│   └── MATURITY_CRITERIA.md # Critères de sortie de maturité (ce qui doit être vrai pour monter d'un niveau)
 ├── images/                 # Médias et icônes de l'application
 ├── tools/
 │   ├── build_test.py        # Vérification de build/compilation sans versionnage
-│   └── ci_validate.py       # Validation manifeste/CHANGELOG/docs utilisée par la CI
+│   ├── ci_validate.py       # Validation manifeste/CHANGELOG/docs utilisée par la CI
+│   ├── _doc_policy.py       # Règles de documentation partagées par la famille (copie de celle de HYDRA-UMC-SDK, tenue synchronisée)
+│   ├── _readme_parity.py    # Contrôle que les huit README partagent la même structure (copie de celui de HYDRA-UMC-SDK, tenue synchronisée)
+│   └── hydra_project_tool.py # Les mêmes commandes dans chaque dépôt : validate, test, ci, version, status, bump
 ├── build.sh / build.bat     # venv + installation éditable + compile-check + tests
 ├── build-test.sh / .bat     # Validation de build uniquement, sans rien modifier
 ├── run.sh / run.bat         # Démo réelle edge collect + control show (sans argument), ou relaie une vraie commande CLI

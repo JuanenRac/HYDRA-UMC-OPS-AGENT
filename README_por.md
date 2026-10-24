@@ -238,6 +238,7 @@ completa de comandos.
 ```
 HYDRA-UMC-OPS-AGENT/
 ├── src/hydra_umc_ops_agent/
+│   ├── __init__.py         # Versão do pacote
 │   ├── _atomic.py          # Escritas de ficheiro duráveis e do tipo tudo-ou-nada para armazéns, propostas e resultados
 │   ├── approval_signing.py # Assinaturas Ed25519 das aprovações; registo de aprovadores
 │   ├── audit_journal.py    # Diário de auditoria encadeado por hash, só de acréscimo
@@ -251,17 +252,22 @@ HYDRA-UMC-OPS-AGENT/
 │   ├── change_proposal.py  # Entrega 3: ciclo de vida imutável de ChangeProposal, aprovado por uma pessoa
 │   ├── canary_deploy.py    # Entrega 4: preparar + aplicar + verificar + promover, só aprovado
 │   ├── verification.py     # Entrega 5: volta a executar a verificação real por trás de um incidente
-│   └── cli.py               # Ponto de entrada dos subcomandos edge/control para cada entrega acima
+│   ├── cli.py               # Ponto de entrada dos subcomandos edge/control para cada entrega acima
+│   └── incident_store.py    # A camada durável e sem duplicados de incidentes: um registo aberto por (nó, componente), resolvido só quando esse componente foi reverificado e está limpo
 ├── tests/                  # Testes reais para os 11 módulos, incl. um fixture local http.server, um fornecedor de IA simulado e um repositório git real e descartável para a implementação canário
 ├── docs/
 │   ├── CLI_REFERENCE.md     # Cada subcomando, opções, códigos de saída
 │   ├── INCIDENT_CONTRACT.md # A forma JSON real de MaintenanceIncident/NodeSnapshot
 │   ├── DIAGNOSIS.md         # O contrato da Entrega 2, fornecedores e fronteira de segurança
-│   └── CHANGE_LIFECYCLE.md  # O contrato das Entregas 3-5 e a fronteira de segurança
+│   ├── CHANGE_LIFECYCLE.md  # O contrato das Entregas 3-5 e a fronteira de segurança
+│   └── MATURITY_CRITERIA.md # Critérios de saída da maturidade (o que tem de ser verdade para subir de nível)
 ├── images/                 # Multimédia e ícones da aplicação
 ├── tools/
 │   ├── build_test.py        # Verificação de compilação sem subir a versão
-│   └── ci_validate.py       # Validação de manifesto/CHANGELOG/documentação usada pelo CI
+│   ├── ci_validate.py       # Validação de manifesto/CHANGELOG/documentação usada pelo CI
+│   ├── _doc_policy.py       # Regras de documentação partilhadas pela família (cópia da de HYDRA-UMC-SDK, mantida em sincronia)
+│   ├── _readme_parity.py    # Verificação de que os oito README partilham a mesma estrutura (cópia da de HYDRA-UMC-SDK, mantida em sincronia)
+│   └── hydra_project_tool.py # Os mesmos comandos em todos os repositórios: validate, test, ci, version, status, bump
 ├── build.sh / build.bat     # venv + instalação editável + verificação de compilação + testes
 ├── build-test.sh / .bat     # Apenas validação de compilação sem alterações
 ├── run.sh / run.bat         # Demonstração real de edge collect + control show (sem argumentos), ou reencaminha um comando real da CLI

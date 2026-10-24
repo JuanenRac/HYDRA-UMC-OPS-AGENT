@@ -233,6 +233,7 @@ command surface.
 ```
 HYDRA-UMC-OPS-AGENT/
 ├── src/hydra_umc_ops_agent/
+│   ├── __init__.py         # Package version
 │   ├── _atomic.py          # Durable all-or-nothing file writes for stores, proposals and results
 │   ├── approval_signing.py # Ed25519 signatures of approvals; the approver registry
 │   ├── audit_journal.py    # Hash-chained, append-only audit journal
@@ -246,17 +247,22 @@ HYDRA-UMC-OPS-AGENT/
 │   ├── change_proposal.py  # Delivery 3: immutable, human-approved ChangeProposal lifecycle
 │   ├── canary_deploy.py    # Delivery 4: stage + apply + verify + promote, approved-only
 │   ├── verification.py     # Delivery 5: re-runs the real check behind an incident
-│   └── cli.py               # edge/control subcommand entry point for every delivery above
+│   ├── cli.py               # edge/control subcommand entry point for every delivery above
+│   └── incident_store.py    # The durable, deduplicated incident layer: one open record per (node, component), resolved only when that component was re-checked and is clean
 ├── tests/                  # Real tests for all 11 modules, incl. a local http.server fixture, a fake AI provider, and a real throwaway git repo for canary deploy
 ├── docs/
 │   ├── CLI_REFERENCE.md     # Every subcommand, flags, exit codes
 │   ├── INCIDENT_CONTRACT.md # The real MaintenanceIncident/NodeSnapshot JSON shape
 │   ├── DIAGNOSIS.md         # Delivery 2's own contract, providers and safety boundary
-│   └── CHANGE_LIFECYCLE.md  # Deliveries 3-5's own contract and safety boundary
+│   ├── CHANGE_LIFECYCLE.md  # Deliveries 3-5's own contract and safety boundary
+│   └── MATURITY_CRITERIA.md # Maturity exit criteria (what must be true to move up a level)
 ├── images/                 # Media and app icons
 ├── tools/
 │   ├── build_test.py        # Non-versioning build/compile check
-│   └── ci_validate.py       # Manifest/CHANGELOG/docs validation used by CI
+│   ├── ci_validate.py       # Manifest/CHANGELOG/docs validation used by CI
+│   ├── _doc_policy.py       # Documentation rules shared by the family (a copy of HYDRA-UMC-SDK's, kept in sync)
+│   ├── _readme_parity.py    # Check that the eight READMEs share one structure (a copy of HYDRA-UMC-SDK's, kept in sync)
+│   └── hydra_project_tool.py # The same commands in every repository: validate, test, ci, version, status, bump
 ├── build.sh / build.bat     # venv + editable install + compile-check + tests
 ├── build-test.sh / .bat     # Non-mutating build validation only
 ├── run.sh / run.bat         # Real edge collect + control show demo (no arguments), or forwards a real CLI command
