@@ -40,6 +40,17 @@ ship out of the box:
 | Anthropic | `--provider anthropic` (default) | `pip install -e ".[ai-anthropic]"` | `ANTHROPIC_API_KEY` | `claude-sonnet-5` (never confirmed against the live API; override with `--model` or `OPS_AGENT_ANTHROPIC_MODEL`) |
 | OpenAI | `--provider openai` | `pip install -e ".[ai-openai]"` | `OPENAI_API_KEY` | `gpt-4o-mini` |
 
+To check that the default model id exists for your account before relying on it, list the models the provider offers and compare:
+
+```bash
+# Anthropic
+curl -s https://api.anthropic.com/v1/models -H "x-api-key: $ANTHROPIC_API_KEY" -H "anthropic-version: 2023-06-01"
+# OpenAI
+curl -s https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"
+```
+
+If the id is not in the list, set `OPS_AGENT_ANTHROPIC_MODEL` or `OPS_AGENT_OPENAI_MODEL` (or pass `--model`) to one that is. A `control diagnose` run with an id the provider does not know fails with the provider's own "model not found" error.
+
 Each provider's own SDK is imported lazily, so every other part of this
 project (`edge collect`, `control show`, and Delivery 2 itself when no
 provider is actually invoked) keeps working with zero extra

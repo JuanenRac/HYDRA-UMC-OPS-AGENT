@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+- `docs/DIAGNOSIS.md` shows how to check, with the provider's own model list, that the default model id exists, and which variables replace it.
+
 ## [0.1.9] - Pinned to SDK 0.3.6
 
 - The secret redaction is the shared copy kept by the SDK (`tools/canonical/redaction.py`), identical to the one of the local technician, and it passes the same shared cases (`tests/redaction_vectors.json`): headers, cookies, URL credentials, known token shapes, command-line flags, nested JSON and private-key blocks.
