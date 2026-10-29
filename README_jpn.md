@@ -1,3 +1,9 @@
+<!-- =============================================================================
+HYDRA-UMC-OPS-AGENT - Maintenance-incident coordinator
+Copyright (C) JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
+GPL-3.0-or-later - see LICENSE
+============================================================================= -->
+
 <p align="center">
   <img src="images/HYDRA_UMC_BANNER.svg" alt="HYDRA-UMC-OPS-AGENT banner" width="100%">
 </p>
@@ -9,31 +15,19 @@
 ### 🔎 エコシステム全体を対象とした、読み取り専用の保守インシデント可観測性
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Licencia-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
-  <img src="https://img.shields.io/badge/Language-Python%203.11%2B-blue.svg" alt="Python">
-  <img src="https://img.shields.io/badge/Core-stdlib%20only-brightgreen.svg" alt="stdlib-only core">
-  <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="エッジとコントロールプレーンの役割">
+  <img src="https://img.shields.io/badge/License-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
+  <img src="https://img.shields.io/badge/Language-Python%203.11%2B-blue.svg" alt="Language">
+  <img src="https://img.shields.io/badge/Core-stdlib%20only-brightgreen.svg" alt="Core">
+  <img src="https://img.shields.io/badge/Tests-322%20passing-2ea44f.svg" alt="Tests">
+  <img src="https://img.shields.io/badge/Version-0.1.9-0f6cbd.svg" alt="Version">
+  <img src="https://img.shields.io/badge/Maturity-functional-0F6CBD.svg" alt="Maturity">
 </p>
-
-> **ステータス: v0.1.9、functional - 6 件の納品のうち第 1-5 弾(証拠、
-> 診断、人による承認済みの変更、カナリアデプロイ、検証)。** すべての
-> サブコマンドが本物であり、エンドツーエンドでテスト済みです——
-> `control diagnose` は模擬の AI プロバイダーに対して(本物のプロバイ
-> ダーであればどれでも動作します、
-> [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md) を参照)、`control
-> deploy-canary` は本物の使い捨てローカル git リポジトリに対して(
-> [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md) を参照)。明示
-> 的な人による承認が事前になければ、何もデプロイされることはありませ
-> ん。納品 6(音声/通知)は調査の結果、単に先送りされているのではなく、
-> 本当にブロックされていることが判明しました——詳しくは下記のロード
-> マップ節を参照してください。今日実在する正確なコマンド面については
-> [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md) を参照してください。
-
-**正直な現状確認 - 今日実際に動くもの:** すでに出荷済みの 5 つのデリバリー - エビデンス(`inventory.py`、`edge_agent.py`、`incident.py`)、診断(`diagnosis.py`)、人間が承認する変更(`change_proposal.py`)、カナリアデプロイ(`canary_deploy.py`)、そして検証(`verification.py`)、さらにマスキング境界(`log_redaction.py`)と CLI(`cli.py`) - はすべて本物であり、エンドツーエンドでテストされている(16 個のテストファイル全体で 319 件のテストと 6 件のサブテストが成功)。カナリアデプロイの段階は、モックではなく、実際に使い捨ての本物のローカル git リポジトリに対して検証されている。診断機能は模擬の `AIProvider` に対してしかテストされていない - `AnthropicProvider`/`OpenAIProvider` は同じプロトコルの本物の実装であるが、このテストスイートの中では、本物の Anthropic API や OpenAI API への実際のライブ呼び出しに対して検証されたことは一度もない(この環境には利用可能なキーがない)。エッジ役割とコントロールプレーン役割は、今日の時点では保存されたスナップショットファイルを介してのみやり取りしており、両者の間にはまだネットワーク伝送が存在しない。デリバリー 6(音声/通知)は単に先送りされているのではなく、実際に完全にブロックされている: HYDRA-UMC-VOICE-UI には今日、統合できるような本物のアウトバウンド通知インターフェースが存在しない。これまでに何が実際に出荷されたかは `CHANGELOG.md` を参照。
 
 ---
 
 > **安全性とセキュリティの現状:** このエコシステムは認証された安全システムではありません。ハードウェアの E-STOP 経路、ファームウェアが強制する制限やインターロック、検証済みの動作コマンドはまだありません。ファームウェアイメージは CRC32 と共有鍵の HMAC-SHA256 で検査しており、非対称署名ではありません。TLS と相互 TLS は任意で、既定では無効です。独自基板はまだ実装も試験もされていません。ここに書かれた内容を人の安全のために頼る前に、[セキュリティベースライン](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/SECURITY_BASELINE.md)と[脅威モデル](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/THREAT_MODEL.md)をお読みください。
+
+---
 
 ## 📋 ひと目で
 
@@ -41,10 +35,12 @@
 |---|---|
 | バージョン | `0.1.9` |
 | 成熟度 | 機能する |
-| テスト | 319 |
-| 技術 | Python 3.11+ / JSON Schema / systemd (edge role, Linux only) / Anthropic API and/or OpenAI API (optional, provider-agnostic diagnosis) / git (staging clone + git apply for the real canary deploy path) |
+| テスト | 322 (`python -m pytest -q tests`) |
+| 技術 | Python 3.11+ / JSON Schema / systemd (edge role, Linux only) / two optional AI provider APIs (provider-agnostic diagnosis) / git (staging clone + git apply for the real canary deploy path) |
 | 対象 | HYDRA-UMC セルの Raspberry Pi CM5 |
 | 実機での確認 | まだです：このバージョンについて実機での動作記録はありません |
+
+**移動：** [概要](#-概要) · [アーキテクチャ](#-アーキテクチャ) · [クイックスタート](#-クイックスタート) · [テスト](#-テスト) · [リポジトリの構成](#-リポジトリの構成) · [関連プロジェクト](#-関連プロジェクト)
 
 ## 🚦 プロジェクトの状況
 
@@ -55,11 +51,11 @@
 | 領域 | 状態 | ここでの意味 |
 |---|---|---|
 | ソフトウェア | 🟡 | 主な目的では動作します。足りない点は上の正直さの確認に書かれています |
-| テスト | 🟢 | 自動テスト 319 件。変更のたびに実行されます |
+| テスト | 🟢 | 自動テスト 322 件。変更のたびに実行されます |
 | 実機 | 🔴 | まだです：このバージョンについて実機での動作記録はありません |
 | ドキュメント | 🟢 | 8 言語の README。変更のたびにマニフェストと照合されます |
 
-## 1. 🛠️ 技術概要
+## 🎯 概要
 
 HYDRA-UMC-OPS-AGENT は、HYDRA-UMC/URTC エコシステムの保守インシデント
 コーディネーターです。唯一の実際のライフサイクル——**証拠 → 診断 →
@@ -90,7 +86,7 @@ HYDRA-UMC-OPS-AGENT は、HYDRA-UMC/URTC エコシステムの保守インシデ
    認したりすることもありません。
 3. **診断** (`control diagnose`) - こちらもコントロールプレーン役割
    で実行されます。既に秘匿化済みのインシデントを AI プロバイダー
-   (任意のプロバイダー——Anthropic と OpenAI が標準で組み込まれてい
+   (任意のプロバイダー——`anthropic` と OpenAI が標準で組み込まれてい
    ます、[docs/DIAGNOSIS.md](docs/DIAGNOSIS.md) を参照)に送信し、提
    案された根本原因の説明をプレーンテキストで受け取ります——人が読む
    ための提案であり、決して決定ではありません。
@@ -158,7 +154,17 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --
 完全かつ本物のコマンド面については
 [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md) を参照してください。
 
-## 2. 🧱 アーキテクチャと設計上の決定
+## 🧩 HYDRA-UMC での役割
+
+**HYDRA-UMC-OPS-AGENT** はエコシステムの保守インシデントのコーディネーターです。証拠、診断、人が承認した変更、`HYDRA-UMC-UPDATER` によるカナリアデプロイ、検証という 1 つのライフサイクルを担い、推論、更新、コントローラーの安全ロジックは再実装しません。
+
+## 🏛️ アーキテクチャ
+
+<p align="center">
+  <img src="images/architecture.svg" alt="HYDRA-UMC-OPS-AGENT architecture" width="100%">
+</p>
+
+### アーキテクチャと設計上の決定
 
 - **インシデントは導出されるものであり、宣言されるものではありません。**
   `IncidentBatch` の `add_*` メソッドは、調べた対象が実際に健全だった
@@ -191,7 +197,7 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --
 - **診断はプロバイダーに依存しない設計です。** `diagnose_incident()`
   は最小限の `AIProvider` プロトコルのみに依存しており、特定の AI ベ
   ンダーがコアロジックにハードコードされることは決してありません。2
-  つの実際のプロバイダー(Anthropic、OpenAI)がオプションの extra とし
+  つの実際のプロバイダー(`anthropic`、OpenAI)がオプションの extra とし
   て同梱されており、呼び出し元は同じ 1 メソッド契約を実装する任意の
   他のオブジェクトを渡すこともできます。
 - **カナリアデプロイは、本物のビルドが変更が機能することを既に証明す
@@ -239,49 +245,24 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --
   デントの `compare_runs()` 再検証(`sdk` extra)だけで、それぞれ実際
   に使う機能の分のみです。
 
-## 📂 リポジトリ構成
+## 🚀 クイックスタート
 
-```
-HYDRA-UMC-OPS-AGENT/
-├── src/hydra_umc_ops_agent/
-│   ├── __init__.py         # パッケージバージョン
-│   ├── _atomic.py          # ストア・提案・結果のための永続的かつアトミックなファイル書き込み
-│   ├── approval_signing.py # 承認の Ed25519 署名; 承認者の登録簿
-│   ├── audit_journal.py    # ハッシュで連鎖する追記専用の監査ジャーナル
-│   ├── diff_policy.py      # diff が含められるもの・触れられるもの(秘密情報の形、保護パス、サイズ)
-│   ├── log_redaction.py    # 純粋な秘密の秘匿化(KEY=VALUE、Bearer トークン、PEM ブロック)
-│   ├── inventory.py        # マニフェストスキャン + systemd/HTTP ヘルスチェック
-│   ├── incident.py         # MaintenanceIncident / IncidentBatch 契約
-│   ├── edge_agent.py       # 上記を単一の NodeSnapshot にオーケストレーション
-│   ├── control_plane.py    # 読み取り専用スナップショットローダー + テキストレポートレンダラー
-│   ├── diagnosis.py        # 納品 2: プロバイダーに依存しない AI 支援診断の提案
-│   ├── change_proposal.py  # 納品 3: 不変で人による承認済みの ChangeProposal ライフサイクル
-│   ├── canary_deploy.py    # 納品 4: ステージング + 適用 + 検証 + 昇格、承認済みのみ
-│   ├── verification.py     # 納品 5: インシデントの背後にある本物のチェックを再実行
-│   ├── cli.py               # 上記すべての納品向けの edge/control サブコマンドエントリーポイント
-│   └── incident_store.py    # 永続的で重複を排除したインシデント層: (ノード, コンポーネント) ごとに未解決レコードを1件、再確認して正常だった場合のみ解決
-├── tests/                  # 11 モジュールすべてに対する本物のテスト、ローカル http.server フィクスチャ、模擬 AI プロバイダー、カナリアデプロイ用の本物の使い捨て git リポジトリを含む
-├── docs/
-│   ├── CLI_REFERENCE.md     # すべてのサブコマンド、そのフラグ、終了コード契約
-│   ├── INCIDENT_CONTRACT.md # MaintenanceIncident/NodeSnapshot の本物の JSON 形
-│   ├── DIAGNOSIS.md         # 納品 2 自身の契約、プロバイダーと安全境界
-│   ├── CHANGE_LIFECYCLE.md  # 納品 3-5 自身の契約と安全境界
-│   └── MATURITY_CRITERIA.md # 成熟度の終了基準 (一段上がるために満たすべき条件)
-├── images/                 # メディアとアプリアイコン
-├── tools/
-│   ├── build_test.py        # バージョン管理を伴わないビルド/コンパイルチェック
-│   ├── ci_validate.py       # CI が使用するマニフェスト/CHANGELOG/ドキュメントの検証
-│   ├── _doc_policy.py       # ファミリー共通のドキュメント規則 (HYDRA-UMC-SDK のコピーで、同期を維持)
-│   ├── _readme_parity.py    # 8つの README が同じ構造であることの検査 (HYDRA-UMC-SDK のコピーで、同期を維持)
-│   └── hydra_project_tool.py # すべてのリポジトリで共通のコマンド: validate、test、ci、version、status、bump
-├── build.sh / build.bat     # venv + 編集可能インストール + コンパイルチェック + テスト
-├── build-test.sh / .bat     # 何も変更しない、ビルド検証のみ
-├── run.sh / run.bat         # 本物の edge collect + control show デモ(引数なしの場合)、または本物の CLI コマンドを転送
-├── bump_version.py          # オドメーター式バージョンインクリメント（明示的な `bump` コマンドのみが実行）
-└── bump_manifest_version.py # hydra-umc.project.json のバージョンをネイティブのものと同期(--sync)
+Python 3.11 以上が必要です。
+
+```bash
+./build.sh  # Linux, macOS (build.bat on Windows)
+./run.sh    # demo: edge collect on a throwaway sample project, then control show
+./run.sh edge collect --node-name n --projects-root DIR --out FILE
+./run.sh control show snapshot.json
 ```
 
-## ⚙️ ビルドと実行
+## 🧪 テスト
+
+`python -m pytest -q tests` で自動テスト 322 件を実行します。 ハードウェアも、このマシンの外にあるものも必要ありません。
+
+CI は `HYDRA_UMC_CI=1 python tools/ci_validate.py` を実行し、マニフェスト、文書、8 つの README、図を検査します。
+
+## 🏗️ ビルドとリリース
 
 ```bash
 chmod +x build.sh   # 初回のみ
@@ -339,7 +320,55 @@ Windows では: 先に `build.bat`、その後 `run.bat`(引数なしの場合�
   [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md) を参照してく
   ださい。
 
-## 🚀 ロードマップ
+## 📂 リポジトリの構成
+
+<p align="center">
+  <img src="images/repository-structure.svg" alt="Repository structure of HYDRA-UMC-OPS-AGENT" width="100%">
+</p>
+
+<details>
+<summary>ツリーのテキスト版</summary>
+
+```text
+HYDRA-UMC-OPS-AGENT/
+├── src/hydra_umc_ops_agent/   ソースコード
+│   ├── __init__.py            パッケージバージョン
+│   ├── _atomic.py             ストア・提案・結果のための永続的かつアトミックなファイル書き込み
+│   ├── approval_signing.py    承認の Ed25519 署名; 承認者の登録簿
+│   ├── audit_journal.py       ハッシュで連鎖する追記専用の監査ジャーナル
+│   ├── diff_policy.py         diff が含められるもの・触れられるもの(秘密情報の形、保護パス、サイズ)
+│   ├── log_redaction.py       純粋な秘密の秘匿化(KEY=VALUE、Bearer トークン、PEM ブロック)
+│   ├── inventory.py           マニフェストスキャン + systemd/HTTP ヘルスチェック
+│   ├── incident.py            MaintenanceIncident / IncidentBatch 契約
+│   ├── edge_agent.py          各部品を 1 つの NodeSnapshot にまとめる
+│   ├── control_plane.py       読み取り専用スナップショットローダー + テキストレポートレンダラー
+│   ├── diagnosis.py           納品 2: プロバイダーに依存しない AI 支援診断の提案
+│   ├── change_proposal.py     納品 3: 不変で人による承認済みの ChangeProposal ライフサイクル
+│   ├── canary_deploy.py       納品 4: ステージング + 適用 + 検証 + 昇格、承認済みのみ
+│   ├── verification.py        納品 5: インシデントの背後にある本物のチェックを再実行
+│   ├── cli.py                 edge と control のサブコマンド
+│   └── incident_store.py      永続的で重複を排除したインシデント層: (ノード, コンポーネント) ごとに未解決レコードを1件、再確認して正常だった場合のみ解決
+├── tests/                     11 モジュールすべてに対する本物のテスト、ローカル http.server フィクスチャ、模擬 AI プロバイダー、カナリアデプロイ用の本物の使い捨て git リポジトリを含む
+├── docs/                      プロジェクトの文書
+├── images/                    メディアとアプリアイコン
+├── tools/                     プロジェクトのツールと CI の検査
+├── .github/                   CI ワークフローと Issue テンプレート
+├── build.sh / build.bat       venv + 編集可能インストール + コンパイルチェック + テスト
+├── run.sh / run.bat           本物の edge collect + control show デモ(引数なしの場合)、または本物の CLI コマンドを転送
+├── bump_version.py            明示的なバージョン更新
+├── bump_manifest_version.py   hydra-umc.project.json のバージョンをネイティブのものと同期(--sync)
+├── CHANGELOG.md               各バージョンの変更点
+├── build-test.sh              変更を伴わないビルド確認
+├── hydra-umc.project.json     マニフェスト：バージョン、成熟度、ファミリー
+├── pyproject.toml             パッケージのメタデータ
+└── test.sh                    テストを実行
+```
+
+</details>
+
+## 🗺️ ロードマップと既知の制限
+
+**現時点の既知の制限**
 
 納品 1-5(このバージョン)は**証拠**、**診断**、**人による承認済みの
 変更**、**カナリアデプロイ**、**検証**を届けます——このプロジェクト
@@ -359,6 +388,10 @@ Windows では: 先に `build.bat`、その後 `run.bat`(引数なしの場合�
   知」機能を自ら備えるようになったら、これを再検討します。
 - エッジ役割とコントロールプレーン役割の間の本物の転送手段(現在、両
   者の間でスナップショットファイルを移動するのは手動のステップです)。
+
+## 🌍 言語
+
+この README とリポジトリの文書は、英語・スペイン語・ドイツ語・フランス語・イタリア語・日本語・中国語・ポルトガル語（ポルトガル）の 8 言語で提供されています。8 つのファイルは同時に書かれ、同じ節と同じリンクを持つことを CI が確認します。 このリポジトリには独自の画面もメッセージカタログもないため、翻訳すべきインターフェース文字列はありません。
 
 ## 🔗 関連プロジェクト
 
@@ -449,24 +482,30 @@ Windows では: 先に `build.bat`、その後 `run.bat`(引数なしの場合�
 - **[URTC-SMART-RACK](https://github.com/JuanenRac/URTC-SMART-RACK)** — 実際の工具 ID デコードと Smart Idle 予熱ロジックを備えた、基板搭載ラック用ファームウェア。
 - **[URTC-VISION-TOOL](https://github.com/JuanenRac/URTC-VISION-TOOL)** — サーマル/RGB 検査ツールヘッド向けの、ファームウェアと実際の Python ビジョンコンパニオン。
 
----
+## 📚 ドキュメント
 
-## 📚 ドキュメント & コミュニティ
+さらに読むには：
 
-- **[docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md)** — すべてのサブコマンド、そのフラグ、終了コード契約。
-- **[docs/INCIDENT_CONTRACT.md](docs/INCIDENT_CONTRACT.md)** — `MaintenanceIncident`/`NodeSnapshot` の本物の JSON 形。
-- **[docs/DIAGNOSIS.md](docs/DIAGNOSIS.md)** — 納品 2 自身の本物の契約、プロバイダー、認証情報、安全境界。
-- **[docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md)** — 納品 3-5 自身の本物の契約、ステージング/適用/検証/昇格の完全な流れ、そして本物のオペレーターフローの例。
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** —— プルリクエストのための技術スタックとコーディング指針。
-- **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** —— このコミュニティで期待される行動規範。
-- **[SECURITY.md](SECURITY.md)** —— 脆弱性の報告方法と、このプロジェクトの実際のセキュリティ重点領域。
-- **[SUPPORT.md](SUPPORT.md)** —— 質問の投稿先とバグの報告先。
+* **[docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md)** — すべてのサブコマンド、そのフラグ、終了コード契約。
+* **[docs/INCIDENT_CONTRACT.md](docs/INCIDENT_CONTRACT.md)** — `MaintenanceIncident`/`NodeSnapshot` の本物の JSON 形。
+* **[docs/DIAGNOSIS.md](docs/DIAGNOSIS.md)** — 納品 2 自身の本物の契約、プロバイダー、認証情報、安全境界。
+* **[docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md)** — 納品 3-5 自身の本物の契約、ステージング/適用/検証/昇格の完全な流れ、そして本物のオペレーターフローの例。
+* [エコシステムのセキュリティ基準](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/SECURITY_BASELINE.md)
+* [エコシステムの脅威モデル](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/THREAT_MODEL.md)
+* [このリポジトリの変更履歴](CHANGELOG.md)
+* [このリポジトリのライセンス](LICENSE.md)
+
+## 🤝 コントリビュートとコミュニティ
+
+* プルリクエストの前に `HYDRA_UMC_CI=1 py -3 tools/ci_validate.py`（または `HYDRA_UMC_CI=1 python3 tools/ci_validate.py`）を実行してください。`CI_VALIDATION=PASS` と表示される必要があります。この確認に `build.sh` や `build.bat` は使わないでください。ビルドは検査ではありません。
+* 8 つの README は HYDRA-UMC-DOCS の 1 つのソースから書かれます。手で編集しないでください。ソースを変更し、`tools/make_readmes.py` で書き直します。
+* 実行していないことを README に書かないでください。事実であれば「シミュレーションのみ」「実機では未確認」と書きます。
+* [CONTRIBUTING.md](CONTRIBUTING.md)、[行動規範](CODE_OF_CONDUCT.md)、[SECURITY.md](SECURITY.md)、[SUPPORT.md](SUPPORT.md) を参照してください。
 
 ## 👤 作者
-**JuanenRac** (Electro Hobby 3D)
-📧 electrohobby3d@gmail.com
-📺 [youtube.com/@electrohobby3d](https://youtube.com/@electrohobby3d)
+
+**JuanenRac (Electro Hobby 3D)** · electrohobby3d@gmail.com
 
 ## 📜 ライセンス
 
-GPL-3.0-or-later(ソフトウェア)/ CC BY-SA 4.0(ドキュメント)—— 詳細は [LICENSE.md](LICENSE.md) を参照してください。
+GPL-3.0-or-later - [LICENSE](LICENSE).

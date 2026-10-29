@@ -1,3 +1,9 @@
+<!-- =============================================================================
+HYDRA-UMC-OPS-AGENT - Maintenance-incident coordinator
+Copyright (C) JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
+GPL-3.0-or-later - see LICENSE
+============================================================================= -->
+
 <p align="center">
   <img src="images/HYDRA_UMC_BANNER.svg" alt="HYDRA-UMC-OPS-AGENT banner" width="100%">
 </p>
@@ -9,20 +15,19 @@
 ### 🔎 面向整个生态系统的只读维护事件可观测性
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Licencia-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
-  <img src="https://img.shields.io/badge/Language-Python%203.11%2B-blue.svg" alt="Python">
-  <img src="https://img.shields.io/badge/Core-stdlib%20only-brightgreen.svg" alt="stdlib-only core">
-  <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="边缘与控制面角色">
+  <img src="https://img.shields.io/badge/License-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
+  <img src="https://img.shields.io/badge/Language-Python%203.11%2B-blue.svg" alt="Language">
+  <img src="https://img.shields.io/badge/Core-stdlib%20only-brightgreen.svg" alt="Core">
+  <img src="https://img.shields.io/badge/Tests-322%20passing-2ea44f.svg" alt="Tests">
+  <img src="https://img.shields.io/badge/Version-0.1.9-0f6cbd.svg" alt="Version">
+  <img src="https://img.shields.io/badge/Maturity-functional-0F6CBD.svg" alt="Maturity">
 </p>
-
-> **状态：v0.1.9，功能可用阶段——6 项交付中的第 1-5 项(证据、诊断、经人工批准的变更、金丝雀部署、验证)。**
-> 每一个子命令都是真实功能，并已进行端到端测试——`control diagnose` 针对模拟的 AI 提供方测试(任何真实提供方都可用，见 [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md))；`control deploy-canary` 针对一个真实的、用后即弃的本地 git 仓库测试(见 [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md))。没有任何事先经过明确人工批准的内容会被部署。交付 6(语音/通知)经过真实调研后被确认为确实受阻，而非只是推迟——见下方的路线图部分。关于当前真实存在的确切命令面，见 [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md)。
-
-**诚实核查 - 今天真正能运行的部分：** 已经交付的五项内容——证据(`inventory.py`、`edge_agent.py`、`incident.py`)、诊断(`diagnosis.py`)、人工批准的变更(`change_proposal.py`)、金丝雀部署(`canary_deploy.py`)以及验证(`verification.py`),外加脱敏边界(`log_redaction.py`)和命令行界面(`cli.py`)——都是真实的，并且经过了端到端测试(16 个测试文件中共 319 个测试外加 6 个子测试全部通过)。金丝雀部署阶段是针对一个真实的、用后即弃的本地 git 仓库进行的真实测试，而不是模拟对象。诊断功能只针对一个模拟的 `AIProvider` 进行过测试——`AnthropicProvider`/`OpenAIProvider` 是同一协议的真实实现，但在本测试套件中，两者都从未针对真实的、实时的 Anthropic 或 OpenAI API 调用进行过测试(本环境中没有可用的密钥)。edge 和 control-plane 这两个角色目前只能通过一个保存下来的快照文件进行通信——它们之间尚不存在网络传输。交付 6(语音/通知)是真正被阻塞的，而不仅仅是被推迟：HYDRA-UMC-VOICE-UI 今天没有任何真实的出站通知接口可供集成。具体已交付的内容请见 `CHANGELOG.md`。
 
 ---
 
 > **安全与安防现状:**本生态系统不是经认证的安全系统。目前尚无硬件 E-STOP 通路,没有由固件强制执行的限位或联锁,也没有经过验证的运动指令;固件映像使用 CRC32 和共享密钥的 HMAC-SHA256 校验,而非非对称签名;TLS 与双向 TLS 均为可选项,默认关闭;自制电路板尚未组装或测试。在依赖此处任何说法来保障人身安全之前,请先阅读[安全基线](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/SECURITY_BASELINE.md)和[威胁模型](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/THREAT_MODEL.md)。
+
+---
 
 ## 📋 速览
 
@@ -30,10 +35,12 @@
 |---|---|
 | 版本 | `0.1.9` |
 | 成熟度 | 可用 |
-| 测试 | 319 |
-| 技术栈 | Python 3.11+ / JSON Schema / systemd (edge role, Linux only) / Anthropic API and/or OpenAI API (optional, provider-agnostic diagnosis) / git (staging clone + git apply for the real canary deploy path) |
+| 测试 | 322 (`python -m pytest -q tests`) |
+| 技术栈 | Python 3.11+ / JSON Schema / systemd (edge role, Linux only) / two optional AI provider APIs (provider-agnostic diagnosis) / git (staging clone + git apply for the real canary deploy path) |
 | 目标 | HYDRA-UMC 工作单元的 Raspberry Pi CM5 |
 | 真实硬件 | 尚未：此版本没有在真实硬件上运行的记录 |
+
+**跳转：** [概述](#-概述) · [架构](#-架构) · [快速开始](#-快速开始) · [测试](#-测试) · [仓库结构](#-仓库结构) · [相关项目](#-相关项目)
 
 ## 🚦 项目状态
 
@@ -44,11 +51,11 @@
 | 领域 | 状态 | 在这里的含义 |
 |---|---|---|
 | 软件 | 🟡 | 主要用途可用；上面的诚实性检查列出了仍然缺少的内容 |
-| 测试 | 🟢 | 319 项自动测试，每次变更都会运行 |
+| 测试 | 🟢 | 322 项自动测试，每次变更都会运行 |
 | 真实硬件 | 🔴 | 尚未：此版本没有在真实硬件上运行的记录 |
 | 文档 | 🟢 | 八种语言的 README，每次变更都会与清单核对 |
 
-## 1. 🛠️ 技术概述
+## 🎯 概述
 
 HYDRA-UMC-OPS-AGENT 是 HYDRA-UMC/URTC 生态系统的维护事件协调器。它拥有唯一一条真实的生命周期——**证据 → 诊断 → 经人工批准的变更 → 通过 HYDRA-UMC-UPDATER 的金丝雀部署 → 验证**——而不重新实现生态系统其他地方已经存在的推理、更新或 MCU 安全逻辑。本项目如今已交付该生命周期六个阶段中的五个：**证据**、**诊断**、**经人工批准的变更**、**金丝雀部署**与**验证**。
 
@@ -56,7 +63,7 @@ HYDRA-UMC-OPS-AGENT 是 HYDRA-UMC/URTC 生态系统的维护事件协调器。�
 
 1. **边缘角色**(`edge collect`) —— 直接在被观测的机器上运行(一台真实的 CM5 单元，或开发者自己的工作站)。扫描每一个同级检出目录，查找其自身的 `hydra-umc.project.json`，可选地检查一个或多个 systemd 单元和 HTTP 健康端点，并为发现的每一个真实问题派生出一个真实的 `MaintenanceIncident`——一次干净的扫描会产生零个事件，绝不会合成一个"一切正常"的假事件。同一次运行产生的所有事件共享同一个关联 ID。
 2. **控制面角色**(`control show`) —— 在开发主机上运行，只读地渲染一个已保存的快照文件：项目清单、健康检查结果，以及按严重程度从高到低排序的所有事件。它从不修改自己读取的文件，本次交付也不会从这里"解决"或确认任何事件。
-3. **诊断**(`control diagnose`) —— 同样运行在控制面角色上。把一个已脱敏的事件发送给某个 AI 提供方(任意提供方——Anthropic 与 OpenAI 已内置，见 [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md))，并取回一段以纯文本形式给出的、建议性的根因说明——供人阅读的一条建议，绝不是一个决定。
+3. **诊断**(`control diagnose`) —— 同样运行在控制面角色上。把一个已脱敏的事件发送给某个 AI 提供方(任意提供方——`anthropic` 与 OpenAI 已内置，见 [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md))，并取回一段以纯文本形式给出的、建议性的根因说明——供人阅读的一条建议，绝不是一个决定。
 4. **经人工批准的变更**(`control propose` / `approve` / `reject`) —— 一份真实、不可变的 `ChangeProposal`(一份统一格式的 diff、一段描述、一段理由)，会从 `pending` 状态精确地转变**恰好一次**为 `approved`/`rejected`，且始终归属于一位具名的真实个人。见 [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md)。
 5. **金丝雀部署**(`control deploy-canary`) —— 除非目标提案处于 `approved` 状态，否则拒绝执行。它把 diff 应用到一个独立的暂存克隆上，在那里执行目标项目自身真实的 build-test 命令，只有在该命令通过后才会提升(将之前的检出保留为真实备份)——在其他任何情况下，真实的检出目录都绝不会被触碰。
 6. **验证**(`control verify`) —— 使用交付 1 自身的函数，重新执行最初产生某个事件的那条确切的真实检查，以确认它是否真的已经解决。
@@ -107,13 +114,23 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --
 
 本次交付中不存在任何默认/无参数调用方式，也没有图形界面——完整、真实的命令面见 [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md)。
 
-## 2. 🧱 架构与设计决策
+## 🧩 在 HYDRA-UMC 中的角色
+
+**HYDRA-UMC-OPS-AGENT** 是生态系统的维护事件协调者。它负责唯一的生命周期（证据、诊断、人工批准的变更、通过 `HYDRA-UMC-UPDATER` 的金丝雀部署、验证），不重新实现推理、更新或控制器的安全逻辑。
+
+## 🏛️ 架构
+
+<p align="center">
+  <img src="images/architecture.svg" alt="HYDRA-UMC-OPS-AGENT architecture" width="100%">
+</p>
+
+### 架构与设计决策
 
 - **事件是被推导出来的，而不是被声明出来的。** `IncidentBatch` 的 `add_*` 方法在检查对象实际健康时返回 `None`。没有任何代码路径会从一次干净的观测中凭空捏造事件，也没有任何路径会悄悄丢弃一个真实事件。
 - **协议边界诚实地降级，而绝不猜测。** `check_systemd_unit_health()` 会在 `systemctl` 不在 `PATH` 中的那一刻立即抛出专门的 `SystemdUnavailableError`——在这台开发机上每次都是如此，在任何没有 systemd 的主机上也是如此——而不是报告一个凭空捏造的"inactive"状态。`check_http_health()` 让真正的网络故障(`status_code is None`)与一个真实但不健康的 HTTP 响应保持可区分。
 - **脱敏处理是这里对安全最为关键的一段代码。** `log_redaction.py` 是纯粹、无依赖的文本变换，在被其他任何代码使用之前，已由自身的测试覆盖。键名匹配必须把秘密名称当作真实标识符 token 的子串来查找(如 `DB_PASSWORD`、`api-key`)，而不是当作一个由 `\b` 界定的单词——在正则表达式中 `_` 是单词字符，因此天真的 `\bpassword\b` 永远不会匹配 `DB_PASSWORD`。`MaintenanceIncident.to_dict()` 在序列化时会对 `symptom` 再次执行 `redact_secrets()`，即便调用方早已在上游脱敏过——这是对最有可能携带一段被复制粘贴的日志行的字段所做的纵深防御。
 - **`MaintenanceIncident`/`NodeSnapshot` 契约被有意地、逐字段地固定为一份明确的"最小契约(CONTRATO MINIMO)"的样子。** 见 [docs/INCIDENT_CONTRACT.md](docs/INCIDENT_CONTRACT.md)。未来某次交付若要对接真实的 AI 提供方或工单系统，理应永远不必在两种不兼容的形状之间做转换。
-- **诊断在设计上就与具体提供方无关。** `diagnose_incident()` 只依赖一个最小的 `AIProvider` Protocol——核心代码中从不硬编码任何具名的真实 AI 供应商。Anthropic 与 OpenAI 这两个真实提供方作为可选 extra 内置；调用方也可以传入实现同一单方法契约的任何其他对象。
+- **诊断在设计上就与具体提供方无关。** `diagnose_incident()` 只依赖一个最小的 `AIProvider` Protocol——核心代码中从不硬编码任何具名的真实 AI 供应商。`anthropic` 与 OpenAI 这两个真实提供方作为可选 extra 内置；调用方也可以传入实现同一单方法契约的任何其他对象。
 - **金丝雀部署在真实构建已经证明变更可行之前，绝不会触碰真实检出。** `deploy_canary()` 会拒绝在给定提案的 `status` 尚未变为 `approved` 时执行；随后把 diff 暂存到一个独立的本地克隆中，只有当该项目自身真实的 build-test 命令确实以退出码 `0` 结束时才会提升(两次改名的交换操作，先前的检出以真实备份形式保留)——这与 HYDRA-UMC-UPDATER 自身 `install.py` 已经使用的"经验证后原子化"模式完全一致。
 - **一份提案恰好只被裁决一次。** `approve_change()`/`reject_change()` 会对任何非 `pending` 状态的对象抛出 `InvalidTransitionError`——第二次裁决绝不会悄悄覆盖第一次，且每一次裁决都归属于一个真实的、非空的姓名。
 - **批准是一个签名，而不是一个字段。** `approve_change()` 用批准人自己的 Ed25519 私钥，对"究竟批准了什么"的声明进行签名：提案、diff 的 SHA-256、谁批准、有效期至何时、所针对检出目录的提交，以及是否允许受保护路径。`deploy_canary()` 只有在签名能通过批准人*公钥*注册表验证时才接受它，因此仅能写入提案文件的人无法批准任何东西。此外，若 diff 含有形似真实密钥的内容，或未声明就修改 CI、build-test 或服务文件，将被拒绝；build-test 在最小化的环境中运行；可以围绕切换停止并检查服务，并在失败时自动回滚；每一次提案、批准、部署、回滚和清理都会追加到按哈希链接的审计日志中。参见 [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md)。
@@ -121,49 +138,24 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --
 - **交付 6 是被真实阻塞了，而不是简单地被跳过。** HYDRA-UMC-VOICE-UI 自身真实的契约(`gateway.py`)是一个有边界的、**入站**的"转录到意图"网关，如今没有任何真实的出站通知接口——在这里凭空造一个出来，就等于虚构一个根本不存在的集成点，而这正是本项目自身"绝不捏造"标准所不允许的。见下方的路线图部分。
 - **核心部分仅使用标准库。** `edge collect`/`control show`/`control propose`/`control approve`/`control reject`/`control verify` 都不需要任何依赖——HTTP 检查用 `urllib.request`，systemd 检查用 `subprocess`/`shutil.which`，金丝雀部署阶段以及清单事件的 `base_commit:` 捕获用 `git`(一个真实的外部二进制程序，而非 Python 包)。只有 `control diagnose`(`ai-*` extra)和清单事件的 `compare_runs()` 复检(`sdk` extra)需要可选依赖，且各自仅针对实际使用到的那部分功能。
 
-## 📂 目录结构
+## 🚀 快速开始
 
-```
-HYDRA-UMC-OPS-AGENT/
-├── src/hydra_umc_ops_agent/
-│   ├── __init__.py         # 包版本
-│   ├── _atomic.py          # 为存储、提案和结果提供持久的原子文件写入
-│   ├── approval_signing.py # 批准的 Ed25519 签名;批准人注册表
-│   ├── audit_journal.py    # 按哈希链接、仅追加的审计日志
-│   ├── diff_policy.py      # diff 可包含和可修改的内容(密钥形态、受保护路径、大小)
-│   ├── log_redaction.py    # 纯粹的秘密脱敏（KEY=VALUE、Bearer 令牌、PEM 块）
-│   ├── inventory.py        # 清单扫描 + systemd/HTTP 健康检查
-│   ├── incident.py         # MaintenanceIncident / IncidentBatch 契约
-│   ├── edge_agent.py       # 将以上内容编排为单个 NodeSnapshot
-│   ├── control_plane.py    # 只读快照加载器 + 文本报告渲染器
-│   ├── diagnosis.py        # 交付 2：与提供方无关的、由 AI 辅助生成的诊断建议
-│   ├── change_proposal.py  # 交付 3：不可变的、经人工批准的 ChangeProposal 生命周期
-│   ├── canary_deploy.py    # 交付 4：stage + apply + verify + promote，仅在获批后执行
-│   ├── verification.py     # 交付 5：重新执行某个事件背后的真实检查
-│   ├── cli.py               # 上述每一项交付的 edge/control 子命令入口点
-│   └── incident_store.py    # 持久且去重的事件层: 每个 (节点, 组件) 一条未结记录,仅当该组件被重新检查且正常时才关闭
-├── tests/                  # 覆盖全部 11 个模块的真实测试，含一个本地 http.server fixture、一个模拟的 AI 提供方，以及一个用于金丝雀部署的真实、用后即弃的 git 仓库
-├── docs/
-│   ├── CLI_REFERENCE.md     # 每个子命令、其参数、退出码契约
-│   ├── INCIDENT_CONTRACT.md # MaintenanceIncident/NodeSnapshot 的真实 JSON 结构
-│   ├── DIAGNOSIS.md         # 交付 2 自身的契约、提供方与安全边界
-│   ├── CHANGE_LIFECYCLE.md  # 交付 3-5 自身的契约与安全边界
-│   └── MATURITY_CRITERIA.md # 成熟度退出标准 (升一级必须满足的条件)
-├── images/                 # 媒体资源与应用图标
-├── tools/
-│   ├── build_test.py        # 不涉及版本变更的构建/编译检查
-│   ├── ci_validate.py       # CI 使用的清单/CHANGELOG/文档校验
-│   ├── _doc_policy.py       # 家族共享的文档规则 (HYDRA-UMC-SDK 的副本,保持同步)
-│   ├── _readme_parity.py    # 检查八个 README 结构一致 (HYDRA-UMC-SDK 的副本,保持同步)
-│   └── hydra_project_tool.py # 每个仓库相同的命令: validate、test、ci、version、status、bump
-├── build.sh / build.bat     # 创建 venv + 可编辑安装 + 编译检查 + 测试
-├── build-test.sh / .bat     # 仅执行构建校验，不修改任何内容
-├── run.sh / run.bat         # 真实的 edge collect + control show 演示（不带参数时），或转发一条真实的 CLI 命令
-├── bump_version.py          # 里程表式版本递增（仅由显式 `bump` 命令运行）
-└── bump_manifest_version.py # 将 hydra-umc.project.json 的版本与原生版本同步（--sync）
+需要 Python 3.11 或更高版本。
+
+```bash
+./build.sh  # Linux, macOS (build.bat on Windows)
+./run.sh    # demo: edge collect on a throwaway sample project, then control show
+./run.sh edge collect --node-name n --projects-root DIR --out FILE
+./run.sh control show snapshot.json
 ```
 
-## ⚙️ 构建与运行
+## 🧪 测试
+
+运行 `python -m pytest -q tests` 会执行 322 个自动测试。 不需要硬件，也不需要这台机器以外的任何东西。
+
+CI 运行 `HYDRA_UMC_CI=1 python tools/ci_validate.py`，检查清单、文档、八个 README 和图片。
+
+## 🏗️ 构建与发布
 
 ```bash
 chmod +x build.sh   # 仅需一次
@@ -199,12 +191,64 @@ pip install -e ".[sdk]"                           # 仅在需要复检清单事�
 - `control deploy-canary` 失败并提示 `ERROR: ... signed approval` / `not a registered approver` / `expired` / `approved for commit`：批准缺失、使用了不在注册表中的密钥、已过期,或是针对检出目录的另一个状态给出的。请用 `control approve --key 你的密钥 --live-root 路径` 重新批准。通过编辑文件批准的提案,或在批准尚未签名之前批准的提案,永远不会被接受。
 - `control deploy-canary` 报告 `promoted: false`：查看结果 JSON 中的 `buildOutput`——暂存环境的构建确实失败了，真实检出从未被触碰。见 [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md)。
 
-## 🚀 路线图
+## 📂 仓库结构
+
+<p align="center">
+  <img src="images/repository-structure.svg" alt="Repository structure of HYDRA-UMC-OPS-AGENT" width="100%">
+</p>
+
+<details>
+<summary>目录树的文本版本</summary>
+
+```text
+HYDRA-UMC-OPS-AGENT/
+├── src/hydra_umc_ops_agent/   源代码
+│   ├── __init__.py            包版本
+│   ├── _atomic.py             为存储、提案和结果提供持久的原子文件写入
+│   ├── approval_signing.py    批准的 Ed25519 签名;批准人注册表
+│   ├── audit_journal.py       按哈希链接、仅追加的审计日志
+│   ├── diff_policy.py         diff 可包含和可修改的内容(密钥形态、受保护路径、大小)
+│   ├── log_redaction.py       纯粹的秘密脱敏（KEY=VALUE、Bearer 令牌、PEM 块）
+│   ├── inventory.py           清单扫描 + systemd/HTTP 健康检查
+│   ├── incident.py            MaintenanceIncident / IncidentBatch 契约
+│   ├── edge_agent.py          把各部分汇总为一个 NodeSnapshot
+│   ├── control_plane.py       只读快照加载器 + 文本报告渲染器
+│   ├── diagnosis.py           交付 2：与提供方无关的、由 AI 辅助生成的诊断建议
+│   ├── change_proposal.py     交付 3：不可变的、经人工批准的 ChangeProposal 生命周期
+│   ├── canary_deploy.py       交付 4：stage + apply + verify + promote，仅在获批后执行
+│   ├── verification.py        交付 5：重新执行某个事件背后的真实检查
+│   ├── cli.py                 edge 与 control 子命令
+│   └── incident_store.py      持久且去重的事件层: 每个 (节点, 组件) 一条未结记录,仅当该组件被重新检查且正常时才关闭
+├── tests/                     覆盖全部 11 个模块的真实测试，含一个本地 http.server fixture、一个模拟的 AI 提供方，以及一个用于金丝雀部署的真实、用后即弃的 git 仓库
+├── docs/                      项目文档
+├── images/                    媒体资源与应用图标
+├── tools/                     项目工具和 CI 检查
+├── .github/                   CI 工作流和 Issue 模板
+├── build.sh / build.bat       创建 venv + 可编辑安装 + 编译检查 + 测试
+├── run.sh / run.bat           真实的 edge collect + control show 演示（不带参数时），或转发一条真实的 CLI 命令
+├── bump_version.py            显式提升版本
+├── bump_manifest_version.py   将 hydra-umc.project.json 的版本与原生版本同步（--sync）
+├── CHANGELOG.md               每个版本的变更
+├── build-test.sh              不修改内容的构建检查
+├── hydra-umc.project.json     清单：版本、成熟度、系列
+├── pyproject.toml             包的元数据
+└── test.sh                    运行测试
+```
+
+</details>
+
+## 🗺️ 路线图与已知限制
+
+**当前已知限制**
 
 交付 1-5（本版本）交付**证据**、**诊断**、**经人工批准的变更**、**金丝雀部署**与**验证**——本项目自身清单和 CHANGELOG 中已经命名的真实生命周期。剩下的部分：
 
 - **交付 6 - 语音/通知集成——真正被阻塞了，而不是仅仅推迟。** 原计划是通过 HYDRA-UMC-VOICE-UI 呈现严重事件或已完成的金丝雀部署。对其自身代码(`gateway.py`)的真实调研发现，它是一个有边界的、**入站**的"转录到意图"网关(一块 Watch 发送文本，收到回复)，如今没有任何真实的出站通知接口。在这里硬造一个出来，就等于虚构一个 VOICE-UI 自身都不存在的集成点——这正是本项目自身"绝不捏造"标准所不允许的。等到 VOICE-UI(或其继任者)真正发展出一种"接收助手通知"的能力后，再重新审视这一点。
 - 边缘角色与控制面角色之间的真实传输通道（如今，把快照文件从一端搬到另一端仍是手动步骤）。
+
+## 🌍 语言
+
+本 README 和仓库文档提供八种语言：英语、西班牙语、德语、法语、意大利语、日语、中文和葡萄牙语（葡萄牙）。它们同时编写，并由 CI 检查八个文件拥有相同的章节和相同的链接。 本仓库没有自己的界面或消息目录，因此没有需要翻译的界面文字。
 
 ## 🔗 相关项目
 
@@ -295,24 +339,30 @@ pip install -e ".[sdk]"                           # 仅在需要复检清单事�
 - **[URTC-SMART-RACK](https://github.com/JuanenRac/URTC-SMART-RACK)** — 面向板卡安装机架的固件，具备真实的工具 ID 解码与 Smart Idle 预热逻辑。
 - **[URTC-VISION-TOOL](https://github.com/JuanenRac/URTC-VISION-TOOL)** — 面向热成像/RGB 检测工具头的固件及真实 Python 视觉伴侣程序。
 
----
+## 📚 文档
 
-## 📚 文档与社区
+更多阅读：
 
-- **[docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md)** — 每一个子命令、其参数，以及退出码契约。
-- **[docs/INCIDENT_CONTRACT.md](docs/INCIDENT_CONTRACT.md)** — `MaintenanceIncident`/`NodeSnapshot` 的真实 JSON 结构。
-- **[docs/DIAGNOSIS.md](docs/DIAGNOSIS.md)** — 交付 2 自身真实的契约、提供方、凭据与安全边界。
-- **[docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md)** — 交付 3-5 自身真实的契约、完整的 stage/apply/verify/promote 流程，以及一个真实的操作员流程示例。
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** —— 提交 Pull Request 所需的技术栈和编码规范。
-- **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** —— 本社区所期望的行为准则。
-- **[SECURITY.md](SECURITY.md)** —— 如何报告漏洞，以及本项目真实的安全关注重点。
-- **[SUPPORT.md](SUPPORT.md)** —— 在哪里提问和报告缺陷。
+* **[docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md)** — 每一个子命令、其参数，以及退出码契约。
+* **[docs/INCIDENT_CONTRACT.md](docs/INCIDENT_CONTRACT.md)** — `MaintenanceIncident`/`NodeSnapshot` 的真实 JSON 结构。
+* **[docs/DIAGNOSIS.md](docs/DIAGNOSIS.md)** — 交付 2 自身真实的契约、提供方、凭据与安全边界。
+* **[docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md)** — 交付 3-5 自身真实的契约、完整的 stage/apply/verify/promote 流程，以及一个真实的操作员流程示例。
+* [生态系统的安全基线](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/SECURITY_BASELINE.md)
+* [生态系统的威胁模型](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/THREAT_MODEL.md)
+* [本仓库的更新日志](CHANGELOG.md)
+* [本仓库的许可证](LICENSE.md)
+
+## 🤝 参与贡献与社区
+
+* 提交 pull request 之前，请运行 `HYDRA_UMC_CI=1 py -3 tools/ci_validate.py`（或 `HYDRA_UMC_CI=1 python3 tools/ci_validate.py`）：它必须输出 `CI_VALIDATION=PASS`。此检查不要运行 `build.sh` 或 `build.bat`；构建不是检查。
+* 八个 README 由 HYDRA-UMC-DOCS 中的同一个源生成；请勿手工编辑。修改源文件，再用 `tools/make_readmes.py` 重新生成。
+* 不要在 README 中声称尚未运行过的内容：属实时请写“仅模拟”或“尚未在硬件上试过”。
+* 请参阅 [CONTRIBUTING.md](CONTRIBUTING.md)、[行为准则](CODE_OF_CONDUCT.md)、[SECURITY.md](SECURITY.md) 和 [SUPPORT.md](SUPPORT.md)。
 
 ## 👤 作者
-**JuanenRac** (Electro Hobby 3D)
-📧 electrohobby3d@gmail.com
-📺 [youtube.com/@electrohobby3d](https://youtube.com/@electrohobby3d)
+
+**JuanenRac (Electro Hobby 3D)** · electrohobby3d@gmail.com
 
 ## 📜 许可证
 
-GPL-3.0-or-later（软件）/ CC BY-SA 4.0（文档）—— 详见 [LICENSE.md](LICENSE.md)。
+GPL-3.0-or-later - [LICENSE](LICENSE).

@@ -1,0 +1,167 @@
+{
+  "repo": "HYDRA-UMC-OPS-AGENT",
+  "ecosystem": "hydra",
+  "tagline": "Evidence, diagnosis, a human-approved change, a canary deploy and its verification.",
+  "description": "HYDRA-UMC-OPS-AGENT has an edge role that collects evidence and a control role that diagnoses, proposes, collects a signed approval, deploys a canary through the updater and verifies, with an audit journal.",
+  "columns": [
+    "WHO USES IT",
+    "THIS REPOSITORY",
+    "WHAT IT TALKS TO"
+  ],
+  "nodes": [
+    {
+      "id": "human",
+      "column": 0,
+      "level": "external",
+      "title": "The approver",
+      "lines": [
+        "reads a proposal, signs it",
+        "with their own key"
+      ]
+    },
+    {
+      "id": "dev",
+      "column": 0,
+      "level": "external",
+      "title": "DEV-SERVER",
+      "lines": [
+        "builds and tests repair",
+        "candidates"
+      ]
+    },
+    {
+      "id": "upd",
+      "column": 2,
+      "level": "external",
+      "title": "HYDRA-UMC-UPDATER",
+      "lines": [
+        "does the real delivery"
+      ]
+    },
+    {
+      "id": "ai",
+      "column": 2,
+      "level": "config",
+      "title": "AI provider",
+      "lines": [
+        "optional extra: a hosted",
+        "AI provider API"
+      ]
+    },
+    {
+      "id": "edge",
+      "column": 1,
+      "level": "tested",
+      "title": "edge_agent.py",
+      "lines": [
+        "collects evidence from the",
+        "projects of a node"
+      ],
+      "code": [
+        "src/hydra_umc_ops_agent/edge_agent.py",
+        "src/hydra_umc_ops_agent/inventory.py"
+      ]
+    },
+    {
+      "id": "diag",
+      "column": 1,
+      "level": "tested",
+      "title": "diagnosis.py",
+      "lines": [
+        "asks an AI provider; the",
+        "answer is data, not orders"
+      ],
+      "code": [
+        "src/hydra_umc_ops_agent/diagnosis.py"
+      ]
+    },
+    {
+      "id": "canary",
+      "column": 1,
+      "level": "tested",
+      "title": "canary_deploy.py",
+      "lines": [
+        "canary deploy, then",
+        "verification.py"
+      ],
+      "code": [
+        "src/hydra_umc_ops_agent/canary_deploy.py",
+        "src/hydra_umc_ops_agent/verification.py"
+      ]
+    },
+    {
+      "id": "prop",
+      "column": 1,
+      "level": "tested",
+      "title": "change_proposal.py",
+      "lines": [
+        "patch, diff policy and",
+        "signed approval"
+      ],
+      "code": [
+        "src/hydra_umc_ops_agent/change_proposal.py",
+        "src/hydra_umc_ops_agent/approval_signing.py",
+        "src/hydra_umc_ops_agent/diff_policy.py"
+      ]
+    },
+    {
+      "id": "aud",
+      "column": 1,
+      "level": "tested",
+      "title": "audit_journal.py",
+      "lines": [
+        "append-only, hash-chained",
+        "journal of every step"
+      ],
+      "code": [
+        "src/hydra_umc_ops_agent/audit_journal.py"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "human",
+      "to": "prop",
+      "level": "tested",
+      "label": "approve"
+    },
+    {
+      "from": "dev",
+      "to": "prop",
+      "level": "external",
+      "label": "candidate"
+    },
+    {
+      "from": "edge",
+      "to": "diag",
+      "level": "tested"
+    },
+    {
+      "from": "diag",
+      "to": "ai",
+      "level": "config"
+    },
+    {
+      "from": "diag",
+      "to": "prop",
+      "level": "tested"
+    },
+    {
+      "from": "prop",
+      "to": "canary",
+      "level": "tested"
+    },
+    {
+      "from": "canary",
+      "to": "upd",
+      "level": "external",
+      "label": "canary"
+    },
+    {
+      "from": "canary",
+      "to": "aud",
+      "level": "tested"
+    }
+  ],
+  "footer": "Tried against fakes of the updater and of the provider; never against a real fleet."
+}

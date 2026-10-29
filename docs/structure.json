@@ -1,0 +1,711 @@
+{
+  "repo": "HYDRA-UMC-OPS-AGENT",
+  "ecosystem": "hydra",
+  "svg": "en",
+  "exempt": [
+    "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "SUPPORT.md",
+    "LICENSE",
+    "LICENSE.md",
+    "build-test.bat",
+    "test.bat"
+  ],
+  "cards": [
+    {
+      "name": "src/hydra_umc_ops_agent/",
+      "span": 3,
+      "accent": "a",
+      "rows": [
+        {
+          "name": "__init__.py",
+          "desc": {
+            "en": "Package version",
+            "es": "Versión del paquete",
+            "de": "Paketversion",
+            "fr": "Version du paquet",
+            "it": "Versione del pacchetto",
+            "ja": "パッケージバージョン",
+            "zh": "包版本",
+            "pt": "Versão do pacote"
+          },
+          "tree_desc": {
+            "en": "Package version",
+            "es": "Versión del paquete",
+            "de": "Paketversion",
+            "fr": "Version du paquet",
+            "it": "Versione del pacchetto",
+            "ja": "パッケージバージョン",
+            "zh": "包版本",
+            "pt": "Versão do pacote"
+          }
+        },
+        {
+          "name": "_atomic.py",
+          "desc": {
+            "en": "Durable all-or-nothing file writes for",
+            "es": "Escrituras de archivo duraderas y",
+            "de": "Dauerhafte, atomare Dateischreibvorgänge",
+            "fr": "Écritures de fichier durables et atomiques",
+            "it": "Scritture di file durevoli e atomiche per",
+            "ja": "ストア・提案・結果のための永続的かつアトミッ",
+            "zh": "为存储、提案和结果提供持久的原子文件写入",
+            "pt": "Escritas de ficheiro duráveis e do tipo"
+          },
+          "tree_desc": {
+            "en": "Durable all-or-nothing file writes for stores, proposals and results",
+            "es": "Escrituras de archivo duraderas y todo-o-nada para almacenes, propuestas y resultados",
+            "de": "Dauerhafte, atomare Dateischreibvorgänge für Speicher, Vorschläge und Ergebnisse",
+            "fr": "Écritures de fichier durables et atomiques pour les magasins, propositions et résultats",
+            "it": "Scritture di file durevoli e atomiche per archivi, proposte e risultati",
+            "ja": "ストア・提案・結果のための永続的かつアトミックなファイル書き込み",
+            "zh": "为存储、提案和结果提供持久的原子文件写入",
+            "pt": "Escritas de ficheiro duráveis e do tipo tudo-ou-nada para armazéns, propostas e resultados"
+          }
+        },
+        {
+          "name": "approval_signing.py",
+          "desc": {
+            "en": "Ed25519 signatures of approvals",
+            "es": "Firmas Ed25519 de las aprobaciones",
+            "de": "Ed25519-Signaturen der Freigaben",
+            "fr": "Signatures Ed25519 des approbations",
+            "it": "Firme Ed25519 delle approvazioni",
+            "ja": "承認の Ed25519 署名",
+            "zh": "批准的 Ed25519 签名;批准人注册表",
+            "pt": "Assinaturas Ed25519 das aprovações"
+          },
+          "tree_desc": {
+            "en": "Ed25519 signatures of approvals; the approver registry",
+            "es": "Firmas Ed25519 de las aprobaciones; registro de aprobadores",
+            "de": "Ed25519-Signaturen der Freigaben; Register der Freigebenden",
+            "fr": "Signatures Ed25519 des approbations ; registre des approbateurs",
+            "it": "Firme Ed25519 delle approvazioni; registro degli approvatori",
+            "ja": "承認の Ed25519 署名; 承認者の登録簿",
+            "zh": "批准的 Ed25519 签名;批准人注册表",
+            "pt": "Assinaturas Ed25519 das aprovações; registo de aprovadores"
+          }
+        },
+        {
+          "name": "audit_journal.py",
+          "desc": {
+            "en": "Hash-chained, append-only audit journal",
+            "es": "Diario de auditoría encadenado por hash",
+            "de": "Hash-verkettetes Audit-Journal",
+            "fr": "Journal d'audit chaîné par hachage",
+            "it": "Registro di audit concatenato con hash",
+            "ja": "ハッシュで連鎖する追記専用の監査ジャーナル",
+            "zh": "按哈希链接、仅追加的审计日志",
+            "pt": "Diário de auditoria encadeado por hash"
+          },
+          "tree_desc": {
+            "en": "Hash-chained, append-only audit journal",
+            "es": "Diario de auditoría encadenado por hash, solo de adición",
+            "de": "Hash-verkettetes Audit-Journal, nur anhängend",
+            "fr": "Journal d'audit chaîné par hachage, en ajout seul",
+            "it": "Registro di audit concatenato con hash, solo in aggiunta",
+            "ja": "ハッシュで連鎖する追記専用の監査ジャーナル",
+            "zh": "按哈希链接、仅追加的审计日志",
+            "pt": "Diário de auditoria encadeado por hash, só de acréscimo"
+          }
+        },
+        {
+          "name": "diff_policy.py",
+          "desc": {
+            "en": "What a diff may hold and touch",
+            "es": "Qué puede contener y tocar un diff",
+            "de": "Was ein Diff enthalten und berühren darf",
+            "fr": "Ce qu'un diff peut contenir et toucher",
+            "it": "Cosa può contenere e toccare un diff",
+            "ja": "diff が含められるもの・触れられるもの",
+            "zh": "diff 可包含和可修改的内容(密钥形态",
+            "pt": "O que um diff pode conter e tocar"
+          },
+          "tree_desc": {
+            "en": "What a diff may hold and touch (secret shapes, protected paths, size)",
+            "es": "Qué puede contener y tocar un diff (formas de secreto, rutas protegidas, tamaño)",
+            "de": "Was ein Diff enthalten und berühren darf (Geheimnisformen, geschützte Pfade, Größe)",
+            "fr": "Ce qu'un diff peut contenir et toucher (formes de secret, chemins protégés, taille)",
+            "it": "Cosa può contenere e toccare un diff (forme di segreto, percorsi protetti, dimensione)",
+            "ja": "diff が含められるもの・触れられるもの(秘密情報の形、保護パス、サイズ)",
+            "zh": "diff 可包含和可修改的内容(密钥形态、受保护路径、大小)",
+            "pt": "O que um diff pode conter e tocar (formas de segredo, caminhos protegidos, tamanho)"
+          }
+        },
+        {
+          "name": "log_redaction.py",
+          "desc": {
+            "en": "Pure secret redaction",
+            "es": "Redacción pura de secretos",
+            "de": "Reine Geheimnis-Redaktion",
+            "fr": "Rédaction pure de secrets",
+            "it": "Redazione pura di segreti",
+            "ja": "純粋な秘密の秘匿化(KEY=VALUE",
+            "zh": "纯粹的秘密脱敏（KEY=VALUE",
+            "pt": "Redação pura de segredos"
+          },
+          "tree_desc": {
+            "en": "Pure secret redaction (KEY=VALUE, Bearer tokens, PEM blocks)",
+            "es": "Redacción pura de secretos (KEY=VALUE, tokens Bearer, bloques PEM)",
+            "de": "Reine Geheimnis-Redaktion (KEY=VALUE, Bearer-Token, PEM-Blöcke)",
+            "fr": "Rédaction pure de secrets (KEY=VALUE, tokens Bearer, blocs PEM)",
+            "it": "Redazione pura di segreti (KEY=VALUE, token Bearer, blocchi PEM)",
+            "ja": "純粋な秘密の秘匿化(KEY=VALUE、Bearer トークン、PEM ブロック)",
+            "zh": "纯粹的秘密脱敏（KEY=VALUE、Bearer 令牌、PEM 块）",
+            "pt": "Redação pura de segredos (KEY=VALUE, tokens Bearer, blocos PEM)"
+          }
+        },
+        {
+          "name": "inventory.py",
+          "desc": {
+            "en": "Manifest scan + systemd/HTTP health checks",
+            "es": "Escaneo de manifiestos + comprobaciones de",
+            "de": "Manifest-Scan + systemd-/HTTP-Health-Checks",
+            "fr": "Scan de manifestes + vérifications de santé",
+            "it": "Scansione manifesti + controlli di salute",
+            "ja": "マニフェストスキャン + systemd/H",
+            "zh": "清单扫描 + systemd/HTTP 健康",
+            "pt": "Varredura de manifestos + verificações de"
+          },
+          "tree_desc": {
+            "en": "Manifest scan + systemd/HTTP health checks",
+            "es": "Escaneo de manifiestos + comprobaciones de salud systemd/HTTP",
+            "de": "Manifest-Scan + systemd-/HTTP-Health-Checks",
+            "fr": "Scan de manifestes + vérifications de santé systemd/HTTP",
+            "it": "Scansione manifesti + controlli di salute systemd/HTTP",
+            "ja": "マニフェストスキャン + systemd/HTTP ヘルスチェック",
+            "zh": "清单扫描 + systemd/HTTP 健康检查",
+            "pt": "Varredura de manifestos + verificações de saúde systemd/HTTP"
+          }
+        },
+        {
+          "name": "incident.py",
+          "desc": {
+            "en": "MaintenanceIncident / IncidentBatch contract",
+            "es": "Contrato MaintenanceIncident / IncidentBatch",
+            "de": "MaintenanceIncident-/IncidentBatch-Vertrag",
+            "fr": "Contrat MaintenanceIncident / IncidentBatch",
+            "it": "Contratto MaintenanceIncident /",
+            "ja": "MaintenanceIncident /",
+            "zh": "MaintenanceIncident /",
+            "pt": "Contrato MaintenanceIncident / IncidentBatch"
+          },
+          "tree_desc": {
+            "en": "MaintenanceIncident / IncidentBatch contract",
+            "es": "Contrato MaintenanceIncident / IncidentBatch",
+            "de": "MaintenanceIncident-/IncidentBatch-Vertrag",
+            "fr": "Contrat MaintenanceIncident / IncidentBatch",
+            "it": "Contratto MaintenanceIncident / IncidentBatch",
+            "ja": "MaintenanceIncident / IncidentBatch 契約",
+            "zh": "MaintenanceIncident / IncidentBatch 契约",
+            "pt": "Contrato MaintenanceIncident / IncidentBatch"
+          }
+        },
+        {
+          "name": "edge_agent.py",
+          "desc": {
+            "en": "puts the pieces into one NodeSnapshot",
+            "es": "reúne las piezas en un NodeSnapshot",
+            "de": "fügt die Teile zu einem NodeSnapshot",
+            "fr": "réunit les pièces en un NodeSnapshot",
+            "it": "riunisce i pezzi in un NodeSnapshot",
+            "ja": "各部品を 1 つの NodeSnapshot",
+            "zh": "把各部分汇总为一个 NodeSnapshot",
+            "pt": "reúne as peças num NodeSnapshot"
+          },
+          "tree_desc": {
+            "en": "puts the pieces into one NodeSnapshot",
+            "es": "reúne las piezas en un NodeSnapshot",
+            "de": "fügt die Teile zu einem NodeSnapshot zusammen",
+            "fr": "réunit les pièces en un NodeSnapshot",
+            "it": "riunisce i pezzi in un NodeSnapshot",
+            "ja": "各部品を 1 つの NodeSnapshot にまとめる",
+            "zh": "把各部分汇总为一个 NodeSnapshot",
+            "pt": "reúne as peças num NodeSnapshot"
+          }
+        },
+        {
+          "name": "control_plane.py",
+          "desc": {
+            "en": "Read-only snapshot loader + text report",
+            "es": "Cargador de snapshot de solo lectura +",
+            "de": "Schreibgeschützter Snapshot-Lader +",
+            "fr": "Chargeur de snapshot en lecture seule +",
+            "it": "Caricatore di snapshot in sola lettura +",
+            "ja": "読み取り専用スナップショットローダー + テ",
+            "zh": "只读快照加载器 + 文本报告渲染器",
+            "pt": "Carregador de instantâneos só de leitura +"
+          },
+          "tree_desc": {
+            "en": "Read-only snapshot loader + text report renderer",
+            "es": "Cargador de snapshot de solo lectura + renderizador de informe de texto",
+            "de": "Schreibgeschützter Snapshot-Lader + Text-Report-Renderer",
+            "fr": "Chargeur de snapshot en lecture seule + rendu de rapport texte",
+            "it": "Caricatore di snapshot in sola lettura + renderizzatore di report testuale",
+            "ja": "読み取り専用スナップショットローダー + テキストレポートレンダラー",
+            "zh": "只读快照加载器 + 文本报告渲染器",
+            "pt": "Carregador de instantâneos só de leitura + renderizador de relatório em texto"
+          }
+        },
+        {
+          "name": "diagnosis.py",
+          "desc": {
+            "en": "Delivery 2: provider-agnostic AI-assisted",
+            "es": "Entrega 2: sugerencia de diagnóstico",
+            "de": "Lieferung 2: anbieterunabhängiger",
+            "fr": "Livraison 2 : suggestion de diagnostic",
+            "it": "Consegna 2: suggerimento di diagnosi",
+            "ja": "納品 2: プロバイダーに依存しない AI",
+            "zh": "交付 2：与提供方无关的、由 AI 辅助生成",
+            "pt": "Entrega 2: sugestão de diagnóstico"
+          },
+          "tree_desc": {
+            "en": "Delivery 2: provider-agnostic AI-assisted diagnosis suggestion",
+            "es": "Entrega 2: sugerencia de diagnóstico asistida por IA, independiente del proveedor",
+            "de": "Lieferung 2: anbieterunabhängiger KI-unterstützter Diagnosevorschlag",
+            "fr": "Livraison 2 : suggestion de diagnostic assistée par IA, indépendante du fournisseur",
+            "it": "Consegna 2: suggerimento di diagnosi assistita da IA, indipendente dal provider",
+            "ja": "納品 2: プロバイダーに依存しない AI 支援診断の提案",
+            "zh": "交付 2：与提供方无关的、由 AI 辅助生成的诊断建议",
+            "pt": "Entrega 2: sugestão de diagnóstico assistida por IA, agnóstica quanto ao fornecedor"
+          }
+        },
+        {
+          "name": "change_proposal.py",
+          "desc": {
+            "en": "Delivery 3: immutable",
+            "es": "Entrega 3: ciclo de vida inmutable de",
+            "de": "Lieferung 3: unveränderlicher",
+            "fr": "Livraison 3 : cycle de vie immuable de",
+            "it": "Consegna 3: ciclo di vita immutabile di",
+            "ja": "納品 3: 不変で人による承認済みの Cha",
+            "zh": "交付 3：不可变的、经人工批准的 Chang",
+            "pt": "Entrega 3: ciclo de vida imutável de"
+          },
+          "tree_desc": {
+            "en": "Delivery 3: immutable, human-approved ChangeProposal lifecycle",
+            "es": "Entrega 3: ciclo de vida inmutable de ChangeProposal, aprobado por una persona",
+            "de": "Lieferung 3: unveränderlicher, von einer Person genehmigter ChangeProposal-Lebenszyklus",
+            "fr": "Livraison 3 : cycle de vie immuable de ChangeProposal, approuvé par une personne",
+            "it": "Consegna 3: ciclo di vita immutabile di ChangeProposal, approvato da una persona",
+            "ja": "納品 3: 不変で人による承認済みの ChangeProposal ライフサイクル",
+            "zh": "交付 3：不可变的、经人工批准的 ChangeProposal 生命周期",
+            "pt": "Entrega 3: ciclo de vida imutável de ChangeProposal, aprovado por uma pessoa"
+          }
+        },
+        {
+          "name": "canary_deploy.py",
+          "desc": {
+            "en": "Delivery 4: stage + apply + verify + promote",
+            "es": "Entrega 4: stage + apply + verify + promote",
+            "de": "Lieferung 4: stage + apply + verify +",
+            "fr": "Livraison 4 : stage + apply + verify +",
+            "it": "Consegna 4: stage + apply + verify + promote",
+            "ja": "納品 4: ステージング + 適用 + 検証",
+            "zh": "交付 4：stage + apply + v",
+            "pt": "Entrega 4: preparar + aplicar + verificar +"
+          },
+          "tree_desc": {
+            "en": "Delivery 4: stage + apply + verify + promote, approved-only",
+            "es": "Entrega 4: stage + apply + verify + promote, solo con aprobación",
+            "de": "Lieferung 4: stage + apply + verify + promote, nur bei Genehmigung",
+            "fr": "Livraison 4 : stage + apply + verify + promote, uniquement sur approbation",
+            "it": "Consegna 4: stage + apply + verify + promote, solo su approvazione",
+            "ja": "納品 4: ステージング + 適用 + 検証 + 昇格、承認済みのみ",
+            "zh": "交付 4：stage + apply + verify + promote，仅在获批后执行",
+            "pt": "Entrega 4: preparar + aplicar + verificar + promover, só aprovado"
+          }
+        },
+        {
+          "name": "verification.py",
+          "desc": {
+            "en": "Delivery 5: re-runs the real check behind",
+            "es": "Entrega 5: vuelve a ejecutar la",
+            "de": "Lieferung 5: führt die echte Prüfung hinter",
+            "fr": "Livraison 5 : relance la vérification",
+            "it": "Consegna 5: riesegue il controllo reale",
+            "ja": "納品 5: インシデントの背後にある本物のチ",
+            "zh": "交付 5：重新执行某个事件背后的真实检查",
+            "pt": "Entrega 5: volta a executar a verificação"
+          },
+          "tree_desc": {
+            "en": "Delivery 5: re-runs the real check behind an incident",
+            "es": "Entrega 5: vuelve a ejecutar la comprobación real detrás de una incidencia",
+            "de": "Lieferung 5: führt die echte Prüfung hinter einem Vorfall erneut aus",
+            "fr": "Livraison 5 : relance la vérification réelle derrière un incident",
+            "it": "Consegna 5: riesegue il controllo reale dietro un incidente",
+            "ja": "納品 5: インシデントの背後にある本物のチェックを再実行",
+            "zh": "交付 5：重新执行某个事件背后的真实检查",
+            "pt": "Entrega 5: volta a executar a verificação real por trás de um incidente"
+          }
+        },
+        {
+          "name": "cli.py",
+          "desc": {
+            "en": "edge and control subcommands",
+            "es": "subórdenes edge y control",
+            "de": "Unterbefehle edge und control",
+            "fr": "sous-commandes edge et control",
+            "it": "sottocomandi edge e control",
+            "ja": "edge と control のサブコマンド",
+            "zh": "edge 与 control 子命令",
+            "pt": "subcomandos edge e control"
+          },
+          "tree_desc": {
+            "en": "edge and control subcommands",
+            "es": "subórdenes edge y control",
+            "de": "Unterbefehle edge und control",
+            "fr": "sous-commandes edge et control",
+            "it": "sottocomandi edge e control",
+            "ja": "edge と control のサブコマンド",
+            "zh": "edge 与 control 子命令",
+            "pt": "subcomandos edge e control"
+          }
+        },
+        {
+          "name": "incident_store.py",
+          "desc": {
+            "en": "The durable, deduplicated incident layer",
+            "es": "La capa duradera y sin duplicados de",
+            "de": "Die dauerhafte",
+            "fr": "La couche durable et dédupliquée des",
+            "it": "Lo strato durevole e senza duplicati degli",
+            "ja": "永続的で重複を排除したインシデント層",
+            "zh": "持久且去重的事件层: 每个 (节点",
+            "pt": "A camada durável e sem duplicados de"
+          },
+          "tree_desc": {
+            "en": "The durable, deduplicated incident layer: one open record per (node, component), resolved only when that component was re-checked and is clean",
+            "es": "La capa duradera y sin duplicados de incidentes: un registro abierto por (nodo, componente), resuelto solo si ese componente se volvió a comprobar y está limpio",
+            "de": "Die dauerhafte, deduplizierte Vorfallsschicht: ein offener Eintrag je (Knoten, Komponente), nur gelöst, wenn die Komponente neu geprüft wurde und sauber ist",
+            "fr": "La couche durable et dédupliquée des incidents : un enregistrement ouvert par (nœud, composant), résolu seulement si ce composant a été revérifié et est sain",
+            "it": "Lo strato durevole e senza duplicati degli incidenti: un record aperto per (nodo, componente), risolto solo se quel componente è stato ricontrollato ed è a posto",
+            "ja": "永続的で重複を排除したインシデント層: (ノード, コンポーネント) ごとに未解決レコードを1件、再確認して正常だった場合のみ解決",
+            "zh": "持久且去重的事件层: 每个 (节点, 组件) 一条未结记录,仅当该组件被重新检查且正常时才关闭",
+            "pt": "A camada durável e sem duplicados de incidentes: um registo aberto por (nó, componente), resolvido só quando esse componente foi reverificado e está limpo"
+          }
+        }
+      ],
+      "tree_head": {
+        "en": "source code",
+        "es": "código fuente",
+        "de": "Quellcode",
+        "fr": "code source",
+        "it": "codice sorgente",
+        "ja": "ソースコード",
+        "zh": "源代码",
+        "pt": "código-fonte"
+      },
+      "sub": {
+        "en": "source code",
+        "es": "código fuente",
+        "de": "Quellcode",
+        "fr": "code source",
+        "it": "codice sorgente",
+        "ja": "ソースコード",
+        "zh": "源代码",
+        "pt": "código-fonte"
+      },
+      "columns": 2
+    },
+    {
+      "name": {
+        "en": "folders",
+        "es": "carpetas",
+        "de": "Ordner",
+        "fr": "dossiers",
+        "it": "cartelle",
+        "ja": "フォルダ",
+        "zh": "文件夹",
+        "pt": "pastas"
+      },
+      "kind": "group",
+      "span": 3,
+      "accent": "b",
+      "columns": 2,
+      "rows": [
+        {
+          "name": "tests/",
+          "desc": {
+            "en": "Real tests for all 11 modules",
+            "es": "Tests reales para los 11 módulos",
+            "de": "Echte Tests für alle 11 Module",
+            "fr": "Vrais tests pour les 11 modules",
+            "it": "Test reali per tutti e 11 i moduli",
+            "ja": "11 モジュールすべてに対する本物のテスト",
+            "zh": "覆盖全部 11 个模块的真实测试",
+            "pt": "Testes reais para os 11 módulos"
+          },
+          "tree_desc": {
+            "en": "Real tests for all 11 modules, incl. a local http.server fixture, a fake AI provider, and a real throwaway git repo for canary deploy",
+            "es": "Tests reales para los 11 módulos, incl. un fixture local http.server, un proveedor de IA simulado y un repo git real y desechable para el despliegue canario",
+            "de": "Echte Tests für alle 11 Module, inkl. eines lokalen http.server-Fixtures, eines simulierten KI-Anbieters und eines echten Wegwerf-Git-Repositorys für das Canary-Deployment",
+            "fr": "Vrais tests pour les 11 modules, incl. un fixture local http.server, un fournisseur d'IA simulé et un vrai dépôt git jetable pour le déploiement canari",
+            "it": "Test reali per tutti e 11 i moduli, incl. un fixture locale http.server, un provider di IA simulato e un vero repository git usa e getta per la distribuzione canary",
+            "ja": "11 モジュールすべてに対する本物のテスト、ローカル http.server フィクスチャ、模擬 AI プロバイダー、カナリアデプロイ用の本物の使い捨て git リポジトリを含む",
+            "zh": "覆盖全部 11 个模块的真实测试，含一个本地 http.server fixture、一个模拟的 AI 提供方，以及一个用于金丝雀部署的真实、用后即弃的 git 仓库",
+            "pt": "Testes reais para os 11 módulos, incl. um fixture local http.server, um fornecedor de IA simulado e um repositório git real e descartável para a implementação canário"
+          }
+        },
+        {
+          "name": "docs/",
+          "desc": {
+            "en": "documents of the project",
+            "es": "documentos del proyecto",
+            "de": "Dokumente des Projekts",
+            "fr": "documents du projet",
+            "it": "documenti del progetto",
+            "ja": "プロジェクトの文書",
+            "zh": "项目文档",
+            "pt": "documentos do projeto"
+          },
+          "tree_desc": {
+            "en": "documents of the project",
+            "es": "documentos del proyecto",
+            "de": "Dokumente des Projekts",
+            "fr": "documents du projet",
+            "it": "documenti del progetto",
+            "ja": "プロジェクトの文書",
+            "zh": "项目文档",
+            "pt": "documentos do projeto"
+          }
+        },
+        {
+          "name": "images/",
+          "desc": {
+            "en": "Media and app icons",
+            "es": "Medios e iconos de la app",
+            "de": "Medien und App-Icons",
+            "fr": "Médias et icônes de l'application",
+            "it": "Media e icone dell'app",
+            "ja": "メディアとアプリアイコン",
+            "zh": "媒体资源与应用图标",
+            "pt": "Multimédia e ícones da aplicação"
+          },
+          "tree_desc": {
+            "en": "Media and app icons",
+            "es": "Medios e iconos de la app",
+            "de": "Medien und App-Icons",
+            "fr": "Médias et icônes de l'application",
+            "it": "Media e icone dell'app",
+            "ja": "メディアとアプリアイコン",
+            "zh": "媒体资源与应用图标",
+            "pt": "Multimédia e ícones da aplicação"
+          }
+        },
+        {
+          "name": "tools/",
+          "desc": {
+            "en": "project tools and CI checks",
+            "es": "herramientas del proyecto y comprobaciones",
+            "de": "Projektwerkzeuge und CI-Prüfungen",
+            "fr": "outils du projet et vérifications de la CI",
+            "it": "strumenti del progetto e controlli della CI",
+            "ja": "プロジェクトのツールと CI の検査",
+            "zh": "项目工具和 CI 检查",
+            "pt": "ferramentas do projeto e verificações da CI"
+          },
+          "tree_desc": {
+            "en": "project tools and CI checks",
+            "es": "herramientas del proyecto y comprobaciones del CI",
+            "de": "Projektwerkzeuge und CI-Prüfungen",
+            "fr": "outils du projet et vérifications de la CI",
+            "it": "strumenti del progetto e controlli della CI",
+            "ja": "プロジェクトのツールと CI の検査",
+            "zh": "项目工具和 CI 检查",
+            "pt": "ferramentas do projeto e verificações da CI"
+          }
+        },
+        {
+          "name": ".github/",
+          "desc": {
+            "en": "CI workflow and issue templates",
+            "es": "flujo de CI y plantillas de incidencias",
+            "de": "CI-Workflow und Issue-Vorlagen",
+            "fr": "workflow de CI et modèles de tickets",
+            "it": "workflow di CI e modelli di segnalazione",
+            "ja": "CI ワークフローと Issue テンプレート",
+            "zh": "CI 工作流和 Issue 模板",
+            "pt": "fluxo de CI e modelos de problemas"
+          }
+        }
+      ]
+    },
+    {
+      "name": {
+        "en": "project files",
+        "es": "ficheros del proyecto",
+        "de": "Projektdateien",
+        "fr": "fichiers du projet",
+        "it": "file del progetto",
+        "ja": "プロジェクトのファイル",
+        "zh": "项目文件",
+        "pt": "ficheiros do projeto"
+      },
+      "kind": "group",
+      "span": 3,
+      "accent": "c",
+      "columns": 2,
+      "rows": [
+        {
+          "name": "build.sh / build.bat",
+          "desc": {
+            "en": "venv + editable install + compile-check +",
+            "es": "venv + instalación editable + compile-check",
+            "de": "venv + editierbare Installation +",
+            "fr": "venv + installation éditable +",
+            "it": "venv + installazione editabile +",
+            "ja": "venv + 編集可能インストール + コン",
+            "zh": "创建 venv + 可编辑安装 + 编译检查",
+            "pt": "venv + instalação editável + verificação de"
+          },
+          "tree_desc": {
+            "en": "venv + editable install + compile-check + tests",
+            "es": "venv + instalación editable + compile-check + tests",
+            "de": "venv + editierbare Installation + Compile-Check + Tests",
+            "fr": "venv + installation éditable + compile-check + tests",
+            "it": "venv + installazione editabile + compile-check + test",
+            "ja": "venv + 編集可能インストール + コンパイルチェック + テスト",
+            "zh": "创建 venv + 可编辑安装 + 编译检查 + 测试",
+            "pt": "venv + instalação editável + verificação de compilação + testes"
+          }
+        },
+        {
+          "name": "run.sh / run.bat",
+          "desc": {
+            "en": "Real edge collect + control show demo",
+            "es": "Demo real de edge collect + control show",
+            "de": "Echte edge-collect + control-show-Demo",
+            "fr": "Démo réelle edge collect + control show",
+            "it": "Demo reale edge collect + control show",
+            "ja": "本物の edge collect + con",
+            "zh": "真实的 edge collect + con",
+            "pt": "Demonstração real de edge collect + control"
+          },
+          "tree_desc": {
+            "en": "Real edge collect + control show demo (no arguments), or forwards a real CLI command",
+            "es": "Demo real de edge collect + control show (sin argumentos), o reenvía un comando CLI real",
+            "de": "Echte edge-collect + control-show-Demo (ohne Argumente), oder leitet einen echten CLI-Befehl weiter",
+            "fr": "Démo réelle edge collect + control show (sans argument), ou relaie une vraie commande CLI",
+            "it": "Demo reale edge collect + control show (senza argomenti), oppure inoltra un vero comando CLI",
+            "ja": "本物の edge collect + control show デモ(引数なしの場合)、または本物の CLI コマンドを転送",
+            "zh": "真实的 edge collect + control show 演示（不带参数时），或转发一条真实的 CLI 命令",
+            "pt": "Demonstração real de edge collect + control show (sem argumentos), ou reencaminha um comando real da CLI"
+          }
+        },
+        {
+          "name": "bump_version.py",
+          "desc": {
+            "en": "explicit version bump",
+            "es": "Incremento de versión tipo cuentakilómetros",
+            "de": "ausdrückliche Versionserhöhung",
+            "fr": "Incrément de version type compteur",
+            "it": "Incremento di versione stile contachilometri",
+            "ja": "明示的なバージョン更新",
+            "zh": "显式提升版本",
+            "pt": "Subida de versão ao estilo conta-quilómetros"
+          },
+          "tree_desc": {
+            "en": "explicit version bump",
+            "es": "Incremento de versión tipo cuentakilómetros (solo lo ejecuta el comando `bump` explícito)",
+            "de": "ausdrückliche Versionserhöhung",
+            "fr": "Incrément de version type compteur kilométrique (exécuté seulement par la commande `bump` explicite)",
+            "it": "Incremento di versione stile contachilometri (eseguito solo dal comando `bump` esplicito)",
+            "ja": "明示的なバージョン更新",
+            "zh": "显式提升版本",
+            "pt": "Subida de versão ao estilo conta-quilómetros (executada só pelo comando `bump` explícito)"
+          }
+        },
+        {
+          "name": "bump_manifest_version.py",
+          "desc": {
+            "en": "Syncs hydra-umc.project.json's version to",
+            "es": "Sincroniza la versión de",
+            "de": "Synchronisiert die Version von",
+            "fr": "Synchronise la version de",
+            "it": "Sincronizza la versione di",
+            "ja": "hydra-umc.project.json",
+            "zh": "将 hydra-umc.project.js",
+            "pt": "Sincroniza a versão do"
+          },
+          "tree_desc": {
+            "en": "Syncs hydra-umc.project.json's version to the native one (--sync)",
+            "es": "Sincroniza la versión de hydra-umc.project.json con la nativa (--sync)",
+            "de": "Synchronisiert die Version von hydra-umc.project.json mit der nativen (--sync)",
+            "fr": "Synchronise la version de hydra-umc.project.json avec la native (--sync)",
+            "it": "Sincronizza la versione di hydra-umc.project.json con quella nativa (--sync)",
+            "ja": "hydra-umc.project.json のバージョンをネイティブのものと同期(--sync)",
+            "zh": "将 hydra-umc.project.json 的版本与原生版本同步（--sync）",
+            "pt": "Sincroniza a versão do hydra-umc.project.json com a nativa (--sync)"
+          }
+        },
+        {
+          "name": "CHANGELOG.md",
+          "desc": {
+            "en": "what changed in each version",
+            "es": "qué cambió en cada versión",
+            "de": "was sich in jeder Version geändert hat",
+            "fr": "ce qui a changé à chaque version",
+            "it": "cosa è cambiato in ogni versione",
+            "ja": "各バージョンの変更点",
+            "zh": "每个版本的变更",
+            "pt": "o que mudou em cada versão"
+          }
+        },
+        {
+          "name": "build-test.sh",
+          "desc": {
+            "en": "non-mutating build check",
+            "es": "comprobación de compilación sin cambios",
+            "de": "Build-Prüfung ohne Änderungen",
+            "fr": "vérification de build sans modification",
+            "it": "controllo di build senza modifiche",
+            "ja": "変更を伴わないビルド確認",
+            "zh": "不修改内容的构建检查",
+            "pt": "verificação de compilação sem alterações"
+          }
+        },
+        {
+          "name": "hydra-umc.project.json",
+          "desc": {
+            "en": "manifest: version, maturity, family",
+            "es": "manifiesto: versión, madurez, familia",
+            "de": "Manifest: Version, Reifegrad, Familie",
+            "fr": "manifeste : version, maturité, famille",
+            "it": "manifesto: versione, maturità, famiglia",
+            "ja": "マニフェスト：バージョン、成熟度、ファミリー",
+            "zh": "清单：版本、成熟度、系列",
+            "pt": "manifesto: versão, maturidade, família"
+          }
+        },
+        {
+          "name": "pyproject.toml",
+          "desc": {
+            "en": "package metadata",
+            "es": "metadatos del paquete",
+            "de": "Paketmetadaten",
+            "fr": "métadonnées du paquet",
+            "it": "metadati del pacchetto",
+            "ja": "パッケージのメタデータ",
+            "zh": "包的元数据",
+            "pt": "metadados do pacote"
+          }
+        },
+        {
+          "name": "test.sh",
+          "desc": {
+            "en": "runs the tests",
+            "es": "ejecuta las pruebas",
+            "de": "führt die Tests aus",
+            "fr": "lance les tests",
+            "it": "esegue i test",
+            "ja": "テストを実行",
+            "zh": "运行测试",
+            "pt": "executa os testes"
+          }
+        }
+      ]
+    }
+  ]
+}

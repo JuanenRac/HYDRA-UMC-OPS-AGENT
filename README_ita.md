@@ -1,3 +1,9 @@
+<!-- =============================================================================
+HYDRA-UMC-OPS-AGENT - Maintenance-incident coordinator
+Copyright (C) JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
+GPL-3.0-or-later - see LICENSE
+============================================================================= -->
+
 <p align="center">
   <img src="images/HYDRA_UMC_BANNER.svg" alt="HYDRA-UMC-OPS-AGENT banner" width="100%">
 </p>
@@ -9,31 +15,19 @@
 ### 🔎 Osservabilità di sola lettura degli incidenti di manutenzione per l'intero ecosistema
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Licencia-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
-  <img src="https://img.shields.io/badge/Language-Python%203.11%2B-blue.svg" alt="Python">
-  <img src="https://img.shields.io/badge/Core-stdlib%20only-brightgreen.svg" alt="stdlib-only core">
-  <img src="https://img.shields.io/badge/Roles-Edge%20(CM5)%20%7C%20Control--plane-367BF5.svg" alt="Ruoli edge e control-plane">
+  <img src="https://img.shields.io/badge/License-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
+  <img src="https://img.shields.io/badge/Language-Python%203.11%2B-blue.svg" alt="Language">
+  <img src="https://img.shields.io/badge/Core-stdlib%20only-brightgreen.svg" alt="Core">
+  <img src="https://img.shields.io/badge/Tests-322%20passing-2ea44f.svg" alt="Tests">
+  <img src="https://img.shields.io/badge/Version-0.1.9-0f6cbd.svg" alt="Version">
+  <img src="https://img.shields.io/badge/Maturity-functional-0F6CBD.svg" alt="Maturity">
 </p>
-
-> **Stato: v0.1.9, functional - Consegne 1-5 di 6 (evidenza, diagnosi,
-> cambiamento approvato da una persona, distribuzione canary,
-> verifica).** Ogni sottocomando è reale e testato end to end - `control
-> diagnose` contro un provider di IA simulato (qualsiasi provider reale
-> funziona, vedi [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md)); `control
-> deploy-canary` contro un vero repository git locale e usa e getta
-> (vedi [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md)). Nulla
-> viene mai distribuito senza una previa approvazione umana esplicita.
-> La Consegna 6 (voce/notifiche) è stata investigata e si è rivelata
-> davvero bloccata, non semplicemente rimandata - vedi la sezione
-> TABELLA DI MARCIA più sotto. Vedi
-> [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md) per la superficie di
-> comandi esatta che esiste oggi.
-
-**Controllo di onestà - cosa funziona davvero oggi:** le cinque consegne già rilasciate - evidenza (`inventory.py`, `edge_agent.py`, `incident.py`), diagnosi (`diagnosis.py`), modifica approvata da un umano (`change_proposal.py`), deploy canary (`canary_deploy.py`), e verifica (`verification.py`), più il confine di redazione (`log_redaction.py`) e la CLI (`cli.py`) - sono reali e testate end-to-end (319 test più 6 subtest superati nei tutti gli 16 file di test). La fase di deploy canary è realmente esercitata contro un vero repository git locale usa-e-getta, non un mock. La diagnosi viene testata solo contro un `AIProvider` simulato - `AnthropicProvider`/`OpenAIProvider` sono vere implementazioni dello stesso protocollo, ma nessuna delle due è stata esercitata contro una vera chiamata live all'API di Anthropic o OpenAI in questa suite di test (nessuna chiave disponibile in questo ambiente). I ruoli edge e control-plane oggi comunicano solo tramite un file di snapshot salvato - non esiste ancora un trasporto di rete tra loro. La Consegna 6 (voce/notifiche) è genuinamente bloccata, non semplicemente rimandata: HYDRA-UMC-VOICE-UI oggi non ha alcuna vera superficie di notifica in uscita con cui integrarsi. Vedi `CHANGELOG.md` per ciò che è stato consegnato esattamente finora.
 
 ---
 
 > **Stato di sicurezza (safety e security):** questo ecosistema non è un sistema di sicurezza certificato. Non esiste ancora un percorso E-STOP hardware, né limiti o interblocchi imposti dal firmware, né un comando di movimento verificato; le immagini firmware sono controllate con CRC32 e un HMAC-SHA256 a chiave condivisa, non con una firma asimmetrica; TLS e TLS reciproco sono opzionali e disattivati per impostazione predefinita; nessuna scheda propria è stata ancora assemblata o provata. Leggi la [base di sicurezza](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/SECURITY_BASELINE.md) e il [modello delle minacce](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/THREAT_MODEL.md) prima di fidarti di qualsiasi affermazione qui per la sicurezza di una persona.
+
+---
 
 ## 📋 In breve
 
@@ -41,10 +35,12 @@
 |---|---|
 | Versione | `0.1.9` |
 | Maturità | Funzionale |
-| Test | 319 |
-| Tecnologia | Python 3.11+ / JSON Schema / systemd (edge role, Linux only) / Anthropic API and/or OpenAI API (optional, provider-agnostic diagnosis) / git (staging clone + git apply for the real canary deploy path) |
+| Test | 322 (`python -m pytest -q tests`) |
+| Tecnologia | Python 3.11+ / JSON Schema / systemd (edge role, Linux only) / two optional AI provider APIs (provider-agnostic diagnosis) / git (staging clone + git apply for the real canary deploy path) |
 | Destinazione | Il Raspberry Pi CM5 di una cella HYDRA-UMC |
 | Su hardware reale | Non ancora: per questa versione non risulta alcuna esecuzione su hardware reale |
+
+**Vai a:** [Panoramica](#-panoramica) · [Architettura](#-architettura) · [Avvio rapido](#-avvio-rapido) · [Test](#-test) · [Struttura del repository](#-struttura-del-repository) · [Progetti correlati](#-progetti-correlati)
 
 ## 🚦 Stato del progetto
 
@@ -55,11 +51,11 @@ Ogni riga è una parte di questo repository e il semaforo dice a che punto è og
 | Area | Stato | Cosa significa qui |
 |---|---|---|
 | Software | 🟡 | Funziona per il suo scopo principale; la verifica di onestà qui sopra elenca ciò che manca ancora |
-| Test | 🟢 | 319 test automatici, eseguiti a ogni modifica |
+| Test | 🟢 | 322 test automatici, eseguiti a ogni modifica |
 | Hardware reale | 🔴 | Non ancora: per questa versione non risulta alcuna esecuzione su hardware reale |
 | Documentazione | 🟢 | README in otto lingue, verificato rispetto al manifesto a ogni modifica |
 
-## 1. 🛠️ PANORAMICA TECNICA
+## 🎯 Panoramica
 
 HYDRA-UMC-OPS-AGENT è il coordinatore degli incidenti di manutenzione
 dell'ecosistema HYDRA-UMC/URTC. È proprietario di un unico ciclo di vita
@@ -90,7 +86,7 @@ Due ruoli, un solo pacchetto, ancora nessun trasporto di rete tra loro:
    riconosce alcun incidente nemmeno da qui.
 3. **Diagnosi** (`control diagnose`) - viene eseguito anch'esso sul
    ruolo control-plane. Invia un incidente già redatto a un provider di
-   IA (qualsiasi provider - Anthropic e OpenAI sono integrati di serie,
+   IA (qualsiasi provider - `anthropic` e OpenAI sono integrati di serie,
    vedi [docs/DIAGNOSIS.md](docs/DIAGNOSIS.md)) e riceve indietro una
    spiegazione di causa radice proposta in testo semplice - un
    suggerimento perché lo legga una persona, mai una decisione.
@@ -162,7 +158,17 @@ argomenti né alcuna GUI - vedi
 [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md) per la superficie di
 comandi completa e reale.
 
-## 2. 🧱 ARCHITETTURA E DECISIONI DI DESIGN
+## 🧩 Ruolo in HYDRA-UMC
+
+**HYDRA-UMC-OPS-AGENT** è il coordinatore degli incidenti di manutenzione dell'ecosistema. Possiede un solo ciclo di vita (prove, diagnosi, modifica approvata da una persona, rilascio canary tramite `HYDRA-UMC-UPDATER`, verifica) e non reimplementa né l'inferenza, né gli aggiornamenti, né la logica di sicurezza dei controllori.
+
+## 🏛️ Architettura
+
+<p align="center">
+  <img src="images/architecture.svg" alt="HYDRA-UMC-OPS-AGENT architecture" width="100%">
+</p>
+
+### ARCHITETTURA E DECISIONI DI DESIGN
 
 - **Un incidente viene derivato, mai dichiarato.** I metodi `add_*` di
   `IncidentBatch` restituiscono `None` quando ciò che hanno esaminato
@@ -197,7 +203,7 @@ comandi completa e reale.
 - **La diagnosi è indipendente dal provider per design.**
   `diagnose_incident()` dipende solo da un Protocol minimo `AIProvider`
   - nessun provider di IA reale è mai fissato nel codice. Due provider
-  reali (Anthropic, OpenAI) sono forniti come extra opzionali; chi
+  reali (`anthropic`, OpenAI) sono forniti come extra opzionali; chi
   chiama può passare qualsiasi altro oggetto che implementi lo stesso
   contratto a un solo metodo.
 - **Una distribuzione canary non tocca mai il checkout reale finché un
@@ -245,49 +251,24 @@ comandi completa e reale.
   `sdk`) necessitano di una dipendenza opzionale, ciascuno solo per ciò
   che effettivamente la usa.
 
-## 📂 STRUTTURA DELLE DIRECTORY
+## 🚀 Avvio rapido
 
-```
-HYDRA-UMC-OPS-AGENT/
-├── src/hydra_umc_ops_agent/
-│   ├── __init__.py         # Versione del pacchetto
-│   ├── _atomic.py          # Scritture di file durevoli e atomiche per archivi, proposte e risultati
-│   ├── approval_signing.py # Firme Ed25519 delle approvazioni; registro degli approvatori
-│   ├── audit_journal.py    # Registro di audit concatenato con hash, solo in aggiunta
-│   ├── diff_policy.py      # Cosa può contenere e toccare un diff (forme di segreto, percorsi protetti, dimensione)
-│   ├── log_redaction.py    # Redazione pura di segreti (KEY=VALUE, token Bearer, blocchi PEM)
-│   ├── inventory.py        # Scansione manifesti + controlli di salute systemd/HTTP
-│   ├── incident.py         # Contratto MaintenanceIncident / IncidentBatch
-│   ├── edge_agent.py       # Orchestra quanto sopra in un unico NodeSnapshot
-│   ├── control_plane.py    # Caricatore di snapshot in sola lettura + renderizzatore di report testuale
-│   ├── diagnosis.py        # Consegna 2: suggerimento di diagnosi assistita da IA, indipendente dal provider
-│   ├── change_proposal.py  # Consegna 3: ciclo di vita immutabile di ChangeProposal, approvato da una persona
-│   ├── canary_deploy.py    # Consegna 4: stage + apply + verify + promote, solo su approvazione
-│   ├── verification.py     # Consegna 5: riesegue il controllo reale dietro un incidente
-│   ├── cli.py               # Punto di ingresso dei sottocomandi edge/control per ogni consegna sopra
-│   └── incident_store.py    # Lo strato durevole e senza duplicati degli incidenti: un record aperto per (nodo, componente), risolto solo se quel componente è stato ricontrollato ed è a posto
-├── tests/                  # Test reali per tutti e 11 i moduli, incl. un fixture locale http.server, un provider di IA simulato e un vero repository git usa e getta per la distribuzione canary
-├── docs/
-│   ├── CLI_REFERENCE.md     # Ogni sottocomando, i suoi flag, il contratto dei codici di uscita
-│   ├── INCIDENT_CONTRACT.md # La vera forma JSON di MaintenanceIncident/NodeSnapshot
-│   ├── DIAGNOSIS.md         # Il contratto, i provider e il confine di sicurezza propri della Consegna 2
-│   ├── CHANGE_LIFECYCLE.md  # Il contratto e il confine di sicurezza propri delle Consegne 3-5
-│   └── MATURITY_CRITERIA.md # Criteri di uscita della maturità (ciò che deve valere per salire di livello)
-├── images/                 # Media e icone dell'app
-├── tools/
-│   ├── build_test.py        # Controllo di build/compilazione senza versionamento
-│   ├── ci_validate.py       # Validazione manifesto/CHANGELOG/docs usata dalla CI
-│   ├── _doc_policy.py       # Regole di documentazione condivise dalla famiglia (copia di quella di HYDRA-UMC-SDK, mantenuta sincronizzata)
-│   ├── _readme_parity.py    # Verifica che gli otto README abbiano la stessa struttura (copia di quella di HYDRA-UMC-SDK, mantenuta sincronizzata)
-│   └── hydra_project_tool.py # Gli stessi comandi in ogni repository: validate, test, ci, version, status, bump
-├── build.sh / build.bat     # venv + installazione editabile + compile-check + test
-├── build-test.sh / .bat     # Solo validazione di build, senza modificare nulla
-├── run.sh / run.bat         # Demo reale edge collect + control show (senza argomenti), oppure inoltra un vero comando CLI
-├── bump_version.py          # Incremento di versione stile contachilometri (eseguito solo dal comando `bump` esplicito)
-└── bump_manifest_version.py # Sincronizza la versione di hydra-umc.project.json con quella nativa (--sync)
+Richiede Python 3.11 o successivo.
+
+```bash
+./build.sh  # Linux, macOS (build.bat on Windows)
+./run.sh    # demo: edge collect on a throwaway sample project, then control show
+./run.sh edge collect --node-name n --projects-root DIR --out FILE
+./run.sh control show snapshot.json
 ```
 
-## ⚙️ COMPILAZIONE ED ESECUZIONE
+## 🧪 Test
+
+322 test automatici si eseguono con `python -m pytest -q tests`. Non richiedono hardware né nulla al di fuori di questa macchina.
+
+La CI esegue `HYDRA_UMC_CI=1 python tools/ci_validate.py`, che controlla il manifesto, i documenti, gli otto README e le immagini.
+
+## 🏗️ Compilazione e rilascio
 
 ```bash
 chmod +x build.sh   # una tantum
@@ -339,7 +320,55 @@ tests/` direttamente) per la suite di test locale completa.
   davvero fallito, e il checkout reale non è mai stato toccato. Vedi
   [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md).
 
-## 🚀 TABELLA DI MARCIA
+## 📂 Struttura del repository
+
+<p align="center">
+  <img src="images/repository-structure.svg" alt="Repository structure of HYDRA-UMC-OPS-AGENT" width="100%">
+</p>
+
+<details>
+<summary>Versione testuale dell'albero</summary>
+
+```text
+HYDRA-UMC-OPS-AGENT/
+├── src/hydra_umc_ops_agent/   codice sorgente
+│   ├── __init__.py            Versione del pacchetto
+│   ├── _atomic.py             Scritture di file durevoli e atomiche per archivi, proposte e risultati
+│   ├── approval_signing.py    Firme Ed25519 delle approvazioni; registro degli approvatori
+│   ├── audit_journal.py       Registro di audit concatenato con hash, solo in aggiunta
+│   ├── diff_policy.py         Cosa può contenere e toccare un diff (forme di segreto, percorsi protetti, dimensione)
+│   ├── log_redaction.py       Redazione pura di segreti (KEY=VALUE, token Bearer, blocchi PEM)
+│   ├── inventory.py           Scansione manifesti + controlli di salute systemd/HTTP
+│   ├── incident.py            Contratto MaintenanceIncident / IncidentBatch
+│   ├── edge_agent.py          riunisce i pezzi in un NodeSnapshot
+│   ├── control_plane.py       Caricatore di snapshot in sola lettura + renderizzatore di report testuale
+│   ├── diagnosis.py           Consegna 2: suggerimento di diagnosi assistita da IA, indipendente dal provider
+│   ├── change_proposal.py     Consegna 3: ciclo di vita immutabile di ChangeProposal, approvato da una persona
+│   ├── canary_deploy.py       Consegna 4: stage + apply + verify + promote, solo su approvazione
+│   ├── verification.py        Consegna 5: riesegue il controllo reale dietro un incidente
+│   ├── cli.py                 sottocomandi edge e control
+│   └── incident_store.py      Lo strato durevole e senza duplicati degli incidenti: un record aperto per (nodo, componente), risolto solo se quel componente è stato ricontrollato ed è a posto
+├── tests/                     Test reali per tutti e 11 i moduli, incl. un fixture locale http.server, un provider di IA simulato e un vero repository git usa e getta per la distribuzione canary
+├── docs/                      documenti del progetto
+├── images/                    Media e icone dell'app
+├── tools/                     strumenti del progetto e controlli della CI
+├── .github/                   workflow di CI e modelli di segnalazione
+├── build.sh / build.bat       venv + installazione editabile + compile-check + test
+├── run.sh / run.bat           Demo reale edge collect + control show (senza argomenti), oppure inoltra un vero comando CLI
+├── bump_version.py            Incremento di versione stile contachilometri (eseguito solo dal comando `bump` esplicito)
+├── bump_manifest_version.py   Sincronizza la versione di hydra-umc.project.json con quella nativa (--sync)
+├── CHANGELOG.md               cosa è cambiato in ogni versione
+├── build-test.sh              controllo di build senza modifiche
+├── hydra-umc.project.json     manifesto: versione, maturità, famiglia
+├── pyproject.toml             metadati del pacchetto
+└── test.sh                    esegue i test
+```
+
+</details>
+
+## 🗺️ Roadmap e limiti noti
+
+**Limiti noti oggi**
 
 Le Consegne 1-5 (questa versione) spediscono **evidenza**, **diagnosi**,
 **cambiamento approvato da una persona**, **distribuzione canary** e
@@ -360,7 +389,11 @@ e CHANGELOG di questo progetto. Cosa resta:
 - Un vero trasporto tra i ruoli edge e control-plane (oggi, spostare un
   file di snapshot tra i due è un passaggio manuale).
 
-## 🔗 Progetti Correlati
+## 🌍 Lingue
+
+Questo README e i documenti del repository esistono in otto lingue: inglese, spagnolo, tedesco, francese, italiano, giapponese, cinese e portoghese (Portogallo). Sono scritti insieme e la CI verifica che gli otto file abbiano le stesse sezioni e gli stessi link. Questo repository non ha uno schermo né un catalogo di messaggi propri, quindi non ci sono stringhe di interfaccia da tradurre.
+
+## 🔗 Progetti correlati
 
 Questo progetto fa parte dell'ecosistema robotico HYDRA-UMC dello stesso autore (JuanenRac / Electro Hobby 3D). Vale la pena conoscerlo, poiché una richiesta potrebbe in realtà riguardare uno di questi invece di questo repository.
 
@@ -449,24 +482,30 @@ Questo progetto fa parte dell'ecosistema robotico HYDRA-UMC dello stesso autore 
 - **[URTC-SMART-RACK](https://github.com/JuanenRac/URTC-SMART-RACK)** — firmware per un rack di montaggio schede con decodifica reale dell'ID utensile e logica di preriscaldamento Smart Idle.
 - **[URTC-VISION-TOOL](https://github.com/JuanenRac/URTC-VISION-TOOL)** — firmware più un vero companion di visione Python per una testa utensile di ispezione termica/RGB.
 
----
+## 📚 Documentazione
 
-## 📚 Documentazione e Comunità
+Dove leggere di più:
 
-- **[docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md)** — ogni sottocomando, i suoi flag, e il contratto dei codici di uscita.
-- **[docs/INCIDENT_CONTRACT.md](docs/INCIDENT_CONTRACT.md)** — la vera forma JSON di `MaintenanceIncident`/`NodeSnapshot`.
-- **[docs/DIAGNOSIS.md](docs/DIAGNOSIS.md)** — il contratto reale, i provider, le credenziali e il confine di sicurezza propri della Consegna 2.
-- **[docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md)** — il contratto reale, la sequenza completa stage/apply/verify/promote, e un vero flusso operativo per le Consegne 3-5.
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** — stack tecnologico e linee guida di codifica per una pull request.
-- **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** — gli standard di comportamento attesi in questa comunità.
-- **[SECURITY.md](SECURITY.md)** — come segnalare una vulnerabilità, e le reali aree di attenzione sulla sicurezza di questo progetto.
-- **[SUPPORT.md](SUPPORT.md)** — dove porre domande e segnalare bug.
+* **[docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md)** — ogni sottocomando, i suoi flag, e il contratto dei codici di uscita.
+* **[docs/INCIDENT_CONTRACT.md](docs/INCIDENT_CONTRACT.md)** — la vera forma JSON di `MaintenanceIncident`/`NodeSnapshot`.
+* **[docs/DIAGNOSIS.md](docs/DIAGNOSIS.md)** — il contratto reale, i provider, le credenziali e il confine di sicurezza propri della Consegna 2.
+* **[docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md)** — il contratto reale, la sequenza completa stage/apply/verify/promote, e un vero flusso operativo per le Consegne 3-5.
+* [Base di sicurezza dell'ecosistema](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/SECURITY_BASELINE.md)
+* [Modello delle minacce dell'ecosistema](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/THREAT_MODEL.md)
+* [Registro delle modifiche di questo repository](CHANGELOG.md)
+* [Licenza di questo repository](LICENSE.md)
+
+## 🤝 Contribuire e comunità
+
+* Prima di una pull request esegui `HYDRA_UMC_CI=1 py -3 tools/ci_validate.py` (oppure `HYDRA_UMC_CI=1 python3 tools/ci_validate.py`): deve stampare `CI_VALIDATION=PASS`. Non eseguire `build.sh` né `build.bat` per questa verifica; compilare non è verificare.
+* I otto README sono scritti da un'unica fonte in HYDRA-UMC-DOCS; non modificarli a mano. Cambia la fonte e riscrivili con `tools/make_readmes.py`.
+* Non affermare in un README ciò che non è stato eseguito: scrivi «simulato» o «non provato su hardware» quando è la verità.
+* Vedi [CONTRIBUTING.md](CONTRIBUTING.md), il [codice di condotta](CODE_OF_CONDUCT.md), [SECURITY.md](SECURITY.md) e [SUPPORT.md](SUPPORT.md).
 
 ## 👤 AUTORE
-**JuanenRac** (Electro Hobby 3D)
-📧 electrohobby3d@gmail.com
-📺 [youtube.com/@electrohobby3d](https://youtube.com/@electrohobby3d)
+
+**JuanenRac (Electro Hobby 3D)** · electrohobby3d@gmail.com
 
 ## 📜 LICENZA
 
-GPL-3.0-or-later (software) / CC BY-SA 4.0 (documentazione) - vedi [LICENSE.md](LICENSE.md).
+GPL-3.0-or-later - [LICENSE](LICENSE).
