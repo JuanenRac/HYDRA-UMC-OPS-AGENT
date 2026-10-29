@@ -40,7 +40,7 @@ ai-openai = ["openai>=1.40.0"]
 # Pinned to a commit that carries the hardened promotion journal, so a build
 # never depends on whatever the SDK branch holds at that moment; raise the pin
 # on purpose when the SDK releases something this tool should use.
-sdk = ["hydra-umc-sdk @ git+https://github.com/JuanenRac/HYDRA-UMC-SDK.git@v0.3.8#subdirectory=clients/python"]
+sdk = ["hydra-umc-sdk @ git+https://github.com/JuanenRac/HYDRA-UMC-SDK.git@v0.3.9#subdirectory=clients/python"]
 
 [project.urls]
 Homepage = "https://github.com/JuanenRac/HYDRA-UMC-OPS-AGENT"
