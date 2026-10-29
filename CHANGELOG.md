@@ -4,6 +4,7 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **The layout of the README is checked in the CI:** the validator runs `tools/universal_readme_check.py` and lists, as a warning, what differs from the universal layout of the README.
 - `docs/DIAGNOSIS.md` shows how to check, with the provider's own model list, that the default model id exists, and which variables replace it.
 
 ## [0.1.9] - Pinned to SDK 0.3.6
