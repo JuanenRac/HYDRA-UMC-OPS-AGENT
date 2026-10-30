@@ -18,8 +18,8 @@ GPL-3.0-or-later - see LICENSE
   <img src="https://img.shields.io/badge/License-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
   <img src="https://img.shields.io/badge/Language-Python%203.11%2B-blue.svg" alt="Language">
   <img src="https://img.shields.io/badge/Core-stdlib%20only-brightgreen.svg" alt="Core">
-  <img src="https://img.shields.io/badge/Tests-322%20passing-2ea44f.svg" alt="Tests">
-  <img src="https://img.shields.io/badge/Version-0.1.9-0f6cbd.svg" alt="Version">
+  <img src="https://img.shields.io/badge/Tests-323%20passing-2ea44f.svg" alt="Tests">
+  <img src="https://img.shields.io/badge/Version-0.2.0-0f6cbd.svg" alt="Version">
   <img src="https://img.shields.io/badge/Maturity-functional-0F6CBD.svg" alt="Maturity">
 </p>
 
@@ -33,14 +33,14 @@ GPL-3.0-or-later - see LICENSE
 
 | | |
 |---|---|
-| 版本 | `0.1.9` |
+| 版本 | `0.2.0` |
 | 成熟度 | 可用 |
-| 测试 | 322 (`python -m pytest -q tests`) |
+| 测试 | 323 (`python -m pytest -q tests`) |
 | 技术栈 | Python 3.11+ / JSON Schema / systemd (edge role, Linux only) / two optional AI provider APIs (provider-agnostic diagnosis) / git (staging clone + git apply for the real canary deploy path) |
 | 目标 | HYDRA-UMC 工作单元的 Raspberry Pi CM5 |
 | 真实硬件 | 尚未：此版本没有在真实硬件上运行的记录 |
 
-**跳转：** [概述](#-概述) · [架构](#-架构) · [快速开始](#-快速开始) · [测试](#-测试) · [仓库结构](#-仓库结构) · [相关项目](#-相关项目)
+**跳转：** [概述](#-概述) · [架构](#-架构) · [功能](#-功能) · [快速开始](#-快速开始) · [测试](#-测试) · [仓库结构](#-仓库结构) · [相关项目](#-相关项目)
 
 ## 🚦 项目状态
 
@@ -51,7 +51,7 @@ GPL-3.0-or-later - see LICENSE
 | 领域 | 状态 | 在这里的含义 |
 |---|---|---|
 | 软件 | 🟡 | 主要用途可用；上面的诚实性检查列出了仍然缺少的内容 |
-| 测试 | 🟢 | 322 项自动测试，每次变更都会运行 |
+| 测试 | 🟢 | 323 项自动测试，每次变更都会运行 |
 | 真实硬件 | 🔴 | 尚未：此版本没有在真实硬件上运行的记录 |
 | 文档 | 🟢 | 八种语言的 README，每次变更都会与清单核对 |
 
@@ -138,6 +138,10 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --
 - **交付 6 是被真实阻塞了，而不是简单地被跳过。** HYDRA-UMC-VOICE-UI 自身真实的契约(`gateway.py`)是一个有边界的、**入站**的"转录到意图"网关，如今没有任何真实的出站通知接口——在这里凭空造一个出来，就等于虚构一个根本不存在的集成点，而这正是本项目自身"绝不捏造"标准所不允许的。见下方的路线图部分。
 - **核心部分仅使用标准库。** `edge collect`/`control show`/`control propose`/`control approve`/`control reject`/`control verify` 都不需要任何依赖——HTTP 检查用 `urllib.request`，systemd 检查用 `subprocess`/`shutil.which`，金丝雀部署阶段以及清单事件的 `base_commit:` 捕获用 `git`(一个真实的外部二进制程序，而非 Python 包)。只有 `control diagnose`(`ai-*` extra)和清单事件的 `compare_runs()` 复检(`sdk` extra)需要可选依赖，且各自仅针对实际使用到的那部分功能。
 
+## ✨ 功能
+
+被提升的金丝雀还会把其更改保存为补丁文件：用 `git format-patch` 写到检出目录之外的 `<项目>.canary-patches/<部署ID>.patch`，并在结果和审计记录中以 `patchPath` 报告，便于检查并在知情的情况下丢弃本地提交。写入尽力而为，绝不改变部署的结果。
+
 ## 🚀 快速开始
 
 需要 Python 3.11 或更高版本。
@@ -151,7 +155,7 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --
 
 ## 🧪 测试
 
-运行 `python -m pytest -q tests` 会执行 322 个自动测试。 不需要硬件，也不需要这台机器以外的任何东西。
+运行 `python -m pytest -q tests` 会执行 323 个自动测试。 不需要硬件，也不需要这台机器以外的任何东西。
 
 CI 运行 `HYDRA_UMC_CI=1 python tools/ci_validate.py`，检查清单、文档、八个 README 和图片。
 

@@ -18,8 +18,8 @@ GPL-3.0-or-later - see LICENSE
   <img src="https://img.shields.io/badge/License-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
   <img src="https://img.shields.io/badge/Language-Python%203.11%2B-blue.svg" alt="Language">
   <img src="https://img.shields.io/badge/Core-stdlib%20only-brightgreen.svg" alt="Core">
-  <img src="https://img.shields.io/badge/Tests-322%20passing-2ea44f.svg" alt="Tests">
-  <img src="https://img.shields.io/badge/Version-0.1.9-0f6cbd.svg" alt="Version">
+  <img src="https://img.shields.io/badge/Tests-323%20passing-2ea44f.svg" alt="Tests">
+  <img src="https://img.shields.io/badge/Version-0.2.0-0f6cbd.svg" alt="Version">
   <img src="https://img.shields.io/badge/Maturity-functional-0F6CBD.svg" alt="Maturity">
 </p>
 
@@ -33,14 +33,14 @@ GPL-3.0-or-later - see LICENSE
 
 | | |
 |---|---|
-| Versione | `0.1.9` |
+| Versione | `0.2.0` |
 | Maturità | Funzionale |
-| Test | 322 (`python -m pytest -q tests`) |
+| Test | 323 (`python -m pytest -q tests`) |
 | Tecnologia | Python 3.11+ / JSON Schema / systemd (edge role, Linux only) / two optional AI provider APIs (provider-agnostic diagnosis) / git (staging clone + git apply for the real canary deploy path) |
 | Destinazione | Il Raspberry Pi CM5 di una cella HYDRA-UMC |
 | Su hardware reale | Non ancora: per questa versione non risulta alcuna esecuzione su hardware reale |
 
-**Vai a:** [Panoramica](#-panoramica) · [Architettura](#-architettura) · [Avvio rapido](#-avvio-rapido) · [Test](#-test) · [Struttura del repository](#-struttura-del-repository) · [Progetti correlati](#-progetti-correlati)
+**Vai a:** [Panoramica](#-panoramica) · [Architettura](#-architettura) · [Funzionalità](#-funzionalità) · [Avvio rapido](#-avvio-rapido) · [Test](#-test) · [Struttura del repository](#-struttura-del-repository) · [Progetti correlati](#-progetti-correlati)
 
 ## 🚦 Stato del progetto
 
@@ -51,7 +51,7 @@ Ogni riga è una parte di questo repository e il semaforo dice a che punto è og
 | Area | Stato | Cosa significa qui |
 |---|---|---|
 | Software | 🟡 | Funziona per il suo scopo principale; la verifica di onestà qui sopra elenca ciò che manca ancora |
-| Test | 🟢 | 322 test automatici, eseguiti a ogni modifica |
+| Test | 🟢 | 323 test automatici, eseguiti a ogni modifica |
 | Hardware reale | 🔴 | Non ancora: per questa versione non risulta alcuna esecuzione su hardware reale |
 | Documentazione | 🟢 | README in otto lingue, verificato rispetto al manifesto a ogni modifica |
 
@@ -251,6 +251,10 @@ comandi completa e reale.
   `sdk`) necessitano di una dipendenza opzionale, ciascuno solo per ciò
   che effettivamente la usa.
 
+## ✨ Funzionalità
+
+Un canary promosso lascia anche la sua modifica come file di patch, scritto con `git format-patch` in `<progetto>.canary-patches/<id-distribuzione>.patch` fuori dal checkout e riportato come `patchPath` nel risultato e nel registro di audit, così che il commit locale possa essere ispezionato e scartato con cognizione di causa. La scrittura è al meglio delle possibilità e non cambia mai l'esito della distribuzione.
+
 ## 🚀 Avvio rapido
 
 Richiede Python 3.11 o successivo.
@@ -264,7 +268,7 @@ Richiede Python 3.11 o successivo.
 
 ## 🧪 Test
 
-322 test automatici si eseguono con `python -m pytest -q tests`. Non richiedono hardware né nulla al di fuori di questa macchina.
+323 test automatici si eseguono con `python -m pytest -q tests`. Non richiedono hardware né nulla al di fuori di questa macchina.
 
 La CI esegue `HYDRA_UMC_CI=1 python tools/ci_validate.py`, che controlla il manifesto, i documenti, gli otto README e le immagini.
 

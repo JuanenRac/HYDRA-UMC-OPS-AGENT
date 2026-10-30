@@ -18,14 +18,14 @@ GPL-3.0-or-later - see LICENSE
   <img src="https://img.shields.io/badge/License-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
   <img src="https://img.shields.io/badge/Language-Python%203.11%2B-blue.svg" alt="Language">
   <img src="https://img.shields.io/badge/Core-stdlib%20only-brightgreen.svg" alt="Core">
-  <img src="https://img.shields.io/badge/Tests-322%20passing-2ea44f.svg" alt="Tests">
-  <img src="https://img.shields.io/badge/Version-0.1.9-0f6cbd.svg" alt="Version">
+  <img src="https://img.shields.io/badge/Tests-323%20passing-2ea44f.svg" alt="Tests">
+  <img src="https://img.shields.io/badge/Version-0.2.0-0f6cbd.svg" alt="Version">
   <img src="https://img.shields.io/badge/Maturity-functional-0F6CBD.svg" alt="Maturity">
 </p>
 
 ---
 
-**Verificação de honestidade - o que realmente funciona hoje:** as cinco entregas já lançadas - evidências (`inventory.py`, `edge_agent.py`, `incident.py`), diagnóstico (`diagnosis.py`), alteração aprovada por uma pessoa (`change_proposal.py`), implementação canário (`canary_deploy.py`) e verificação (`verification.py`), mais a fronteira de redação (`log_redaction.py`) e a CLI (`cli.py`) - são reais e estão testadas de ponta a ponta (322 testes mais 42 subtestes a passar em todos os 17 ficheiros de testes). A fase de implementação canário é exercitada de verdade contra um repositório git local real e descartável, não contra um mock. O diagnóstico só é testado contra um `AIProvider` simulado - o ``anthropic`Provider`/`OpenAIProvider` são implementações reais do mesmo protocolo, mas nenhum foi exercitado contra uma chamada real à API da `anthropic` ou da OpenAI nesta suite de testes (não há chave disponível neste ambiente). Os papéis de periferia e de plano de controlo comunicam hoje apenas através de um ficheiro de instantâneo guardado - ainda não há transporte de rede entre eles. A Entrega 6 (voz/notificação) está genuinamente bloqueada, não apenas adiada: o HYDRA-UMC-VOICE-UI não tem hoje nenhuma superfície real de notificação de saída com que integrar. Veja o `CHANGELOG.md` para saber exatamente o que foi entregue até agora.
+**Verificação de honestidade - o que realmente funciona hoje:** as cinco entregas já lançadas - evidências (`inventory.py`, `edge_agent.py`, `incident.py`), diagnóstico (`diagnosis.py`), alteração aprovada por uma pessoa (`change_proposal.py`), implementação canário (`canary_deploy.py`) e verificação (`verification.py`), mais a fronteira de redação (`log_redaction.py`) e a CLI (`cli.py`) - são reais e estão testadas de ponta a ponta (323 testes mais 42 subtestes a passar em todos os 17 ficheiros de testes). A fase de implementação canário é exercitada de verdade contra um repositório git local real e descartável, não contra um mock. O diagnóstico só é testado contra um `AIProvider` simulado - o ``anthropic`Provider`/`OpenAIProvider` são implementações reais do mesmo protocolo, mas nenhum foi exercitado contra uma chamada real à API da `anthropic` ou da OpenAI nesta suite de testes (não há chave disponível neste ambiente). Os papéis de periferia e de plano de controlo comunicam hoje apenas através de um ficheiro de instantâneo guardado - ainda não há transporte de rede entre eles. A Entrega 6 (voz/notificação) está genuinamente bloqueada, não apenas adiada: o HYDRA-UMC-VOICE-UI não tem hoje nenhuma superfície real de notificação de saída com que integrar. Veja o `CHANGELOG.md` para saber exatamente o que foi entregue até agora.
 
 ---
 
@@ -37,14 +37,14 @@ GPL-3.0-or-later - see LICENSE
 
 | | |
 |---|---|
-| Versão | `0.1.9` |
+| Versão | `0.2.0` |
 | Maturidade | Funcional |
-| Testes | 322 (`python -m pytest -q tests`) |
+| Testes | 323 (`python -m pytest -q tests`) |
 | Tecnologia | Python 3.11+ / JSON Schema / systemd (edge role, Linux only) / two optional AI provider APIs (provider-agnostic diagnosis) / git (staging clone + git apply for the real canary deploy path) |
 | Destino | O Raspberry Pi CM5 de uma célula HYDRA-UMC |
 | Em hardware real | Ainda não: não há registo de execução em hardware real para esta versão |
 
-**Ir para:** [Visão geral](#-visão-geral) · [Arquitetura](#-arquitetura) · [Início rápido](#-início-rápido) · [Testes](#-testes) · [Estrutura do repositório](#-estrutura-do-repositório) · [Projetos relacionados](#-projetos-relacionados)
+**Ir para:** [Visão geral](#-visão-geral) · [Arquitetura](#-arquitetura) · [Funcionalidades](#-funcionalidades) · [Início rápido](#-início-rápido) · [Testes](#-testes) · [Estrutura do repositório](#-estrutura-do-repositório) · [Projetos relacionados](#-projetos-relacionados)
 
 ## 🚦 Estado do projeto
 
@@ -55,7 +55,7 @@ Cada linha é uma parte deste repositório e a luz diz até onde chega hoje. É 
 | Área | Estado | O que significa aqui |
 |---|---|---|
 | Software | 🟡 | Funciona para o seu propósito principal; a verificação de honestidade acima lista o que ainda falta |
-| Testes | 🟢 | 322 testes automáticos, executados a cada alteração |
+| Testes | 🟢 | 323 testes automáticos, executados a cada alteração |
 | Hardware real | 🔴 | Ainda não: não há registo de execução em hardware real para esta versão |
 | Documentação | 🟢 | README em oito idiomas, verificado contra o manifesto a cada alteração |
 
@@ -242,6 +242,10 @@ O **HYDRA-UMC-OPS-AGENT** é o coordenador de incidentes de manutenção do ecos
   de um incidente de manifesto (o extra `sdk`) precisam de uma dependência
   opcional, cada uma só para o que realmente a usa.
 
+## ✨ Funcionalidades
+
+Um canário promovido deixa também a sua alteração como ficheiro de patch, escrito com `git format-patch` em `<projeto>.canary-patches/<id-de-implementação>.patch` fora do checkout e comunicado como `patchPath` no resultado e no registo de auditoria, para que o commit local possa ser inspecionado e descartado com conhecimento. A escrita é feita em esforço razoável e nunca altera o resultado da implementação.
+
 ## 🚀 Início rápido
 
 Requer Python 3.11 ou superior.
@@ -255,7 +259,7 @@ Requer Python 3.11 ou superior.
 
 ## 🧪 Testes
 
-322 testes automáticos correm com `python -m pytest -q tests`. Não precisam de hardware nem de nada fora desta máquina.
+323 testes automáticos correm com `python -m pytest -q tests`. Não precisam de hardware nem de nada fora desta máquina.
 
 A CI executa `HYDRA_UMC_CI=1 python tools/ci_validate.py`, que verifica o manifesto, os documentos, os oito README e as imagens.
 

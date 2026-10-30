@@ -18,14 +18,14 @@ GPL-3.0-or-later - see LICENSE
   <img src="https://img.shields.io/badge/License-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
   <img src="https://img.shields.io/badge/Language-Python%203.11%2B-blue.svg" alt="Language">
   <img src="https://img.shields.io/badge/Core-stdlib%20only-brightgreen.svg" alt="Core">
-  <img src="https://img.shields.io/badge/Tests-322%20passing-2ea44f.svg" alt="Tests">
-  <img src="https://img.shields.io/badge/Version-0.1.9-0f6cbd.svg" alt="Version">
+  <img src="https://img.shields.io/badge/Tests-323%20passing-2ea44f.svg" alt="Tests">
+  <img src="https://img.shields.io/badge/Version-0.2.0-0f6cbd.svg" alt="Version">
   <img src="https://img.shields.io/badge/Maturity-functional-0F6CBD.svg" alt="Maturity">
 </p>
 
 ---
 
-**Honesty check - what actually runs today:** all five shipped deliveries - evidence (`inventory.py`, `edge_agent.py`, `incident.py`), diagnosis (`diagnosis.py`), human-approved change (`change_proposal.py`), canary deploy (`canary_deploy.py`), and verification (`verification.py`), plus the redaction boundary (`log_redaction.py`) and the CLI (`cli.py`) - are real and tested end to end (322 tests plus 42 subtests passing across all 17 test files). The canary-deploy stage is genuinely exercised against a real, throwaway local git repository, not a mock. Diagnosis is only ever tested against a fake `AIProvider` - ``anthropic`Provider`/`OpenAIProvider` are real wrapper implementations of the same protocol, but neither has been exercised against a real, live `anthropic` or OpenAI API call in this test suite (no key available in this environment). The edge and control-plane roles currently talk only through a saved snapshot file - there is no network transport between them yet. Delivery 6 (voice/notification) is genuinely blocked, not merely postponed: HYDRA-UMC-VOICE-UI has no real outbound-notification surface today to integrate with. See `CHANGELOG.md` for exactly what has shipped so far.
+**Honesty check - what actually runs today:** all five shipped deliveries - evidence (`inventory.py`, `edge_agent.py`, `incident.py`), diagnosis (`diagnosis.py`), human-approved change (`change_proposal.py`), canary deploy (`canary_deploy.py`), and verification (`verification.py`), plus the redaction boundary (`log_redaction.py`) and the CLI (`cli.py`) - are real and tested end to end (323 tests plus 42 subtests passing across all 17 test files). The canary-deploy stage is genuinely exercised against a real, throwaway local git repository, not a mock. Diagnosis is only ever tested against a fake `AIProvider` - ``anthropic`Provider`/`OpenAIProvider` are real wrapper implementations of the same protocol, but neither has been exercised against a real, live `anthropic` or OpenAI API call in this test suite (no key available in this environment). The edge and control-plane roles currently talk only through a saved snapshot file - there is no network transport between them yet. Delivery 6 (voice/notification) is genuinely blocked, not merely postponed: HYDRA-UMC-VOICE-UI has no real outbound-notification surface today to integrate with. See `CHANGELOG.md` for exactly what has shipped so far.
 
 ---
 
@@ -37,14 +37,14 @@ GPL-3.0-or-later - see LICENSE
 
 | | |
 |---|---|
-| Version | `0.1.9` |
+| Version | `0.2.0` |
 | Maturity | Functional |
-| Tests | 322 (`python -m pytest -q tests`) |
+| Tests | 323 (`python -m pytest -q tests`) |
 | Stack | Python 3.11+ / JSON Schema / systemd (edge role, Linux only) / two optional AI provider APIs (provider-agnostic diagnosis) / git (staging clone + git apply for the real canary deploy path) |
 | Target | The Raspberry Pi CM5 of a HYDRA-UMC cell |
 | On real hardware | Not yet: no run on real hardware is recorded for this version |
 
-**Jump to:** [Overview](#-overview) · [Architecture](#-architecture) · [Quick start](#-quick-start) · [Testing](#-testing) · [Repository Structure](#-repository-structure) · [Related Projects](#-related-projects)
+**Jump to:** [Overview](#-overview) · [Architecture](#-architecture) · [Features](#-features) · [Quick start](#-quick-start) · [Testing](#-testing) · [Repository Structure](#-repository-structure) · [Related Projects](#-related-projects)
 
 ## 🚦 Project status
 
@@ -55,7 +55,7 @@ Each line is one part of this repository and the light says how far it is today.
 | Area | State | What it means here |
 |---|---|---|
 | Software | 🟡 | Works for its main purpose; the honesty check above lists what is still missing |
-| Tests | 🟢 | 322 automated tests, run on every change |
+| Tests | 🟢 | 323 automated tests, run on every change |
 | Real hardware | 🔴 | Not yet: no run on real hardware is recorded for this version |
 | Documentation | 🟢 | README in eight languages, checked against the manifest on every change |
 
@@ -237,6 +237,10 @@ command surface.
   re-check (the `sdk` extra) need an optional dependency, each only for
   what actually uses it.
 
+## ✨ Features
+
+A promoted canary also leaves its change as a patch file, written with `git format-patch` to `<project>.canary-patches/<deploy-id>.patch` outside the checkout and reported as `patchPath` in the result and the audit record, so the local commit can be inspected and dropped knowingly. Writing it is best effort and never changes the result of the deploy.
+
 ## 🚀 Quick start
 
 Requires Python 3.11 or newer.
@@ -250,7 +254,7 @@ Requires Python 3.11 or newer.
 
 ## 🧪 Testing
 
-322 automated tests run with `python -m pytest -q tests`. They need no hardware and nothing outside this machine.
+323 automated tests run with `python -m pytest -q tests`. They need no hardware and nothing outside this machine.
 
 The CI runs `HYDRA_UMC_CI=1 python tools/ci_validate.py`, which checks the manifest, the documents, the eight READMEs and the pictures.
 
