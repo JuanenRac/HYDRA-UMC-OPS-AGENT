@@ -449,6 +449,29 @@
           }
         },
         {
+          "name": "deploy/",
+          "desc": {
+            "en": "The example policy file of the canary deploy",
+            "es": "El fichero de política de ejemplo del despliegue canario",
+            "de": "Die Beispiel-Richtliniendatei des Canary-Deployments",
+            "fr": "Le fichier de politique d'exemple du déploiement canari",
+            "it": "Il file di criteri di esempio del deploy canary",
+            "ja": "カナリアデプロイのポリシーファイルの例",
+            "zh": "金丝雀部署的策略文件示例",
+            "pt": "O ficheiro de política de exemplo da implementação canário"
+          },
+          "tree_desc": {
+            "en": "The example policy file of the canary deploy",
+            "es": "El fichero de política de ejemplo del despliegue canario",
+            "de": "Die Beispiel-Richtliniendatei des Canary-Deployments",
+            "fr": "Le fichier de politique d'exemple du déploiement canari",
+            "it": "Il file di criteri di esempio del deploy canary",
+            "ja": "カナリアデプロイのポリシーファイルの例",
+            "zh": "金丝雀部署的策略文件示例",
+            "pt": "O ficheiro de política de exemplo da implementação canário"
+          }
+        },
+        {
           "name": "docs/",
           "desc": {
             "en": "documents of the project",

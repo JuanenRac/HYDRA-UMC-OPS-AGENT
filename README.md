@@ -340,6 +340,7 @@ HYDRA-UMC-OPS-AGENT/
 │   ├── cli.py                 edge and control subcommands
 │   └── incident_store.py      The durable, deduplicated incident layer: one open record per (node, component), resolved only when that component was re-checked and is clean
 ├── tests/                     Real tests for all 11 modules, incl. a local http.server fixture, a fake AI provider, and a real throwaway git repo for canary deploy
+├── deploy/                    The example policy file of the canary deploy
 ├── docs/                      documents of the project
 ├── images/                    Media and app icons
 ├── tools/                     project tools and CI checks

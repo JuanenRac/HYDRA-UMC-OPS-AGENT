@@ -225,6 +225,7 @@ HYDRA-UMC-OPS-AGENT/
 │   ├── cli.py                 edge 与 control 子命令
 │   └── incident_store.py      持久且去重的事件层: 每个 (节点, 组件) 一条未结记录,仅当该组件被重新检查且正常时才关闭
 ├── tests/                     覆盖全部 11 个模块的真实测试，含一个本地 http.server fixture、一个模拟的 AI 提供方，以及一个用于金丝雀部署的真实、用后即弃的 git 仓库
+├── deploy/                    金丝雀部署的策略文件示例
 ├── docs/                      项目文档
 ├── images/                    媒体资源与应用图标
 ├── tools/                     项目工具和 CI 检查

@@ -357,6 +357,7 @@ HYDRA-UMC-OPS-AGENT/
 │   ├── cli.py                 Unterbefehle edge und control
 │   └── incident_store.py      Die dauerhafte, deduplizierte Vorfallsschicht: ein offener Eintrag je (Knoten, Komponente), nur gelöst, wenn die Komponente neu geprüft wurde und sauber ist
 ├── tests/                     Echte Tests für alle 11 Module, inkl. eines lokalen http.server-Fixtures, eines simulierten KI-Anbieters und eines echten Wegwerf-Git-Repositorys für das Canary-Deployment
+├── deploy/                    Die Beispiel-Richtliniendatei des Canary-Deployments
 ├── docs/                      Dokumente des Projekts
 ├── images/                    Medien und App-Icons
 ├── tools/                     Projektwerkzeuge und CI-Prüfungen

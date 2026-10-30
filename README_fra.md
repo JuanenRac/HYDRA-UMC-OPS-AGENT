@@ -352,6 +352,7 @@ HYDRA-UMC-OPS-AGENT/
 │   ├── cli.py                 sous-commandes edge et control
 │   └── incident_store.py      La couche durable et dédupliquée des incidents : un enregistrement ouvert par (nœud, composant), résolu seulement si ce composant a été revérifié et est sain
 ├── tests/                     Vrais tests pour les 11 modules, incl. un fixture local http.server, un fournisseur d'IA simulé et un vrai dépôt git jetable pour le déploiement canari
+├── deploy/                    Le fichier de politique d'exemple du déploiement canari
 ├── docs/                      documents du projet
 ├── images/                    Médias et icônes de l'application
 ├── tools/                     outils du projet et vérifications de la CI

@@ -345,6 +345,7 @@ HYDRA-UMC-OPS-AGENT/
 │   ├── cli.py                 subcomandos edge e control
 │   └── incident_store.py      A camada durável e sem duplicados de incidentes: um registo aberto por (nó, componente), resolvido só quando esse componente foi reverificado e está limpo
 ├── tests/                     Testes reais para os 11 módulos, incl. um fixture local http.server, um fornecedor de IA simulado e um repositório git real e descartável para a implementação canário
+├── deploy/                    O ficheiro de política de exemplo da implementação canário
 ├── docs/                      documentos do projeto
 ├── images/                    Multimédia e ícones da aplicação
 ├── tools/                     ferramentas do projeto e verificações da CI
