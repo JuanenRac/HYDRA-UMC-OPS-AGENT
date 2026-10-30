@@ -179,7 +179,7 @@ hydra-umc-ops-agent control deploy-canary proposal.json \
     [--service-unit hydra-umc-server.service] \
     [--health-url http://127.0.0.1:3000/health] [--health-timeout 30] \
     [--build-env-allow NAME]... \
-    [--build-timeout 600] [--audit-journal FILE] \
+    [--build-timeout 600] [--audit-journal FILE] [--keep-local-commit] \
     [--out deploy-result.json]
 ```
 
@@ -190,6 +190,7 @@ hydra-umc-ops-agent control deploy-canary proposal.json \
 | `--service-unit` | The systemd unit that runs from the checkout: stopped before the swap, started after it. |
 | `--health-url` | Health URL (default: `OPS_AGENT_HEALTH_URL`) the promoted checkout must answer healthy within `--health-timeout`; otherwise the previous checkout is put back. With only `--service-unit`, `systemctl is-active` is the check. |
 | `--audit-journal` | Audit journal file (default: a hidden `.hydra_umc_ops_agent_audit.jsonl` next to the checkout). |
+| `--keep-local-commit` | Leave the change in the checkout as a local commit. By default there is no local commit: the change stays in the working tree, is kept as a patch file next to the checkout and the checkout can still fast-forward to upstream. |
 
 Exit code `0` only if the change was actually promoted and, when asked,
 healthy. A build-test failure or a rollback after a failed health check
@@ -199,6 +200,10 @@ diff that does not apply, a dirty checkout, a protected-path violation or an
 unwritable audit journal is `ERROR: ...` on stderr with exit `1` and no JSON.
 Before deploying, an interrupted earlier promotion is recovered when the SDK
 extra is installed.
+
+## `control canary-clear --live-root <path>`
+
+Drops a canary that was deployed without a local commit: the files it changed go back to what the checkout commit holds, the files it created are removed, and the next canary may run. Until then another `deploy-canary` against the same checkout is refused, because it would replace the pending change without knowing it.
 
 ## `control rollback --live-root <path> [--backup <path>]`
 

@@ -161,6 +161,12 @@ class DiffApplyError(CanaryDeployError):
     clone - the live checkout was never touched."""
 
 
+class CanaryPendingError(CanaryDeployError):
+    """A previous canary is still in this checkout as an uncommitted change (it was deployed without a local
+    commit). Another canary would build on a clone that does not have it and replace it silently, so it is
+    refused until the change is dropped (`control canary-clear`) or reaches the checkout through an update."""
+
+
 class DiffCommitError(CanaryDeployError):
     """`git add`/`git commit` failed while turning the applied diff
     into a real commit inside the staging clone - see
@@ -557,6 +563,116 @@ def _commit_applied_diff(staging_path: Path, touched_paths: list[str], *, deploy
         raise DiffCommitError(f"git commit failed against the staging clone (exit {commit_code}): {commit_output}")
 
 
+_PENDING_MARKER = "ops-agent-canary-pending.json"
+
+
+def _git_dir(path: Path) -> Path:
+    code, output = _run(["git", "rev-parse", "--absolute-git-dir"], cwd=path, timeout_s=30.0)
+    if code != 0 or not output.strip():
+        raise CanaryDeployError(f"could not find the git directory of {path}: {output.strip()}")
+    return Path(output.strip().splitlines()[-1])
+
+
+def pending_canary(live_root: Path) -> dict[str, Any] | None:
+    """The record of a canary that is in the checkout without a local commit, or None."""
+    try:
+        marker = _git_dir(live_root) / _PENDING_MARKER
+        return json.loads(marker.read_text(encoding="utf-8")) if marker.is_file() else None
+    except (CanaryDeployError, OSError, ValueError):
+        return None
+
+
+_EXCLUDE_BEGIN = "# ops-agent canary begin"
+_EXCLUDE_END = "# ops-agent canary end"
+_GITIGNORE_SPECIAL = set("\[]*?!#")
+
+
+def _exclude_line(name: str) -> str:
+    """A rule of .git/info/exclude that names exactly one path from the top of the checkout."""
+    return "/" + "".join(("\\" + ch) if ch in _GITIGNORE_SPECIAL else ch for ch in name)
+
+
+def _write_exclude(git_dir: Path, names: list[str]) -> None:
+    """Keep the files a canary created out of `git status` with a local ignore block (the checkout stays clean)."""
+    exclude = git_dir / "info" / "exclude"
+    exclude.parent.mkdir(parents=True, exist_ok=True)
+    existing = exclude.read_text(encoding="utf-8") if exclude.is_file() else ""
+    lines = existing.split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    block = [_EXCLUDE_BEGIN, *[_exclude_line(name) for name in names], _EXCLUDE_END]
+    exclude.write_text("\n".join(lines + block) + "\n", encoding="utf-8")
+
+
+def _remove_exclude(git_dir: Path) -> None:
+    exclude = git_dir / "info" / "exclude"
+    if not exclude.is_file():
+        return
+    kept, inside = [], False
+    for line in exclude.read_text(encoding="utf-8").split("\n"):
+        if line == _EXCLUDE_BEGIN:
+            inside = True
+        elif line == _EXCLUDE_END:
+            inside = False
+        elif not inside:
+            kept.append(line)
+    exclude.write_text("\n".join(kept), encoding="utf-8")
+
+
+def _leave_canary_uncommitted(staging_path: Path, touched_paths: list[str], *, deploy_id: str, patch_file: Path | None) -> None:
+    """Take the canary commit back out of the staging clone, keeping its change in the working tree.
+
+    The checkout then has no local commit, so the updater's fast-forward is never blocked by one. The tracked
+    files the diff changed are marked `skip-worktree`, which keeps `git status` clean (the dirty check of the next
+    deploy and of the updater do not trip on them) while the change stays in place; the files it created stay
+    untracked. A record next to the git data names the deploy, the patch file and both lists so the change can be
+    dropped knowingly (`clear_pending_canary`)."""
+    if not touched_paths:
+        return
+    steps = (
+        ["git", "reset", "--soft", "HEAD~1"],
+        ["git", "reset", "-q", "HEAD", "--", *touched_paths],
+    )
+    for command in steps:
+        code, output = _run(command, cwd=staging_path, timeout_s=30.0)
+        if code != 0:
+            raise DiffCommitError(f"{' '.join(command[:3])} failed against the staging clone (exit {code}): {output}")
+    code, listing = _run(["git", "ls-files", "-z", "--", *touched_paths], cwd=staging_path, timeout_s=30.0)
+    tracked = [name for name in listing.split("\0") if name] if code == 0 else []
+    if tracked:
+        code, output = _run(["git", "update-index", "--skip-worktree", "--", *tracked], cwd=staging_path, timeout_s=30.0)
+        if code != 0:
+            raise DiffCommitError(f"git update-index failed against the staging clone (exit {code}): {output}")
+    created = [name for name in touched_paths if name not in tracked and (staging_path / name).exists()]
+    if created:
+        # the files the canary created stay untracked; a local ignore rule keeps `git status` clean for them too
+        _write_exclude(_git_dir(staging_path), created)
+    record = {"deployId": deploy_id, "patch": str(patch_file) if patch_file else None, "tracked": tracked, "created": created}
+    (_git_dir(staging_path) / _PENDING_MARKER).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+
+
+def clear_pending_canary(live_root: Path) -> dict[str, Any]:
+    """Drop a canary that was deployed without a local commit: the changed files go back to what the checkout
+    commit holds and the files the canary created are removed. Returns what was done."""
+    record = pending_canary(live_root)
+    if record is None:
+        raise CanaryDeployError(f"{live_root} has no pending canary")
+    tracked, created = list(record.get("tracked") or []), list(record.get("created") or [])
+    if tracked:
+        for command in (["git", "update-index", "--no-skip-worktree", "--", *tracked], ["git", "checkout", "HEAD", "--", *tracked]):
+            code, output = _run(command, cwd=live_root, timeout_s=60.0)
+            if code != 0:
+                raise CanaryDeployError(f"{' '.join(command[:3])} failed (exit {code}): {output}")
+    _remove_exclude(_git_dir(live_root))
+    root = live_root.resolve()
+    for name in created:
+        target = (live_root / name).resolve()
+        if root in target.parents and target.is_file():
+            target.unlink()
+    (_git_dir(live_root) / _PENDING_MARKER).unlink()
+    return {"deployId": record.get("deployId"), "restored": tracked, "removed": created, "patch": record.get("patch")}
+
+
 def _save_canary_patch(staging_path: Path, patch_dir: Path, deploy_id: str, touched_paths: list[str]) -> Path | None:
     """Writes the canary commit as a patch file OUTSIDE the checkout (`git format-patch`), so that the change that went
     live is kept as a plain file as well as a local commit. A node whose checkout carries the local commit can no
@@ -705,9 +821,12 @@ def deploy_canary(
     health_timeout_s: float = 30.0,
     audit_path: Path | None = None,
     journal_path: Path | None = None,
+    keep_local_commit: bool = False,
 ) -> CanaryDeployResult:
     """Applies an approved proposal to a staged clone, verifies it and promotes
-    it. `approvers` is the registry of approvers' public keys (see
+    it. By default the promoted checkout carries the change WITHOUT a local commit (the commit is only used inside
+    the staging clone; the change is kept as a patch file and the checkout stays able to fast-forward to upstream);
+    `keep_local_commit=True` keeps the commit in the checkout as before. `approvers` is the registry of approvers' public keys (see
     approval_signing.load_approvers): without a signature by one of them the
     deploy refuses. The outcome is always written to the audit journal
     (`audit_path`, by default a hidden file next to the checkout)."""
@@ -717,7 +836,7 @@ def deploy_canary(
             proposal, live_root=live_root, build_test_command=build_test_command, approvers=approvers,
             staging_parent=staging_parent, build_timeout_s=build_timeout_s, build_env_allow=build_env_allow,
             service_unit=service_unit, health_url=health_url, health_timeout_s=health_timeout_s,
-            audit_path=audit_path, journal_path=journal_path,
+            audit_path=audit_path, journal_path=journal_path, keep_local_commit=keep_local_commit,
         )
     except CanaryDeployError as exc:
         try:
@@ -744,6 +863,7 @@ def _deploy_canary(
     health_timeout_s: float,
     audit_path: Path,
     journal_path: Path | None,
+    keep_local_commit: bool = False,
 ) -> CanaryDeployResult:
     if proposal.status != STATUS_APPROVED:
         raise ChangeNotApprovedError(
@@ -777,6 +897,12 @@ def _deploy_canary(
     # Refuse upfront, before any staging work, if the live
     # checkout has a real uncommitted change to a tracked file - see
     # _tracked_dirty_paths()'s own docstring.
+    pending = pending_canary(live_root)
+    if pending is not None:
+        raise CanaryPendingError(
+            f"{live_root} still carries canary {pending.get('deployId')} without a local commit (patch: {pending.get('patch')}); "
+            "drop it with `control canary-clear` or let an update replace it before another canary"
+        )
     dirty = _tracked_dirty_paths(live_root)
     if dirty:
         preview = ", ".join(dirty[:5]) + (f" (+{len(dirty) - 5} more)" if len(dirty) > 5 else "")
@@ -848,6 +974,8 @@ def _deploy_canary(
         patch_file = _save_canary_patch(
             staging_path, live_root.parent / f"{live_root.name}.canary-patches", deploy_id, touched_paths
         )
+        if not keep_local_commit:
+            _leave_canary_uncommitted(staging_path, touched_paths, deploy_id=deploy_id, patch_file=patch_file)
 
         # The build may have taken minutes. Stop the service (if one was named),
         # then look again: a tracked file edited meanwhile stops the deploy, and

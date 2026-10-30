@@ -150,7 +150,7 @@ these commands to another node yet.
 
 ### The canary commit as a patch
 
-A promoted canary leaves a local commit in the live checkout, so that checkout cannot fast-forward to upstream until that commit is dropped. The same change is also written with `git format-patch` to `<name>.canary-patches/<deploy-id>.patch`, next to the checkout and never inside it; the result and the audit record name it as `patchPath`. Use it to see what the commit holds, to check whether upstream already has it (`git apply --check --reverse`) and to drop the commit knowingly.
+The change is committed only inside the staging clone, to build and check it. By default the promoted checkout carries it **without** a local commit: the checkout stays on its own commit (so the updater's fast-forward is never blocked by a commit upstream does not have), the files the diff changed are marked so that `git status` stays clean, and the change is also written with `git format-patch` to `<name>.canary-patches/<deploy-id>.patch`, next to the checkout and never inside it; the result and the audit record name it as `patchPath`. A record in the git directory names the pending canary, and another canary is refused while it is pending. Use the patch to see what the change holds and to check whether upstream already has it (`git apply --check --reverse`); drop it with `control canary-clear`, or let an update that brings the same files replace it. `--keep-local-commit` restores the older behaviour (the change stays as a local commit in the checkout).
 
 ### Rollback, backups, recovery
 

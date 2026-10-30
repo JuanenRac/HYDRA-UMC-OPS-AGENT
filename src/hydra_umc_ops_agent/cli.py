@@ -49,6 +49,7 @@ from .approval_signing import (
 from .audit_journal import AuditJournalError, append_event, verify_chain
 from .canary_deploy import (
     CanaryDeployError,
+    clear_pending_canary,
     deploy_canary,
     list_backups,
     prune_backups,
@@ -344,6 +345,16 @@ def _cmd_control_reject(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_control_canary_clear(args: argparse.Namespace) -> int:
+    try:
+        outcome = clear_pending_canary(Path(args.live_root))
+    except CanaryDeployError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    print(_dump(outcome))
+    return 0
+
+
 def _cmd_control_deploy_canary(args: argparse.Namespace) -> int:
     try:
         proposal = load_proposal(Path(args.proposal_file))
@@ -385,6 +396,7 @@ def _cmd_control_deploy_canary(args: argparse.Namespace) -> int:
             health_url=args.health_url or os.environ.get("OPS_AGENT_HEALTH_URL"),
             health_timeout_s=args.health_timeout,
             audit_path=Path(args.audit_journal) if args.audit_journal else None,
+            keep_local_commit=args.keep_local_commit,
         )
     except CanaryDeployError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -578,8 +590,13 @@ def build_parser() -> argparse.ArgumentParser:
     deploy_canary_parser.add_argument("--health-url", help="Health URL the promoted checkout must answer healthy; otherwise the previous one is put back (default: OPS_AGENT_HEALTH_URL).")
     deploy_canary_parser.add_argument("--health-timeout", type=float, default=30.0, help="Seconds to wait for the health check (default: 30).")
     deploy_canary_parser.add_argument("--audit-journal", help="Audit journal file (default: a hidden file next to the checkout).")
+    deploy_canary_parser.add_argument("--keep-local-commit", action="store_true", help="Leave the change in the checkout as a local commit (default: no commit; the change is kept as a patch file and the checkout can still fast-forward).")
     deploy_canary_parser.add_argument("--out", help="Write the deploy result JSON here instead of stdout.")
     deploy_canary_parser.set_defaults(func=_cmd_control_deploy_canary)
+
+    canary_clear = control_sub.add_parser("canary-clear", help="Drop a canary that is in the checkout without a local commit (the files go back to the checkout commit).")
+    canary_clear.add_argument("--live-root", required=True, help="The live checkout.")
+    canary_clear.set_defaults(func=_cmd_control_canary_clear)
 
     rollback = control_sub.add_parser("rollback", help="Put the previous checkout (a .backup-xxxxxxxx) back in place of the live one; nothing is deleted.")
     rollback.add_argument("--live-root", required=True, help="The live checkout.")

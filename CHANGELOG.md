@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **A canary no longer leaves a local commit in the checkout:** the commit exists only inside the staging clone, where the change is built and checked. The promoted checkout stays on its own commit with the change in the working tree (kept as a patch file next to the checkout), so the updater's fast-forward is not blocked. A second canary is refused while one is pending, `control canary-clear` drops it, and `--keep-local-commit` keeps the previous behaviour.
+
 ## [0.2.0] - The canary commit kept as a patch file and a guide to check the model list of the provider
 
 - **The canary commit is kept as a patch file too:** a promoted canary leaves a local commit that keeps the checkout from fast-forwarding to upstream. The change is now also written with `git format-patch` to `<name>.canary-patches/<deploy-id>.patch`, outside the checkout, and reported as `patchPath` in the result and the audit record, so the commit can be inspected, compared with upstream and dropped knowingly. Writing the patch is best effort and never changes the result of the deploy.

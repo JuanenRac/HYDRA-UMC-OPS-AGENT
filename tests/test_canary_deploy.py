@@ -20,11 +20,14 @@ from _approvals import APPROVERS, SIGNING_KEY
 from hydra_umc_ops_agent.canary_deploy import (
     ApprovalInvalidError,
     CanaryDeployError,
+    CanaryPendingError,
     ChangeNotApprovedError,
     DiffApplyError,
     DirtyCheckError,
     TargetProjectMismatchError,
+    clear_pending_canary,
     deploy_canary,
+    pending_canary,
 )
 from hydra_umc_ops_agent.change_proposal import approve_change, propose_change
 
@@ -122,6 +125,69 @@ def _make_approved_proposal(diff_text: str):
     return approve_change(proposal, approved_by="Test Approver", signing_key=SIGNING_KEY)
 
 
+class DeployCanaryWithoutLocalCommitTests(unittest.TestCase):
+    """By default a promoted canary leaves NO local commit: the checkout stays on its commit, so the updater's
+    fast-forward is never blocked; the change is in the working tree, kept as a patch file, and a second canary is
+    refused until it is dropped."""
+
+    def _deploy(self, live_root: Path, diff: str = None, **options):
+        proposal = _make_approved_proposal(diff or _GOOD_DIFF)
+        return deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"], **options)
+
+    def _git(self, root: Path, *args: str) -> str:
+        return subprocess.run(["git", *args], cwd=str(root), capture_output=True, text=True, check=True).stdout
+
+    def test_the_checkout_keeps_its_commit_and_a_clean_status_but_carries_the_change(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            live_root = _make_live_repo(Path(tmp))
+            before = self._git(live_root, "rev-parse", "HEAD")
+            result = self._deploy(live_root)
+            self.assertTrue(result.promoted)
+            self.assertEqual(self._git(live_root, "rev-parse", "HEAD"), before)
+            self.assertEqual(self._git(live_root, "log", "--oneline").count("\n"), 1)
+            self.assertEqual(self._git(live_root, "status", "--porcelain"), "")
+            self.assertIn('"retries": 3', (live_root / "config.json").read_text(encoding="utf-8"))
+            self.assertTrue(Path(result.patch_path).is_file())
+            self.assertEqual(pending_canary(live_root)["deployId"], result.deploy_id)
+
+    def test_a_second_canary_is_refused_while_the_first_is_pending(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            live_root = _make_live_repo(Path(tmp))
+            self._deploy(live_root)
+            with self.assertRaises(CanaryPendingError):
+                self._deploy(live_root, _SECOND_DIFF)
+            self.assertIn('"retries": 3', (live_root / "config.json").read_text(encoding="utf-8"))
+
+    def test_clearing_the_pending_canary_puts_the_files_back_and_allows_the_next(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            live_root = _make_live_repo(Path(tmp))
+            self._deploy(live_root)
+            outcome = clear_pending_canary(live_root)
+            self.assertEqual(outcome["restored"], ["config.json"])
+            self.assertIn('"retries": 0', (live_root / "config.json").read_text(encoding="utf-8"))
+            self.assertIsNone(pending_canary(live_root))
+            self.assertEqual(self._git(live_root, "status", "--porcelain"), "")
+            self.assertTrue(self._deploy(live_root).promoted)
+            with self.assertRaises(CanaryDeployError):
+                clear_pending_canary(Path(tmp) / "nowhere")
+
+    def test_the_updater_fast_forward_still_works_with_the_change_in_place(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            live_root, remote = _make_live_repo_with_real_upstream(tmp_path)
+            self._deploy(live_root)
+            seed = tmp_path / "seed"
+            (seed / "NOTES.txt").write_text("upstream moved on\n", encoding="utf-8")
+            _run(["git", "add", "NOTES.txt"], seed)
+            _run(["git", "commit", "-q", "-m", "upstream change"], seed)
+            _run(["git", "push", "-q", "origin", "HEAD"], seed)
+            _run(["git", "fetch", "-q", "origin"], live_root)
+            merged = subprocess.run(["git", "merge", "--ff-only", "FETCH_HEAD"], cwd=str(live_root), capture_output=True, text=True)
+            self.assertEqual(merged.returncode, 0, merged.stderr)
+            self.assertTrue((live_root / "NOTES.txt").is_file())
+            self.assertIn('"retries": 3', (live_root / "config.json").read_text(encoding="utf-8"))
+
+
 class DeployCanaryHappyPathTests(unittest.TestCase):
     def test_a_real_successful_canary_promotes_the_change(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -172,11 +238,11 @@ class DeployCanaryConsecutiveDeploysTests(unittest.TestCase):
             live_root = _make_live_repo(tmp_path)
 
             first = _make_approved_proposal(_GOOD_DIFF)
-            first_result = deploy_canary(first, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
+            first_result = deploy_canary(first, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"], keep_local_commit=True)
             self.assertTrue(first_result.promoted)
 
             second = _make_approved_proposal(_SECOND_DIFF)
-            second_result = deploy_canary(second, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
+            second_result = deploy_canary(second, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"], keep_local_commit=True)
 
             self.assertTrue(second_result.promoted)
             self.assertIn('"retries": 5', (live_root / "config.json").read_text(encoding="utf-8"))
@@ -187,7 +253,7 @@ class DeployCanaryConsecutiveDeploysTests(unittest.TestCase):
             live_root = _make_live_repo(tmp_path)
             proposal = _make_approved_proposal(_GOOD_DIFF)
 
-            deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
+            deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"], keep_local_commit=True)
 
             log = subprocess.run(
                 ["git", "log", "-1", "--format=%s"], cwd=str(live_root), capture_output=True, text=True, check=True,
