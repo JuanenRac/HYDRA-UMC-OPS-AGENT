@@ -47,6 +47,7 @@ from .approval_signing import (
     load_private_key,
 )
 from .audit_journal import AuditJournalError, append_event, verify_chain
+from .deploy_policy import DEFAULT_POLICY_FILE, POLICY_ENV, DeployPolicyError, load_policy
 from .canary_deploy import (
     CanaryDeployError,
     clear_pending_canary,
@@ -373,6 +374,13 @@ def _cmd_control_deploy_canary(args: argparse.Namespace) -> int:
     if not registry:
         print(f"ERROR: no approver registry - pass --approvers FILE or set {APPROVERS_ENV}; without one no approval can be verified", file=sys.stderr)
         return 1
+    # The deploy policy says which build-test command may run for which project; without it nothing runs.
+    policy_file = args.policy or os.environ.get(POLICY_ENV) or DEFAULT_POLICY_FILE
+    try:
+        policy = load_policy(Path(policy_file))
+    except DeployPolicyError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
     live_root = Path(args.live_root)
     try:
         approvers = load_approvers(Path(registry))
@@ -397,6 +405,7 @@ def _cmd_control_deploy_canary(args: argparse.Namespace) -> int:
             health_timeout_s=args.health_timeout,
             audit_path=Path(args.audit_journal) if args.audit_journal else None,
             keep_local_commit=args.keep_local_commit,
+            policy=policy,
         )
     except CanaryDeployError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -583,6 +592,7 @@ def build_parser() -> argparse.ArgumentParser:
     deploy_canary_parser.add_argument("proposal_file", help="Path to an APPROVED proposal JSON file.")
     deploy_canary_parser.add_argument("--live-root", required=True, help="Path to the real, live checkout to (maybe) replace.")
     deploy_canary_parser.add_argument("--build-test-command", required=True, help="The project's own real build-test command, e.g. \"bash build-test.sh\".")
+    deploy_canary_parser.add_argument("--policy", help=f"Deploy policy file: the build-test commands that may run for each project (default: {POLICY_ENV}, else {DEFAULT_POLICY_FILE}). Without it nothing is deployed.")
     deploy_canary_parser.add_argument("--build-timeout", type=float, default=600.0, help="Seconds to allow the build-test command to run (default: 600).")
     deploy_canary_parser.add_argument("--approvers", help=f"Registry of approvers' public keys (default: {APPROVERS_ENV}).")
     deploy_canary_parser.add_argument("--build-env-allow", action="append", default=[], metavar="NAME", help="An environment variable the build-test command may see (repeatable); it gets none of the operator's others.")

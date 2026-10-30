@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **A policy file decides which build-test command may run:** `control deploy-canary` takes `--policy FILE` (default: `OPS_AGENT_POLICY`, else `/etc/hydra-umc/ops-agent-policy.json`) and denies, before anything is staged, a project the file does not list, a build-test command that is not one of the commands listed for it (compared word by word), a diff path outside the project's optional `allowed_paths`, and a missing or malformed file. Before this, whoever held a valid approval chose the command that ran on the device. `deploy/ops-agent-policy.json.example` lists the `build-test.sh` of every project; `deploy_canary()` accepts the same policy as a `policy` argument.
+
 - **A canary no longer leaves a local commit in the checkout:** the commit exists only inside the staging clone, where the change is built and checked. The promoted checkout stays on its own commit with the change in the working tree (kept as a patch file next to the checkout), so the updater's fast-forward is not blocked. A second canary is refused while one is pending, `control canary-clear` drops it, and `--keep-local-commit` keeps the previous behaviour.
 
 ## [0.2.0] - The canary commit kept as a patch file and a guide to check the model list of the provider

@@ -81,6 +81,7 @@ from typing import Any, Mapping, Sequence
 
 from .audit_journal import AuditJournalError, append_event
 from .change_proposal import STATUS_APPROVED, ChangeProposal, ChangeProposalError
+from .deploy_policy import DeployPolicy, DeployPolicyError
 from .diff_policy import protected_paths_in, touched_paths as diff_touched_paths
 from .inventory import check_http_health, read_git_commit_hash, validate_unit_name
 from .log_redaction import redact_secrets
@@ -134,6 +135,10 @@ def _read_live_project_name(live_root: Path) -> str | None:
         return None
     name = data.get("name") if isinstance(data, dict) else None
     return name if isinstance(name, str) else None
+
+
+class DeployPolicyDeniedError(CanaryDeployError):
+    """The deploy policy does not list this project, this build-test command or these paths."""
 
 
 class ChangeNotApprovedError(CanaryDeployError):
@@ -822,6 +827,7 @@ def deploy_canary(
     audit_path: Path | None = None,
     journal_path: Path | None = None,
     keep_local_commit: bool = False,
+    policy: DeployPolicy | None = None,
 ) -> CanaryDeployResult:
     """Applies an approved proposal to a staged clone, verifies it and promotes
     it. By default the promoted checkout carries the change WITHOUT a local commit (the commit is only used inside
@@ -829,14 +835,16 @@ def deploy_canary(
     `keep_local_commit=True` keeps the commit in the checkout as before. `approvers` is the registry of approvers' public keys (see
     approval_signing.load_approvers): without a signature by one of them the
     deploy refuses. The outcome is always written to the audit journal
-    (`audit_path`, by default a hidden file next to the checkout)."""
+    (`audit_path`, by default a hidden file next to the checkout). With a `policy` (see deploy_policy.py) the deploy runs only a
+    build-test command that the policy lists for the project, and only on the paths it allows; the command line of this
+    program always passes one, so the library caller that passes none is the one who answers for the command."""
     audit_path = audit_path or live_root.parent / _AUDIT_JOURNAL_NAME
     try:
         return _deploy_canary(
             proposal, live_root=live_root, build_test_command=build_test_command, approvers=approvers,
             staging_parent=staging_parent, build_timeout_s=build_timeout_s, build_env_allow=build_env_allow,
             service_unit=service_unit, health_url=health_url, health_timeout_s=health_timeout_s,
-            audit_path=audit_path, journal_path=journal_path, keep_local_commit=keep_local_commit,
+            audit_path=audit_path, journal_path=journal_path, keep_local_commit=keep_local_commit, policy=policy,
         )
     except CanaryDeployError as exc:
         try:
@@ -864,6 +872,7 @@ def _deploy_canary(
     audit_path: Path,
     journal_path: Path | None,
     keep_local_commit: bool = False,
+    policy: DeployPolicy | None = None,
 ) -> CanaryDeployResult:
     if proposal.status != STATUS_APPROVED:
         raise ChangeNotApprovedError(
@@ -893,6 +902,12 @@ def _deploy_canary(
             "the diff touches files that decide how a change is checked or run "
             f"({', '.join(protected[:5])}) and the signed approval does not allow that"
         )
+
+    if policy is not None:
+        try:
+            policy.check(proposal.project_name, build_test_command, diff_touched_paths(proposal.diff))
+        except DeployPolicyError as exc:
+            raise DeployPolicyDeniedError(str(exc)) from exc
 
     # Refuse upfront, before any staging work, if the live
     # checkout has a real uncommitted change to a tracked file - see

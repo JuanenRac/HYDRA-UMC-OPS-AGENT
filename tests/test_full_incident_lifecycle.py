@@ -27,7 +27,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from _approvals import write_key_files
+from _approvals import write_key_files, write_policy
 from hydra_umc_ops_agent import cli
 from hydra_umc_ops_agent.cli import main
 from hydra_umc_ops_agent.diagnosis import DiagnosisResult
@@ -150,6 +150,7 @@ class FullIncidentLifecycleTests(unittest.TestCase):
             "--live-root", str(self.live_root),
             "--approvers", self.registry_path,
             "--build-test-command", f"{sys.executable} -c \"{_MANIFEST_VALIDATOR}\"",
+            "--policy", write_policy(self.root, "broken-project", f"{sys.executable} -c \"{_MANIFEST_VALIDATOR}\""),
             "--out", str(deploy_result_file),
         ])
         self.assertEqual(exit_code, 0)
@@ -201,6 +202,7 @@ class FullIncidentLifecycleTests(unittest.TestCase):
             "--live-root", str(self.live_root),
             "--approvers", self.registry_path,
             "--build-test-command", f"{sys.executable} -c \"{_MANIFEST_VALIDATOR}\"",
+            "--policy", write_policy(self.root, "broken-project", f"{sys.executable} -c \"{_MANIFEST_VALIDATOR}\""),
             "--out", str(deploy_result_file),
         ])
         # cli.py's own real `return 0 if result.promoted else 1` - a

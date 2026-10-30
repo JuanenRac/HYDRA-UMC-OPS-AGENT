@@ -18,14 +18,14 @@ GPL-3.0-or-later - see LICENSE
   <img src="https://img.shields.io/badge/License-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
   <img src="https://img.shields.io/badge/Language-Python%203.11%2B-blue.svg" alt="Language">
   <img src="https://img.shields.io/badge/Core-stdlib%20only-brightgreen.svg" alt="Core">
-  <img src="https://img.shields.io/badge/Tests-323%20passing-2ea44f.svg" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-350%20passing-2ea44f.svg" alt="Tests">
   <img src="https://img.shields.io/badge/Version-0.2.0-0f6cbd.svg" alt="Version">
   <img src="https://img.shields.io/badge/Maturity-functional-0F6CBD.svg" alt="Maturity">
 </p>
 
 ---
 
-**Honesty check - what actually runs today:** all five shipped deliveries - evidence (`inventory.py`, `edge_agent.py`, `incident.py`), diagnosis (`diagnosis.py`), human-approved change (`change_proposal.py`), canary deploy (`canary_deploy.py`), and verification (`verification.py`), plus the redaction boundary (`log_redaction.py`) and the CLI (`cli.py`) - are real and tested end to end (323 tests plus 42 subtests passing across all 17 test files). The canary-deploy stage is genuinely exercised against a real, throwaway local git repository, not a mock. Diagnosis is only ever tested against a fake `AIProvider` - ``anthropic`Provider`/`OpenAIProvider` are real wrapper implementations of the same protocol, but neither has been exercised against a real, live `anthropic` or OpenAI API call in this test suite (no key available in this environment). The edge and control-plane roles currently talk only through a saved snapshot file - there is no network transport between them yet. Delivery 6 (voice/notification) is genuinely blocked, not merely postponed: HYDRA-UMC-VOICE-UI has no real outbound-notification surface today to integrate with. See `CHANGELOG.md` for exactly what has shipped so far.
+**Honesty check - what actually runs today:** all five shipped deliveries - evidence (`inventory.py`, `edge_agent.py`, `incident.py`), diagnosis (`diagnosis.py`), human-approved change (`change_proposal.py`), canary deploy (`canary_deploy.py`), and verification (`verification.py`), plus the redaction boundary (`log_redaction.py`) and the CLI (`cli.py`) - are real and tested end to end (350 tests plus 42 subtests passing across all 17 test files). The canary-deploy stage is genuinely exercised against a real, throwaway local git repository, not a mock. Diagnosis is only ever tested against a fake `AIProvider` - ``anthropic`Provider`/`OpenAIProvider` are real wrapper implementations of the same protocol, but neither has been exercised against a real, live `anthropic` or OpenAI API call in this test suite (no key available in this environment). The edge and control-plane roles currently talk only through a saved snapshot file - there is no network transport between them yet. Delivery 6 (voice/notification) is genuinely blocked, not merely postponed: HYDRA-UMC-VOICE-UI has no real outbound-notification surface today to integrate with. See `CHANGELOG.md` for exactly what has shipped so far.
 
 ---
 
@@ -39,7 +39,7 @@ GPL-3.0-or-later - see LICENSE
 |---|---|
 | Version | `0.2.0` |
 | Maturity | Functional |
-| Tests | 323 (`python -m pytest -q tests`) |
+| Tests | 350 (`python -m pytest -q tests`) |
 | Stack | Python 3.11+ / JSON Schema / systemd (edge role, Linux only) / two optional AI provider APIs (provider-agnostic diagnosis) / git (staging clone + git apply for the real canary deploy path) |
 | Target | The Raspberry Pi CM5 of a HYDRA-UMC cell |
 | On real hardware | Not yet: no run on real hardware is recorded for this version |
@@ -55,7 +55,7 @@ Each line is one part of this repository and the light says how far it is today.
 | Area | State | What it means here |
 |---|---|---|
 | Software | 🟡 | Works for its main purpose; the honesty check above lists what is still missing |
-| Tests | 🟢 | 323 automated tests, run on every change |
+| Tests | 🟢 | 350 automated tests, run on every change |
 | Real hardware | 🔴 | Not yet: no run on real hardware is recorded for this version |
 | Documentation | 🟢 | README in eight languages, checked against the manifest on every change |
 
@@ -143,7 +143,7 @@ $ hydra-umc-ops-agent control approve proposal.json --approved-by ana --key ana.
     --live-root /home/pi/HYDRA-UMC/HYDRA-UMC-SERVER
 $ hydra-umc-ops-agent control deploy-canary proposal.json \
     --live-root /home/pi/HYDRA-UMC/HYDRA-UMC-SERVER --build-test-command "bash build-test.sh" \
-    --approvers approvers.json --service-unit hydra-umc-server.service \
+    --approvers approvers.json --policy ops-agent-policy.json --service-unit hydra-umc-server.service \
     --health-url http://127.0.0.1:3000/health
 $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --node-name cm5-cell-3
 ```
@@ -211,6 +211,7 @@ command surface.
   proposal - a second decision never silently overwrites the first, and
   every decision is attributed to a real, non-empty name.
 - **An approval is a signature, not a field.** `approve_change()` signs, with the approver's own Ed25519 private key, a statement of exactly what is approved - the proposal, the SHA-256 of the diff, who approves, until when, the commit of the checkout it is for and whether protected paths are allowed. `deploy_canary()` accepts it only if the signature checks out against a registry of approvers' *public* keys, so whoever can merely write the proposal file cannot approve anything. The diff is also refused if it holds something shaped like a real secret or touches CI, build-test or service files without saying so; the build-test runs with a minimal environment; a service can be stopped and health-checked around the swap with an automatic rollback; and every proposal, approval, deploy, rollback and prune is appended to a hash-chained audit journal. See [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md).
+- **Only the commands of a policy file run.** `control deploy-canary` reads `--policy FILE` (default: `OPS_AGENT_POLICY`, else `/etc/hydra-umc/ops-agent-policy.json`) and runs the build-test command only if the file lists that exact command for the project (compared word by word); a project that is not listed, a command that is not listed, a path outside the project's optional `allowed_paths` and a missing or broken file are all denied before anything is staged. `deploy/ops-agent-policy.json.example` lists the `build-test.sh` of every project.
 - **Verification re-runs the SAME real check, never a looser one.**
   `verify_incident_resolved()` calls straight back into Delivery 1's own
   `check_http_health()`/`check_systemd_unit_health()`/
@@ -254,7 +255,7 @@ Requires Python 3.11 or newer.
 
 ## 🧪 Testing
 
-323 automated tests run with `python -m pytest -q tests`. They need no hardware and nothing outside this machine.
+350 automated tests run with `python -m pytest -q tests`. They need no hardware and nothing outside this machine.
 
 The CI runs `HYDRA_UMC_CI=1 python tools/ci_validate.py`, which checks the manifest, the documents, the eight READMEs and the pictures.
 
@@ -272,7 +273,7 @@ ANTHROPIC_API_KEY=sk-ant-... ./run.sh control diagnose snapshot.json --incident-
 ./run.sh control propose snapshot.json --incident-id <id> --project-name NAME --description "..." --diff-file fix.diff --rationale "..." --out proposal.json
 ./run.sh control keygen --name you --key-out you.pem --public-out you.pub
 ./run.sh control approve proposal.json --approved-by you --key you.pem --live-root PATH
-./run.sh control deploy-canary proposal.json --live-root PATH --build-test-command "bash build-test.sh" --approvers approvers.json
+./run.sh control deploy-canary proposal.json --live-root PATH --build-test-command "bash build-test.sh" --approvers approvers.json --policy ops-agent-policy.json
 pip install -e ".[signing]"                       # needed to sign and to verify approvals (cryptography)
 pip install -e ".[sdk]"                           # only needed to re-verify a manifest incident's own base_commit
 ./run.sh control verify snapshot.json --incident-id <id>

@@ -18,7 +18,7 @@ GPL-3.0-or-later - see LICENSE
   <img src="https://img.shields.io/badge/License-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
   <img src="https://img.shields.io/badge/Language-Python%203.11%2B-blue.svg" alt="Language">
   <img src="https://img.shields.io/badge/Core-stdlib%20only-brightgreen.svg" alt="Core">
-  <img src="https://img.shields.io/badge/Tests-323%20passing-2ea44f.svg" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-350%20passing-2ea44f.svg" alt="Tests">
   <img src="https://img.shields.io/badge/Version-0.2.0-0f6cbd.svg" alt="Version">
   <img src="https://img.shields.io/badge/Maturity-functional-0F6CBD.svg" alt="Maturity">
 </p>
@@ -35,7 +35,7 @@ GPL-3.0-or-later - see LICENSE
 |---|---|
 | Versión | `0.2.0` |
 | Madurez | Funcional |
-| Tests | 323 (`python -m pytest -q tests`) |
+| Tests | 350 (`python -m pytest -q tests`) |
 | Tecnología | Python 3.11+ / JSON Schema / systemd (edge role, Linux only) / two optional AI provider APIs (provider-agnostic diagnosis) / git (staging clone + git apply for the real canary deploy path) |
 | Destino | La Raspberry Pi CM5 de una celda HYDRA-UMC |
 | En hardware real | Todavía no: no consta ninguna ejecución en hardware real para esta versión |
@@ -51,7 +51,7 @@ Cada línea es una parte de este repositorio y la luz dice hasta dónde llega ho
 | Área | Estado | Qué significa aquí |
 |---|---|---|
 | Software | 🟡 | Funciona para su propósito principal; la comprobación de honestidad de arriba lista lo que aún falta |
-| Pruebas | 🟢 | 323 pruebas automáticas, ejecutadas en cada cambio |
+| Pruebas | 🟢 | 350 pruebas automáticas, ejecutadas en cada cambio |
 | Hardware real | 🔴 | Todavía no: no consta ninguna ejecución en hardware real para esta versión |
 | Documentación | 🟢 | README en ocho idiomas, comprobado contra el manifiesto en cada cambio |
 
@@ -144,7 +144,7 @@ $ hydra-umc-ops-agent control approve proposal.json --approved-by ana --key ana.
     --live-root /home/pi/HYDRA-UMC/HYDRA-UMC-SERVER
 $ hydra-umc-ops-agent control deploy-canary proposal.json \
     --live-root /home/pi/HYDRA-UMC/HYDRA-UMC-SERVER --build-test-command "bash build-test.sh" \
-    --approvers approvers.json --service-unit hydra-umc-server.service \
+    --approvers approvers.json --policy ops-agent-policy.json --service-unit hydra-umc-server.service \
     --health-url http://127.0.0.1:3000/health
 $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --node-name cm5-cell-3
 ```
@@ -219,6 +219,7 @@ superficie de comandos completa y real.
   decisión nunca sobrescribe silenciosamente la primera, y cada decisión
   se atribuye a un nombre real, no vacío.
 - **Una aprobación es una firma, no un campo.** `approve_change()` firma, con la clave privada Ed25519 del propio aprobador, una declaración de exactamente qué se aprueba: la propuesta, el SHA-256 del diff, quién aprueba, hasta cuándo, el commit del checkout al que va dirigida y si se permiten rutas protegidas. `deploy_canary()` solo la acepta si la firma verifica contra un registro de claves *públicas* de aprobadores, así que quien solo pueda escribir el fichero de la propuesta no puede aprobar nada. Además se rechaza un diff que contenga algo con forma de secreto real o que toque ficheros de CI, build-test o servicios sin decirlo; el build-test se ejecuta con un entorno mínimo; un servicio puede pararse y comprobarse alrededor del intercambio con reversión automática; y cada propuesta, aprobación, despliegue, reversión y poda se añade a un diario de auditoría encadenado por hash. Ver [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md).
+- **Solo se ejecutan los comandos de un fichero de política.** `control deploy-canary` lee `--policy FICHERO` (por defecto `OPS_AGENT_POLICY`, si no `/etc/hydra-umc/ops-agent-policy.json`) y solo ejecuta el comando de build-test si el fichero lista ese comando exacto para el proyecto (comparado palabra por palabra); un proyecto no listado, un comando no listado, una ruta fuera de los `allowed_paths` opcionales del proyecto y un fichero ausente o roto se deniegan antes de preparar nada. `deploy/ops-agent-policy.json.example` lista el `build-test.sh` de cada proyecto.
 - **La verificación vuelve a ejecutar la MISMA comprobación real, nunca
   una más laxa.** `verify_incident_resolved()` llama directamente a las
   propias `check_http_health()`/`check_systemd_unit_health()`/
@@ -265,7 +266,7 @@ Requiere Python 3.11 o superior.
 
 ## 🧪 Pruebas
 
-323 pruebas automáticas se ejecutan con `python -m pytest -q tests`. No necesitan hardware ni nada fuera de esta máquina.
+350 pruebas automáticas se ejecutan con `python -m pytest -q tests`. No necesitan hardware ni nada fuera de esta máquina.
 
 El CI ejecuta `HYDRA_UMC_CI=1 python tools/ci_validate.py`, que comprueba el manifiesto, los documentos, los ocho README y las imágenes.
 
@@ -283,7 +284,7 @@ ANTHROPIC_API_KEY=sk-ant-... ./run.sh control diagnose snapshot.json --incident-
 ./run.sh control propose snapshot.json --incident-id <id> --project-name NOMBRE --description "..." --diff-file fix.diff --rationale "..." --out proposal.json
 ./run.sh control keygen --name you --key-out you.pem --public-out you.pub
 ./run.sh control approve proposal.json --approved-by you --key you.pem --live-root PATH
-./run.sh control deploy-canary proposal.json --live-root PATH --build-test-command "bash build-test.sh" --approvers approvers.json
+./run.sh control deploy-canary proposal.json --live-root PATH --build-test-command "bash build-test.sh" --approvers approvers.json --policy ops-agent-policy.json
 pip install -e ".[signing]"                       # needed to sign and to verify approvals (cryptography)
 pip install -e ".[sdk]"                           # solo necesario para recomprobar el base_commit de un incidente de manifiesto
 ./run.sh control verify snapshot.json --incident-id <id>

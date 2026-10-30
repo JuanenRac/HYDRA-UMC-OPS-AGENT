@@ -18,7 +18,7 @@ GPL-3.0-or-later - see LICENSE
   <img src="https://img.shields.io/badge/License-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
   <img src="https://img.shields.io/badge/Language-Python%203.11%2B-blue.svg" alt="Language">
   <img src="https://img.shields.io/badge/Core-stdlib%20only-brightgreen.svg" alt="Core">
-  <img src="https://img.shields.io/badge/Tests-323%20passing-2ea44f.svg" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-350%20passing-2ea44f.svg" alt="Tests">
   <img src="https://img.shields.io/badge/Version-0.2.0-0f6cbd.svg" alt="Version">
   <img src="https://img.shields.io/badge/Maturity-functional-0F6CBD.svg" alt="Maturity">
 </p>
@@ -35,7 +35,7 @@ GPL-3.0-or-later - see LICENSE
 |---|---|
 | バージョン | `0.2.0` |
 | 成熟度 | 機能する |
-| テスト | 323 (`python -m pytest -q tests`) |
+| テスト | 350 (`python -m pytest -q tests`) |
 | 技術 | Python 3.11+ / JSON Schema / systemd (edge role, Linux only) / two optional AI provider APIs (provider-agnostic diagnosis) / git (staging clone + git apply for the real canary deploy path) |
 | 対象 | HYDRA-UMC セルの Raspberry Pi CM5 |
 | 実機での確認 | まだです：このバージョンについて実機での動作記録はありません |
@@ -51,7 +51,7 @@ GPL-3.0-or-later - see LICENSE
 | 領域 | 状態 | ここでの意味 |
 |---|---|---|
 | ソフトウェア | 🟡 | 主な目的では動作します。足りない点は上の正直さの確認に書かれています |
-| テスト | 🟢 | 自動テスト 323 件。変更のたびに実行されます |
+| テスト | 🟢 | 自動テスト 350 件。変更のたびに実行されます |
 | 実機 | 🔴 | まだです：このバージョンについて実機での動作記録はありません |
 | ドキュメント | 🟢 | 8 言語の README。変更のたびにマニフェストと照合されます |
 
@@ -143,7 +143,7 @@ $ hydra-umc-ops-agent control approve proposal.json --approved-by ana --key ana.
     --live-root /home/pi/HYDRA-UMC/HYDRA-UMC-SERVER
 $ hydra-umc-ops-agent control deploy-canary proposal.json \
     --live-root /home/pi/HYDRA-UMC/HYDRA-UMC-SERVER --build-test-command "bash build-test.sh" \
-    --approvers approvers.json --service-unit hydra-umc-server.service \
+    --approvers approvers.json --policy ops-agent-policy.json --service-unit hydra-umc-server.service \
     --health-url http://127.0.0.1:3000/health
 $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --node-name cm5-cell-3
 ```
@@ -215,6 +215,7 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --
   を黙って上書きすることは決してなく、すべての決定は本物の空でない名
   前に帰属します。
 - **承認はフィールドではなく署名です。** `approve_change()` は、承認者自身の Ed25519 秘密鍵で、何を承認するかを正確に述べた内容（提案、diff の SHA-256、承認者、有効期限、対象チェックアウトのコミット、保護パスを許可するかどうか）に署名します。`deploy_canary()` は、承認者の*公開鍵*の登録簿に対して署名が検証できる場合にのみ受け付けるため、提案ファイルに書き込めるだけの人は何も承認できません。さらに、本物の秘密情報の形をしたものを含む diff や、宣言なしに CI・build-test・サービスのファイルに触れる diff は拒否され、build-test は最小限の環境で実行され、切り替えの前後でサービスを停止・ヘルスチェックして自動ロールバックでき、すべての提案・承認・デプロイ・ロールバック・整理はハッシュで連鎖した監査ジャーナルに追記されます。[docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md) を参照してください。
+- **ポリシーファイルにあるコマンドだけが実行されます。** `control deploy-canary` は `--policy FILE`(既定は `OPS_AGENT_POLICY`、なければ `/etc/hydra-umc/ops-agent-policy.json`)を読み、そのプロジェクトについてファイルに載っている全く同じコマンド(単語ごとに比較)のときだけビルドテストコマンドを実行します。載っていないプロジェクト、載っていないコマンド、プロジェクトの任意の `allowed_paths` の外のパス、ファイルが無い・壊れている場合は、何も準備する前に拒否されます。`deploy/ops-agent-policy.json.example` に各プロジェクトの `build-test.sh` が載っています。
 - **検証は同じ本物のチェックを再実行します。決して緩いチェックではあ
   りません。** `verify_incident_resolved()` は、納品 1 自身の
   `check_http_health()`/`check_systemd_unit_health()`/
@@ -262,7 +263,7 @@ Python 3.11 以上が必要です。
 
 ## 🧪 テスト
 
-`python -m pytest -q tests` で自動テスト 323 件を実行します。 ハードウェアも、このマシンの外にあるものも必要ありません。
+`python -m pytest -q tests` で自動テスト 350 件を実行します。 ハードウェアも、このマシンの外にあるものも必要ありません。
 
 CI は `HYDRA_UMC_CI=1 python tools/ci_validate.py` を実行し、マニフェスト、文書、8 つの README、図を検査します。
 
@@ -280,7 +281,7 @@ ANTHROPIC_API_KEY=sk-ant-... ./run.sh control diagnose snapshot.json --incident-
 ./run.sh control propose snapshot.json --incident-id <id> --project-name NAME --description "..." --diff-file fix.diff --rationale "..." --out proposal.json
 ./run.sh control keygen --name you --key-out you.pem --public-out you.pub
 ./run.sh control approve proposal.json --approved-by you --key you.pem --live-root PATH
-./run.sh control deploy-canary proposal.json --live-root PATH --build-test-command "bash build-test.sh" --approvers approvers.json
+./run.sh control deploy-canary proposal.json --live-root PATH --build-test-command "bash build-test.sh" --approvers approvers.json --policy ops-agent-policy.json
 pip install -e ".[signing]"                       # needed to sign and to verify approvals (cryptography)
 pip install -e ".[sdk]"                           # マニフェストのインシデントの base_commit を再検証する場合のみ必要
 ./run.sh control verify snapshot.json --incident-id <id>

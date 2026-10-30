@@ -15,6 +15,18 @@ NAMES = ("Test Approver", "Someone", "Juan Enrique", "Juan", "A", "B", "Approver
 APPROVERS = {name: PUBLIC_KEY for name in NAMES}
 
 
+def write_policy(directory, project: str, command: str) -> str:
+    """Writes a deploy policy that lists one build-test command for one project; returns its path for `--policy`."""
+    import json
+    from pathlib import Path
+
+    from hydra_umc_ops_agent.cli import _split_command
+
+    path = Path(directory) / "deploy-policy.json"
+    path.write_text(json.dumps({"projects": {project: {"build_test_commands": [_split_command(command)]}}}), encoding="utf-8")
+    return str(path)
+
+
 def write_key_files(directory) -> tuple[str, str]:
     """Writes the test key as a PEM file and a registry JSON naming it; returns
     (private key path, registry path) as strings for the command line."""

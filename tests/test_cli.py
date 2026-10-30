@@ -16,7 +16,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from _approvals import SIGNING_KEY, write_key_files
+from _approvals import SIGNING_KEY, write_key_files, write_policy
 from hydra_umc_ops_agent import cli
 from hydra_umc_ops_agent.cli import main
 from hydra_umc_ops_agent.diagnosis import DiagnosisResult, MissingApiKeyError
@@ -295,6 +295,7 @@ class Delivery345CliTests(unittest.TestCase):
             "--live-root", str(live_root),
             "--approvers", self.registry_path,
             "--build-test-command", f"{sys.executable} check.py",
+            "--policy", write_policy(self.root, "test-project", f"{sys.executable} check.py"),
             "--out", str(result_file),
         ])
         self.assertEqual(exit_code, 0)

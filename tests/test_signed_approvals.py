@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
-from _approvals import APPROVERS, NAMES, PUBLIC_KEY, SIGNING_KEY, write_key_files
+from _approvals import APPROVERS, NAMES, PUBLIC_KEY, SIGNING_KEY, write_key_files, write_policy
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from hydra_umc_ops_agent import canary_deploy
@@ -219,6 +219,7 @@ def test_cli_keygen_approve_and_deploy_round_trip(tmp_path: Path, capsys):
                    "--live-root", str(live), "--yes", "--audit-journal", str(audit)) == 0
     assert run_cli("control", "deploy-canary", str(proposal_path), "--live-root", str(live),
                    "--build-test-command", f"{sys.executable} -c pass", "--approvers", str(registry),
+                   "--policy", write_policy(tmp_path, "p", f"{sys.executable} -c pass"),
                    "--audit-journal", str(audit)) == 0
     assert '"retries": 3' in (live / "config.json").read_text(encoding="utf-8")
     events = [entry["event"] for entry in read_events(audit)]
