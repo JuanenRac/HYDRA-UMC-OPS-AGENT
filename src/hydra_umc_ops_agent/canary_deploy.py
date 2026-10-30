@@ -557,6 +557,26 @@ def _commit_applied_diff(staging_path: Path, touched_paths: list[str], *, deploy
         raise DiffCommitError(f"git commit failed against the staging clone (exit {commit_code}): {commit_output}")
 
 
+def _save_canary_patch(staging_path: Path, patch_dir: Path, deploy_id: str, touched_paths: list[str]) -> Path | None:
+    """Writes the canary commit as a patch file OUTSIDE the checkout (`git format-patch`), so that the change that went
+    live is kept as a plain file as well as a local commit. A node whose checkout carries the local commit can no
+    longer fast-forward to upstream; with the patch the operator (or the updater) can see exactly what the commit holds,
+    check whether upstream already contains it (`git apply --check --reverse`) and drop the commit with confidence.
+    Best effort: a failure to write it never changes the result of the deploy."""
+    if not touched_paths:
+        return None
+    code, output = _run(["git", "format-patch", "-1", "HEAD", "--stdout"], cwd=staging_path, timeout_s=30.0)
+    if code != 0 or not output.strip():
+        return None
+    try:
+        patch_dir.mkdir(parents=True, exist_ok=True)
+        target = patch_dir / f"{deploy_id}.patch"
+        target.write_bytes(output.encode("utf-8"))
+    except OSError:
+        return None
+    return target
+
+
 def _make_writable_and_retry(function, target, *_ignored) -> None:
     """rmtree error handler: git writes its objects read-only, which makes the
     removal of a clone that has had a commit made in it fail on Windows. Make
@@ -601,6 +621,8 @@ class CanaryDeployResult:
     build_output: str
     detail: str
     backup_path: str | None = None
+    # The canary commit as a patch file kept outside the checkout; None when none was written.
+    patch_path: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -614,6 +636,7 @@ class CanaryDeployResult:
             "buildOutput": redact_secrets(self.build_output),
             "detail": self.detail,
             "backupPath": self.backup_path,
+            "patchPath": self.patch_path,
         }
 
 
@@ -822,6 +845,9 @@ def _deploy_canary(
         # uncommitted git apply still sitting in its working tree.
         _commit_applied_diff(staging_path, touched_paths, deploy_id=deploy_id, proposal_id=proposal.proposal_id)
         stage_reached = "diff_committed"
+        patch_file = _save_canary_patch(
+            staging_path, live_root.parent / f"{live_root.name}.canary-patches", deploy_id, touched_paths
+        )
 
         # The build may have taken minutes. Stop the service (if one was named),
         # then look again: a tracked file edited meanwhile stops the deploy, and
@@ -922,6 +948,7 @@ def _deploy_canary(
             build_output=build_output,
             detail=f"promoted - the previous checkout was kept at {backup_path}, never deleted ({health_detail})",
             backup_path=str(backup_path),
+            patch_path=str(patch_file) if patch_file else None,
         )
         _audit_result(audit_path, result)
         return result
@@ -938,7 +965,7 @@ def _audit_result(audit_path: Path, result: CanaryDeployResult) -> None:
     try:
         _audit(audit_path, "deploy-finished", {
             "deployId": result.deploy_id, "proposalId": result.proposal_id, "promoted": result.promoted,
-            "stageReached": result.stage_reached, "backupPath": result.backup_path, "detail": result.detail[:500],
+            "stageReached": result.stage_reached, "backupPath": result.backup_path, "patchPath": result.patch_path, "detail": result.detail[:500],
         })
     except (AuditJournalError, OSError):
         pass  # the deploy already happened; the start record is in the journal

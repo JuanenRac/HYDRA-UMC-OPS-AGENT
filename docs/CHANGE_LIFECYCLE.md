@@ -148,6 +148,10 @@ node that owns the incident (`verify` refuses an incident whose
 `sourceNode` is not the `--node-name` it is given). No transport carries
 these commands to another node yet.
 
+### The canary commit as a patch
+
+A promoted canary leaves a local commit in the live checkout, so that checkout cannot fast-forward to upstream until that commit is dropped. The same change is also written with `git format-patch` to `<name>.canary-patches/<deploy-id>.patch`, next to the checkout and never inside it; the result and the audit record name it as `patchPath`. Use it to see what the commit holds, to check whether upstream already has it (`git apply --check --reverse`) and to drop the commit knowingly.
+
 ### Rollback, backups, recovery
 
 - `control rollback --live-root PATH [--backup PATH]` puts the newest (or the

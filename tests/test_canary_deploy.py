@@ -196,6 +196,28 @@ class DeployCanaryConsecutiveDeploysTests(unittest.TestCase):
             self.assertIn(proposal.proposal_id, log.stdout)
 
 
+    def test_the_canary_commit_is_also_kept_as_a_patch_file_outside_the_checkout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            live_root = _make_live_repo(tmp_path)
+            proposal = _make_approved_proposal(_GOOD_DIFF)
+
+            result = deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
+
+            self.assertIsNotNone(result.patch_path)
+            patch = Path(result.patch_path)
+            self.assertTrue(patch.is_file())
+            self.assertNotIn(live_root, patch.parents)
+            self.assertEqual(patch.parent, live_root.parent / (live_root.name + ".canary-patches"))
+            text = patch.read_text(encoding="utf-8")
+            self.assertIn("config.json", text)
+            self.assertIn('+  "retries": 3', text)
+            self.assertEqual(result.to_dict()["patchPath"], str(patch))
+            # the patch directory is not part of the checkout, so the checkout stays clean
+            status = subprocess.run(["git", "status", "--porcelain"], cwd=str(live_root), capture_output=True, text=True, check=True)
+            self.assertEqual(status.stdout.strip(), "")
+
+
 class DeployCanaryDataPreservationTests(unittest.TestCase):
     """this
     module's own docstring claims it uses "the same atomic-by-
