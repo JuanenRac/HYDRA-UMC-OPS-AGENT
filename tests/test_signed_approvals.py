@@ -502,7 +502,7 @@ def test_rollback_and_prune_keep_what_they_should(tmp_path: Path):
         diff = GOOD_DIFF.replace('+  "retries": 3', f'+  "retries": {retries}')
         current = (live / "config.json").read_text(encoding="utf-8").split(":")[1].strip().split()[0]
         diff = diff.replace('-  "retries": 0', f'-  "retries": {current}')
-        assert deploy_canary(approved(diff), live_root=live, approvers=APPROVERS, build_test_command=PASS).promoted
+        assert deploy_canary(approved(diff), live_root=live, approvers=APPROVERS, build_test_command=PASS, keep_local_commit=True).promoted
     backups = list_backups(live)
     assert len(backups) == 2
     removed = prune_backups(live, keep=1)
