@@ -26,6 +26,8 @@ systemd was actually asked and either answered or didn't.
 """
 from __future__ import annotations
 
+from typing import Any
+
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -142,7 +144,7 @@ def collect_snapshot(
     service_health: list[ServiceHealthResult] = []
     for unit in systemd_units or []:
         try:
-            result = check_systemd_unit_health(unit)
+            result: Any = check_systemd_unit_health(unit)
         except SystemdUnavailableError as exc:
             # Real, honest degradation - stop trying further units too
             # (systemctl being absent is a host-wide fact, not a

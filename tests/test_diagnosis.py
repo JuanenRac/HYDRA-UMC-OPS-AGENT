@@ -122,7 +122,7 @@ class DiagnoseIncidentWithAnyProviderTests(unittest.TestCase):
     def test_no_model_and_no_known_default_for_this_provider_name_raises_a_real_error(self):
         fake = _FakeProvider(answer="ok")
         fake.name = "totally-unrecognized-provider"
-        with self.assertRaises(Exception):
+        with self.assertRaises(Exception):  # noqa: B017
             diagnose_incident(_make_incident(), provider=fake)  # no model, no known default
 
 

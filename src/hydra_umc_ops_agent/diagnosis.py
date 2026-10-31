@@ -241,7 +241,7 @@ def resolve_provider(provider_name: str, *, api_key: str | None = None) -> AIPro
             f"unknown provider {provider_name!r} - built-in providers are {sorted(_BUILTIN_PROVIDERS)}; "
             "pass a real AIProvider object directly for anything else"
         )
-    return provider_cls(api_key=api_key)
+    return provider_cls(api_key=api_key)  # type: ignore[return-value]
 
 
 @dataclass(frozen=True)

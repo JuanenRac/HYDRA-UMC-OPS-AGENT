@@ -102,10 +102,10 @@ class TrackedIncident:
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> "TrackedIncident":
         return cls(
-            incident=MaintenanceIncident.from_dict(data["incident"]),
+            incident=MaintenanceIncident.from_dict(data["incident"]),  # type: ignore[arg-type]
             first_seen_at=str(data["firstSeenAt"]),
             last_seen_at=str(data["lastSeenAt"]),
-            occurrence_count=int(data["occurrenceCount"]),
+            occurrence_count=int(data["occurrenceCount"]),  # type: ignore[call-overload]
             resolved_at=str(data["resolvedAt"]) if data.get("resolvedAt") is not None else None,
         )
 

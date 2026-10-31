@@ -60,7 +60,7 @@ def exclusive_lock(path: Path, *, timeout_s: float = 30.0) -> Iterator[None]:
                     import msvcrt
 
                     handle.seek(0)
-                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)  # type: ignore[attr-defined]
                 else:
                     import fcntl
 
@@ -78,7 +78,7 @@ def exclusive_lock(path: Path, *, timeout_s: float = 30.0) -> Iterator[None]:
                     import msvcrt
 
                     handle.seek(0)
-                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]
                 else:
                     import fcntl
 

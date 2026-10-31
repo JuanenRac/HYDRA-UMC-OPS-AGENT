@@ -50,3 +50,9 @@ hydra-umc-ops-agent = "hydra_umc_ops_agent.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff.lint]
+select = ["F", "E9", "B"]
+
+[tool.mypy]
+ignore_missing_imports = true

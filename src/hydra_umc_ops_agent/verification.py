@@ -34,6 +34,8 @@ a real additional guarantee.
 """
 from __future__ import annotations
 
+from typing import Any
+
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -151,7 +153,7 @@ def verify_incident_resolved(
                 "the URL stored in the snapshot has its password redacted, so it cannot be checked as stored - "
                 "pass the real URL with --health-url (or through the environment variable the CLI reads)"
             )
-        result = check_http_health(url, timeout_s=timeout_s)
+        result: Any = check_http_health(url, timeout_s=timeout_s)
         return VerificationResult(incident_id=incident.incident_id, verified_at=_utc_now_iso(), resolved=result.reachable, detail=result.detail)
 
     if incident.symptom.startswith(_SYSTEMD_SYMPTOM_PREFIX):

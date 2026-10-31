@@ -234,12 +234,12 @@ def _run(command: list[str], cwd: Path, timeout_s: float, env: Mapping[str, str]
         return 127, "could not run an empty command"
     options: dict[str, object] = {}
     if os.name == "nt":
-        options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+        options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
     else:
         options["start_new_session"] = True
     with tempfile.TemporaryFile() as sink:
         try:
-            proc = subprocess.Popen(
+            proc = subprocess.Popen(  # type: ignore[call-overload]
                 command, cwd=str(cwd), stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT,
                 env=None if env is None else dict(env), **options,
             )
