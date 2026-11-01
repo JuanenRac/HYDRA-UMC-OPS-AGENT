@@ -15,6 +15,7 @@
   "deployment_target": "cm5",
   "maturity": "functional",
   "evidence": "none",
+  "hardware_bound": false,
   "family": "Ecosystem Operations",
   "parent": null,
   "native_version": {

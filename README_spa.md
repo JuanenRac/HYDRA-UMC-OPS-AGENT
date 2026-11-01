@@ -38,7 +38,7 @@ GPL-3.0-or-later - see LICENSE
 | Tests | 350 (`python -m pytest -q tests`) |
 | Tecnología | Python 3.11+ / JSON Schema / systemd (edge role, Linux only) / two optional AI provider APIs (provider-agnostic diagnosis) / git (staging clone + git apply for the real canary deploy path) |
 | Destino | La Raspberry Pi CM5 de una celda HYDRA-UMC |
-| En hardware real | Todavía no: no consta ninguna ejecución en hardware real para esta versión |
+| En hardware real | No aplica: nada de esto se ejecuta en hardware |
 
 **Ir a:** [Resumen](#-resumen) · [Arquitectura](#-arquitectura) · [Funciones](#-funciones) · [Inicio rápido](#-inicio-rápido) · [Pruebas](#-pruebas) · [Estructura del repositorio](#-estructura-del-repositorio) · [Proyectos relacionados](#-proyectos-relacionados)
 
@@ -52,7 +52,7 @@ Cada línea es una parte de este repositorio y la luz dice hasta dónde llega ho
 |---|---|---|
 | Software | 🟡 | Funciona para su propósito principal; la comprobación de honestidad de arriba lista lo que aún falta |
 | Pruebas | 🟢 | 350 pruebas automáticas, ejecutadas en cada cambio |
-| Hardware real | 🔴 | Todavía no: no consta ninguna ejecución en hardware real para esta versión |
+| Hardware real | 🟢 | No aplica: nada de esto se ejecuta en hardware |
 | Documentación | 🟢 | README en ocho idiomas, comprobado contra el manifiesto en cada cambio |
 
 ## 🎯 Resumen

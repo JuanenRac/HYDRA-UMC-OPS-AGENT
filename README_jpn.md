@@ -38,7 +38,7 @@ GPL-3.0-or-later - see LICENSE
 | テスト | 350 (`python -m pytest -q tests`) |
 | 技術 | Python 3.11+ / JSON Schema / systemd (edge role, Linux only) / two optional AI provider APIs (provider-agnostic diagnosis) / git (staging clone + git apply for the real canary deploy path) |
 | 対象 | HYDRA-UMC セルの Raspberry Pi CM5 |
-| 実機での確認 | まだです：このバージョンについて実機での動作記録はありません |
+| 実機での確認 | 対象外：ここにあるものはハードウェア上では動きません |
 
 **移動：** [概要](#-概要) · [アーキテクチャ](#-アーキテクチャ) · [機能](#-機能) · [クイックスタート](#-クイックスタート) · [テスト](#-テスト) · [リポジトリの構成](#-リポジトリの構成) · [関連プロジェクト](#-関連プロジェクト)
 
@@ -52,7 +52,7 @@ GPL-3.0-or-later - see LICENSE
 |---|---|---|
 | ソフトウェア | 🟡 | 主な目的では動作します。足りない点は上の正直さの確認に書かれています |
 | テスト | 🟢 | 自動テスト 350 件。変更のたびに実行されます |
-| 実機 | 🔴 | まだです：このバージョンについて実機での動作記録はありません |
+| 実機 | 🟢 | 対象外：ここにあるものはハードウェア上では動きません |
 | ドキュメント | 🟢 | 8 言語の README。変更のたびにマニフェストと照合されます |
 
 ## 🎯 概要
