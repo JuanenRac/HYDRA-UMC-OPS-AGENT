@@ -53,6 +53,12 @@ Chaque ligne est une partie de ce dépôt et le feu dit où elle en est aujourd'
 | Logiciel | 🟡 | Fonctionne pour son usage principal ; la vérification d'honnêteté ci-dessus liste ce qui manque encore |
 | Tests | 🟢 | 350 tests automatiques, exécutés à chaque modification |
 | Matériel réel | 🟢 | Sans objet : rien ici ne s'exécute sur du matériel |
+| Interface et protocoles | 🟡 | Les routes ou les messages proposés sont documentés et testés avec un client ; tous les clients ne les ont pas encore utilisés |
+| Intégration | 🟡 | Il fonctionne avec les autres services sur le banc d'essai CM5 et ses messages suivent les contrats partagés du SDK |
+| Sécurité | 🟡 | Le contrôle d'accès, les limites d'entrée ou les signatures sont implémentés et testés sur un ordinateur ; personne hors du projet ne les a relus |
+| Déploiement | 🟡 | Installé comme service sur le banc d'essai CM5 avec son installeur et son unité ; redémarré à chaque mise à jour |
+| Exploitation | 🟠 | Il écrit des journaux ; il n'a pas encore de point de métriques ni de santé |
+| Mises à jour | 🟡 | Mis à jour par HYDRA-UMC-UPDATER (trains signés, sauvegardes et retour arrière testés sur un ordinateur) |
 | Documentation | 🟢 | README en huit langues, vérifié par rapport au manifeste à chaque modification |
 
 ## 🎯 Présentation
