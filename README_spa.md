@@ -73,7 +73,7 @@ las seis etapas de ese ciclo de vida: **la evidencia**, **el
 diagnóstico**, **el cambio aprobado por una persona**, **el despliegue
 canario** y **la verificación**.
 
-Dos roles, un solo paquete, todavía sin transporte de red entre ellos:
+Dos roles, un solo paquete, unidos por un canal autenticado cuando la configuración lo activa (si no, por un archivo de snapshot guardado):
 
 1. **Rol edge** (`edge collect`) - se ejecuta directamente en la máquina
    observada (una célula CM5 real, o la propia estación de trabajo de
@@ -237,13 +237,7 @@ superficie de comandos completa y real.
   `compare_runs()` de HYDRA-UMC-SDK - el commit del checkout debe haberse
   movido de verdad, no basta con que el archivo parezca arreglado en
   disco. Ver [docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md).
-- **La Entrega 6 está bloqueada, no simplemente omitida.** El propio
-  contrato real de HYDRA-UMC-VOICE-UI (`gateway.py`) es una puerta de
-  entrada acotada, de ENTRADA, de transcripción a intención, sin ninguna
-  superficie real de notificación de salida hoy - inventar una aquí
-  habría significado fabricar una integración que no existe, algo que
-  el propio estándar de no fabricar de este proyecto no permite. Ver la
-  sección HOJA DE RUTA más abajo.
+- **Las notificaciones pasan por el broker, no por un servicio de voz.** Los eventos de incidencia se publican en el broker MQTT del ecosistema (desactivado por defecto), en el idioma de la configuración; `HYDRA-UMC-VOICE-UI` no tiene superficie de salida y no se inventó ninguna.
 - **Solo librería estándar para el núcleo.** `edge collect`/`control
   show`/`control propose`/`control approve`/`control reject`/`control
   verify` no necesitan ninguna dependencia - `urllib.request` para la
@@ -258,6 +252,8 @@ superficie de comandos completa y real.
 ## ✨ Funciones
 
 Un canario promovido deja además su cambio como fichero de parche, escrito con `git format-patch` en `<proyecto>.canary-patches/<id-de-despliegue>.patch` fuera del checkout e informado como `patchPath` en el resultado y en el registro de auditoría, de modo que el commit local se pueda inspeccionar y descartar con conocimiento. Escribirlo es de mejor esfuerzo y nunca cambia el resultado del despliegue.
+
+Funciones opcionales, todas desactivadas hasta que `ops-agent.json` las active (ver `docs/OPTIONAL_FEATURES.md`): `edge serve` y `control remote` hablan por un canal firmado con un secreto por nodo (nonce, ventana de tiempo, límite de tasa, estado anti-repetición en SQLite, bucle local por defecto; un despliegue por él sigue llevando la aprobación firmada de una persona); `edge healing-ingest` convierte las transiciones del vigilante de nodos en incidencias; los eventos de incidencia se publican en el broker MQTT (`hydra/ops/incidents/<nodo>`) en el idioma de la configuración; `control canary-rollout` aplica una propuesta aprobada primero a unos pocos nodos, los vigila y sigue por oleadas o lo deshace todo; `control propose-from-diagnosis` pide un diff a un modelo local, que queda como propuesta pendiente marcada como generada (`--yes` no puede aprobarla y el aprobador firma que la escribió un modelo); `control metrics` imprime texto de Prometheus.
 
 ## 🚀 Inicio rápido
 
@@ -340,38 +336,48 @@ tests/` directamente) para la suite de tests completa en local.
 
 ```text
 HYDRA-UMC-OPS-AGENT/
-├── src/hydra_umc_ops_agent/   código fuente
-│   ├── __init__.py            Versión del paquete
-│   ├── _atomic.py             Escrituras de archivo duraderas y todo-o-nada para almacenes, propuestas y resultados
-│   ├── approval_signing.py    Firmas Ed25519 de las aprobaciones; registro de aprobadores
-│   ├── audit_journal.py       Diario de auditoría encadenado por hash, solo de adición
-│   ├── diff_policy.py         Qué puede contener y tocar un diff (formas de secreto, rutas protegidas, tamaño)
-│   ├── log_redaction.py       Redacción pura de secretos (KEY=VALUE, tokens Bearer, bloques PEM)
-│   ├── inventory.py           Escaneo de manifiestos + comprobaciones de salud systemd/HTTP
-│   ├── incident.py            Contrato MaintenanceIncident / IncidentBatch
-│   ├── edge_agent.py          reúne las piezas en un NodeSnapshot
-│   ├── control_plane.py       Cargador de snapshot de solo lectura + renderizador de informe de texto
-│   ├── diagnosis.py           Entrega 2: sugerencia de diagnóstico asistida por IA, independiente del proveedor
-│   ├── change_proposal.py     Entrega 3: ciclo de vida inmutable de ChangeProposal, aprobado por una persona
-│   ├── canary_deploy.py       Entrega 4: stage + apply + verify + promote, solo con aprobación
-│   ├── verification.py        Entrega 5: vuelve a ejecutar la comprobación real detrás de una incidencia
-│   ├── cli.py                 subórdenes edge y control
-│   └── incident_store.py      La capa duradera y sin duplicados de incidentes: un registro abierto por (nodo, componente), resuelto solo si ese componente se volvió a comprobar y está limpio
-├── tests/                     Tests reales para los 11 módulos, incl. un fixture local http.server, un proveedor de IA simulado y un repo git real y desechable para el despliegue canario
-├── deploy/                    El fichero de política de ejemplo del despliegue canario
-├── docs/                      documentos del proyecto
-├── images/                    Medios e iconos de la app
-├── tools/                     herramientas del proyecto y comprobaciones del CI
-├── .github/                   flujo de CI y plantillas de incidencias
-├── build.sh / build.bat       venv + instalación editable + compile-check + tests
-├── run.sh / run.bat           Demo real de edge collect + control show (sin argumentos), o reenvía un comando CLI real
-├── bump_version.py            Incremento de versión tipo cuentakilómetros (solo lo ejecuta el comando `bump` explícito)
-├── bump_manifest_version.py   Sincroniza la versión de hydra-umc.project.json con la nativa (--sync)
-├── CHANGELOG.md               qué cambió en cada versión
-├── build-test.sh              comprobación de compilación sin cambios
-├── hydra-umc.project.json     manifiesto: versión, madurez, familia
-├── pyproject.toml             metadatos del paquete
-└── test.sh                    ejecuta las pruebas
+├── src/hydra_umc_ops_agent/    código fuente
+│   ├── __init__.py             Versión del paquete
+│   ├── _atomic.py              Escrituras de archivo duraderas y todo-o-nada para almacenes, propuestas y resultados
+│   ├── approval_signing.py     Firmas Ed25519 de las aprobaciones; registro de aprobadores
+│   ├── audit_journal.py        Diario de auditoría encadenado por hash, solo de adición
+│   ├── diff_policy.py          Qué puede contener y tocar un diff (formas de secreto, rutas protegidas, tamaño)
+│   ├── log_redaction.py        Redacción pura de secretos (KEY=VALUE, tokens Bearer, bloques PEM)
+│   ├── inventory.py            Escaneo de manifiestos + comprobaciones de salud systemd/HTTP
+│   ├── incident.py             Contrato MaintenanceIncident / IncidentBatch
+│   ├── edge_agent.py           reúne las piezas en un NodeSnapshot
+│   ├── control_plane.py        Cargador de snapshot de solo lectura + renderizador de informe de texto
+│   ├── diagnosis.py            Entrega 2: sugerencia de diagnóstico asistida por IA, independiente del proveedor
+│   ├── change_proposal.py      Entrega 3: ciclo de vida inmutable de ChangeProposal, aprobado por una persona
+│   ├── canary_deploy.py        Entrega 4: stage + apply + verify + promote, solo con aprobación
+│   ├── verification.py         Entrega 5: vuelve a ejecutar la comprobación real detrás de una incidencia
+│   ├── cli.py                  subórdenes edge y control
+│   ├── incident_store.py       La capa duradera y sin duplicados de incidentes: un registro abierto por (nodo, componente), resuelto solo si ese componente se volvió a comprobar y está limpio
+│   ├── config.py               Archivo de configuración, todo apagado
+│   ├── incident_transport.py   Canal firmado edge-control
+│   ├── edge_service.py         Lo que responde el edge por el canal
+│   ├── healing_bridge.py       Transiciones del vigilante a incidencias
+│   ├── notify.py               Eventos de incidencia al broker MQTT
+│   ├── messages.py             Texto de avisos en ocho idiomas
+│   ├── multinode_canary.py     Canario multinodo con reversión
+│   ├── llm_propose.py          Propuesta pendiente de un modelo
+│   ├── metrics.py              Texto Prometheus del almacén
+│   └── cli_extra.py            Comandos que usan la configuración
+├── tests/                      Tests reales para los 11 módulos, incl. un fixture local http.server, un proveedor de IA simulado y un repo git real y desechable para el despliegue canario
+├── deploy/                     El fichero de política de ejemplo del despliegue canario
+├── docs/                       documentos del proyecto
+├── images/                     Medios e iconos de la app
+├── tools/                      herramientas del proyecto y comprobaciones del CI
+├── .github/                    flujo de CI y plantillas de incidencias
+├── build.sh / build.bat        venv + instalación editable + compile-check + tests
+├── run.sh / run.bat            Demo real de edge collect + control show (sin argumentos), o reenvía un comando CLI real
+├── bump_version.py             Incremento de versión tipo cuentakilómetros (solo lo ejecuta el comando `bump` explícito)
+├── bump_manifest_version.py    Sincroniza la versión de hydra-umc.project.json con la nativa (--sync)
+├── CHANGELOG.md                qué cambió en cada versión
+├── build-test.sh               comprobación de compilación sin cambios
+├── hydra-umc.project.json      manifiesto: versión, madurez, familia
+├── pyproject.toml              metadatos del paquete
+└── test.sh                     ejecuta las pruebas
 ```
 
 </details>
@@ -380,25 +386,12 @@ HYDRA-UMC-OPS-AGENT/
 
 **Límites conocidos hoy**
 
-Las Entregas 1-5 (esta versión) envían **evidencia**, **diagnóstico**,
-**cambio aprobado por una persona**, **despliegue canario** y
-**verificación** - el ciclo de vida real ya nombrado en el propio
-manifiesto y CHANGELOG de este proyecto. Lo que queda:
+Las Entregas 1-5 envían **evidencia**, **diagnóstico**, **cambio aprobado por una persona**, **despliegue canario** y **verificación**, y la configuración puede añadir, cada una desactivada hasta que se active: un canal autenticado entre edge y control, un puente desde el vigilante de nodos, notificaciones al broker, un canario en varios nodos, una propuesta redactada por un modelo local (siempre pendiente, nunca aplicada) y métricas para Prometheus. Lo que queda:
 
-- **Entrega 6 - Integración de voz/notificaciones - de verdad
-  BLOQUEADA, no simplemente pospuesta.** El plan era mostrar una
-  incidencia crítica, o un canario completado, a través de
-  HYDRA-UMC-VOICE-UI. La investigación real de su propio código
-  (`gateway.py`) encontró que es una puerta de entrada acotada, de
-  ENTRADA, de transcripción a intención (un Watch envía texto, recibe
-  una respuesta), sin ninguna superficie real de notificación de salida
-  hoy. Construir una aquí habría significado inventar un punto de
-  integración que VOICE-UI mismo no tiene - el propio estándar de no
-  fabricar de este proyecto no lo permite. Revisitar esto en cuanto
-  VOICE-UI (o un sucesor) desarrolle una capacidad real propia de
-  "anuncio entrante del asistente".
-- Un transporte real entre los roles edge y control-plane (hoy, mover un
-  archivo de snapshot entre ambos es un paso manual).
+- Nada de esto ha funcionado en una flota real: el canal, el canario multinodo, el broker y el servidor de modelo se prueban aquí con nodos simulados, un broker simulado y un servidor de modelo simulado.
+- El vigilante de nodos escribe sus transiciones como texto en su diario; un evento `transition` estructurado allí sustituiría la lectura de ese texto.
+- El transporte es compatible a nivel de protocolo con el del servidor de desarrollo, pero cada repositorio guarda su propia copia hasta que el SDK comparta un contrato.
+- Un borrador del modelo se comprueba contra el checkout (`git apply --check`) y la política; ejecutarlo en un sandbox del servidor de desarrollo y exigir un resultado antes/después reproducido requiere contratos de otros repositorios.
 
 ## 🌍 Idiomas
 
@@ -456,7 +449,7 @@ Este proyecto forma parte del ecosistema robótico HYDRA-UMC del mismo autor (Ju
 *Nodo Cognitivo IA (Hailo-10)*
 - **[HYDRA-UMC-COGNITIVE-NODE](https://github.com/JuanenRac/HYDRA-UMC-COGNITIVE-NODE)** — hub de integración para el pipeline cognitivo Hailo-10 (orquestación LLM/VLA/voz).
 - **[HYDRA-UMC-VLA-ENGINE](https://github.com/JuanenRac/HYDRA-UMC-VLA-ENGINE)** — codificación/decodificación real de tokens de acción y generación de trayectoria para un modelo Vision-Language-Action.
-- **[HYDRA-UMC-VOICE-UI](https://github.com/JuanenRac/HYDRA-UMC-VOICE-UI)** — front-end de voz real (VAD + analizador de intención) con un relé al Watch acotado y sujeto a confirmación - considerado en su día como la superficie de notificación de la Entrega 6 de este proyecto, resultó no tener un contrato real de notificación de salida hoy (ver la sección HOJA DE RUTA).
+- **[HYDRA-UMC-VOICE-UI](https://github.com/JuanenRac/HYDRA-UMC-VOICE-UI)** — front-end de voz real (VAD + analizador de intención) con un relé al Watch acotado y sujeto a confirmación - no tiene superficie de notificación de salida, así que este proyecto publica sus eventos de incidencia en el broker del ecosistema.
 - **[HYDRA-UMC-SEMANTIC-PLANNER](https://github.com/JuanenRac/HYDRA-UMC-SEMANTIC-PLANNER)** — descomposición de tareas real basada en reglas y recuperación semántica de errores sobre códigos de error del MCU.
 - **[HYDRA-UMC-DOCS-QA](https://github.com/JuanenRac/HYDRA-UMC-DOCS-QA)** — búsqueda documental real TF-IDF, solo librería estándar, sobre los propios documentos Markdown de este ecosistema.
 - **[HYDRA-UMC-LOCAL-TECHNICIAN](https://github.com/JuanenRac/HYDRA-UMC-LOCAL-TECHNICIAN)** — técnico de mantenimiento con IA local y con puertas de política para el propio ecosistema - observa, diagnostica y propone arreglos; los dos niveles de riesgo más altos están deliberadamente sin implementar todavía.
@@ -501,6 +494,7 @@ Dónde leer más:
 * **[docs/INCIDENT_CONTRACT.md](docs/INCIDENT_CONTRACT.md)** — la forma JSON real de `MaintenanceIncident`/`NodeSnapshot`.
 * **[docs/DIAGNOSIS.md](docs/DIAGNOSIS.md)** — el contrato real, proveedores, credenciales y límite de seguridad propios de la Entrega 2.
 * **[docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md)** — el contrato real, la secuencia completa de stage/apply/verify/promote, y un flujo real de operador de las Entregas 3-5.
+* **[docs/OPTIONAL_FEATURES.md](docs/OPTIONAL_FEATURES.md)** — cada función opcional (canal autenticado, puente del vigilante de nodos, notificaciones al broker, canario multinodo, propuesta redactada por un modelo, métricas), su interruptor y sus límites.
 * [Base de seguridad del ecosistema](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/SECURITY_BASELINE.md)
 * [Modelo de amenazas del ecosistema](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/THREAT_MODEL.md)
 * [Historial de cambios de este repositorio](CHANGELOG.md)

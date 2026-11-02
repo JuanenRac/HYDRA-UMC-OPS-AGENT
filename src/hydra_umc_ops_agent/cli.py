@@ -123,6 +123,17 @@ def _record(args: argparse.Namespace, default_dir: Path, event: str, data: dict[
 
 
 def _cmd_edge_collect(args: argparse.Namespace) -> int:
+    from . import cli_extra
+
+    config = cli_extra._config(args)
+    if config is None:
+        return 1
+    if config.notify.enabled:
+        try:
+            return cli_extra.collect_with_notification(args, config)
+        except (IncidentStoreError, OSError, ValueError) as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
     try:
         snapshot = collect_snapshot(
             source_node=args.node_name,
@@ -262,9 +273,15 @@ def _confirm_approval(proposal, base_commit: str | None, assume_yes: bool) -> bo
     print(f"Diff SHA256: {digest}")
     print(f"For commit : {base_commit or '(any commit - weaker)'}")
     print(f"Protected paths allowed: {'YES' if proposal.allow_protected_paths else 'no'}")
+    if proposal.generated_by:
+        print(f"Drafted by : {proposal.generated_by} (a model wrote this diff; it is not a person's change)")
     print("---- diff ----")
     print(proposal.diff)
     print("--------------")
+    if proposal.generated_by and assume_yes:
+        # a diff written by a model is signed only after a person has been asked, never on a flag
+        print("ERROR: nothing was signed - a diff drafted by a model is approved only at a terminal, --yes does not apply to it", file=sys.stderr)
+        return False
     if assume_yes:
         return True
     if not sys.stdin.isatty():
@@ -502,9 +519,10 @@ def _cmd_control_audit_verify(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="hydra-umc-ops-agent",
-        description="Maintenance-incident coordinator - evidence, diagnosis, human-approved change, canary deploy, verification (Deliveries 1-5; Delivery 6 is genuinely blocked, see README).",
+        description="Maintenance-incident coordinator - evidence, diagnosis, human-approved change, canary deploy, verification (Deliveries 1-5, plus the optional features of the configuration file).",
     )
     parser.add_argument("--version", action="version", version=__version__)
+    parser.add_argument("--config", help="Configuration file (default: OPS_AGENT_CONFIG, else /etc/hydra-umc/ops-agent.json); without one every optional feature is off.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     edge = subparsers.add_parser("edge", help="Edge role (runs on a CM5).")
@@ -637,6 +655,9 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--out", help="Write the verification result JSON here instead of stdout.")
     verify.set_defaults(func=_cmd_control_verify)
 
+    from . import cli_extra
+
+    cli_extra.register(edge_sub, control_sub)
     return parser
 
 

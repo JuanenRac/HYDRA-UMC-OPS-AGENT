@@ -190,11 +190,14 @@ class ChangeProposal:
     approval_expires_at: str | None = None
     approved_base_commit: str | None = None
     approval_signature: str | None = None
+    # Set when a model drafted the diff ("llm:<model>"); part of what the approver signs, so an approval always
+    # says whether the person knew the change was machine-written.
+    generated_by: str | None = None
 
     def _envelope(self) -> dict[str, Any]:
         """The statement the approver signs - rebuilt from the CURRENT values
         of the proposal, so a field edited after approval no longer matches."""
-        return {
+        envelope: dict[str, Any] = {
             "proposalId": self.proposal_id,
             "incidentId": self.incident_id,
             "projectName": self.project_name,
@@ -205,6 +208,9 @@ class ChangeProposal:
             "baseCommit": self.approved_base_commit,
             "allowProtectedPaths": self.allow_protected_paths,
         }
+        if self.generated_by is not None:  # absent for a proposal a person wrote, so earlier signatures still verify
+            envelope["generatedBy"] = self.generated_by
+        return envelope
 
     def verify_approval_content(self) -> None:
         """Raises ApprovalContentMismatchError unless this proposal's
@@ -298,6 +304,7 @@ class ChangeProposal:
             "approvalExpiresAt": self.approval_expires_at,
             "approvedBaseCommit": self.approved_base_commit,
             "approvalSignature": self.approval_signature,
+            "generatedBy": self.generated_by,
         }
 
     @classmethod
@@ -338,6 +345,7 @@ class ChangeProposal:
             approval_expires_at=optional_text("approvalExpiresAt"),
             approved_base_commit=optional_text("approvedBaseCommit"),
             approval_signature=optional_text("approvalSignature"),
+            generated_by=optional_text("generatedBy"),
         )
 
 
@@ -350,6 +358,7 @@ def propose_change(
     diff: str,
     rationale: str,
     allow_protected_paths: bool = False,
+    generated_by: str | None = None,
 ) -> ChangeProposal:
     """Creates a new, real PENDING proposal. Every field is required and
     non-empty - a proposal a human is about to review is not allowed to
@@ -375,6 +384,7 @@ def propose_change(
         diff=diff,
         rationale=rationale,
         allow_protected_paths=allow_protected_paths,
+        generated_by=generated_by,
     )
 
 

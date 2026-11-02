@@ -252,12 +252,31 @@ one re-checked without the optional `sdk` extra installed - see
 
 Prints the installed `hydra_umc_ops_agent.__version__` and exits `0`.
 
+## Commands that need the configuration
+
+`--config FILE` (before the subcommand; default `OPS_AGENT_CONFIG`, else `/etc/hydra-umc/ops-agent.json`) names the
+configuration file. Each command below refuses, naming the switch, while its feature is off; see
+[OPTIONAL_FEATURES.md](OPTIONAL_FEATURES.md) for what each does and `deploy/ops-agent.json.example` for the keys.
+
+* `edge serve --node-name N (--snapshot-file F | --projects-root D) [--incident-store F] [--health-url U] [--service-unit U] [--audit-journal F]`
+  serves this node over the signed channel (`transport.enabled`); with `metrics.enabled` also `GET /metrics`.
+* `edge healing-ingest --incident-store F` turns the new transitions of the node watchdog's journal into incidents
+  (`healing.enabled`).
+* `control remote {snapshot,verify,health,deploy,rollback} --url U --node N --local-node ME [--incident-id ID | --project P | --proposal-file F] [--out F]`
+  asks an edge over the channel (`transport.enabled`).
+* `control canary-rollout PROPOSAL --target NAME=URL ... --local-node ME [--audit-journal F] [--out F]` rolls one
+  approved proposal out to several nodes, watched, undone on a failure (`multinode.enabled`). Exit `0` only when it
+  was promoted on every node.
+* `control propose-from-diagnosis SNAPSHOT --incident-id ID --project-name P --live-root D --file PATH ... [--diagnosis-file F] [--policy F] [--language L] [--out F]`
+  asks a local model for a diff and stores a pending, generated-marked proposal (`llm_propose.enabled`). Nothing is
+  applied; `control approve` will not take `--yes` for it.
+* `control metrics --incident-store F [--audit-journal F] [--out F]` prints Prometheus text (`metrics.enabled`).
+
+`edge collect` also publishes an event for each incident that opened or closed when `notify.enabled` is on.
+
 ## What does not exist yet
 
-No transport moves a snapshot from the edge role to the control-plane
-role automatically - `edge collect --out` writes a local file, and
-getting that file onto the control-plane host (`scp`, a shared volume,
-anything) is a manual step today. Delivery 6 (voice/notification via
-HYDRA-UMC-VOICE-UI) is investigated and documented as genuinely blocked,
-not merely postponed - see the repository root [README.md](../README.md)'s
-own ROADMAP section for why.
+Without the configuration, no transport moves a snapshot from the edge role to the control-plane role:
+`edge collect --out` writes a local file and getting it to the control-plane host is a manual step. The
+authenticated channel, the notifications, the multi-node canary, the model-drafted proposals and the metrics
+above exist but have not run on a real fleet; see [OPTIONAL_FEATURES.md](OPTIONAL_FEATURES.md).

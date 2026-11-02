@@ -4,11 +4,11 @@
 # GPL-3.0-or-later - see LICENSE
 # =============================================================================
 """The real control-plane role for Delivery 1: a read-only renderer for a
-saved NodeSnapshot (edge_agent.py's own JSON output). No network transport
-between edge and control-plane exists yet in this delivery - that is real,
-separate future work (a queue/API this project's own manifest is explicit
-about not building yet) - this only ever reads a snapshot file already on
-disk, exactly matching "control-plane muestra incidencias locales".
+saved NodeSnapshot (edge_agent.py's own JSON output). It only ever reads a
+snapshot file already on disk; getting that file from an edge node is either a
+manual step or, when the configuration turns it on, `control remote snapshot`
+over the authenticated channel (incident_transport.py), exactly matching
+"control-plane muestra incidencias locales".
 """
 from __future__ import annotations
 

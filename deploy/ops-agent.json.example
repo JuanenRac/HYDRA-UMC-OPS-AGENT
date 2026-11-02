@@ -1,0 +1,64 @@
+{
+  "transport": {
+    "enabled": false,
+    "bind": "127.0.0.1",
+    "port": 18310,
+    "allow_non_loopback": false,
+    "registry_file": "/etc/hydra-umc/ops-agent-nodes.json",
+    "state_file": "/var/lib/hydra-umc/ops-agent-nonces.sqlite",
+    "replay_window_seconds": 120,
+    "max_messages_per_minute": 60,
+    "allow_remote_deploy": false,
+    "approvers_file": "/etc/hydra-umc/ops-agent-approvers.json",
+    "policy_file": "/etc/hydra-umc/ops-agent-policy.json",
+    "build_timeout_seconds": 600
+  },
+  "healing": {
+    "enabled": false,
+    "journal_file": "/var/lib/hydra-umc/node-healing/journal.jsonl",
+    "state_file": "/var/lib/hydra-umc/ops-agent-healing.offset.json",
+    "trigger_statuses": ["UNREACHABLE", "INVALID"],
+    "resolve_statuses": ["HEALTHY"],
+    "severity": "critical"
+  },
+  "notify": {
+    "enabled": false,
+    "broker_host": "127.0.0.1",
+    "broker_port": 1883,
+    "tls": false,
+    "username_env": "OPS_AGENT_MQTT_USER",
+    "password_env": "OPS_AGENT_MQTT_PASSWORD",
+    "topic_prefix": "hydra/ops/incidents",
+    "qos": 1,
+    "language": "en",
+    "min_severity": "warning",
+    "outbox_file": "/var/lib/hydra-umc/ops-agent-outbox.jsonl"
+  },
+  "multinode": {
+    "enabled": false,
+    "canary_nodes": 1,
+    "wave_size": 0,
+    "observe_seconds": 300,
+    "poll_seconds": 10,
+    "max_failed_probes": 1,
+    "max_nodes": 20
+  },
+  "llm_propose": {
+    "enabled": false,
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+    "model": "",
+    "allow_non_loopback": false,
+    "api_key_env": null,
+    "timeout_seconds": 120,
+    "max_tokens": 2048,
+    "max_diff_bytes": 20000,
+    "max_files": 3,
+    "max_changed_lines": 120
+  },
+  "metrics": {
+    "enabled": false,
+    "namespace": "hydra_ops_agent",
+    "include_audit": true,
+    "token_env": "OPS_AGENT_METRICS_TOKEN"
+  }
+}

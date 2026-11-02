@@ -72,8 +72,7 @@ HYDRA-UMC-OPS-AGENT は、HYDRA-UMC/URTC エコシステムの保守インシデ
 **診断**、**人による承認済みの変更**、**カナリアデプロイ**、そして
 **検証**です。
 
-2 つの役割、1 つのパッケージ、両者間のネットワーク転送はまだ存在しま
-せん:
+2 つの役割、1 つのパッケージ。設定で有効にすると認証済みチャネルで結ばれます(無効なら保存したスナップショットファイル):
 
 1. **エッジ役割** (`edge collect`) - 観測対象のマシン(実際の CM5 セル、
    または開発者自身のワークステーション)上で直接実行されます。兄弟
@@ -234,13 +233,7 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --
   らず、ディスク上でファイルが直っているように見えるだけでは不十分で
   す。[docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md) を参照して
   ください。
-- **納品 6 はブロックされているのであり、単に省略されているのではあ
-  りません。** HYDRA-UMC-VOICE-UI 自身の本物の契約(`gateway.py`)は、
-  今日時点で本物のアウトバウンド通知機能を持たない、限定的でインバウ
-  ンドのトランスクリプトからインテントへのゲートウェイです——ここで
-  一つ発明することは、存在しない統合を捏造することを意味し、それはこ
-  のプロジェクト自身の基準が許しません。下記のロードマップのセクショ
-  ンを参照してください。
+- **通知は音声サービスではなくブローカー経由です。** インシデントのイベントはエコシステムの MQTT ブローカーに、設定で指定した言語で公開されます(既定では無効)。`HYDRA-UMC-VOICE-UI` にはアウトバウンドの機能がなく、そのために何かを発明することはしていません。
 - **コアには標準ライブラリのみを使用します。** `edge collect`/
   `control show`/`control propose`/`control approve`/`control
   reject`/`control verify` は、依存関係を一切必要としません——HTTP
@@ -255,6 +248,8 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --
 ## ✨ 機能
 
 昇格したカナリアは、その変更をパッチファイルとしても残します。`git format-patch` でチェックアウトの外の `<プロジェクト>.canary-patches/<デプロイID>.patch` に書き出され、結果と監査記録に `patchPath` として報告されるため、ローカルのコミットを確認し、承知のうえで破棄できます。書き出しはベストエフォートで、デプロイの結果は変わりません。
+
+任意機能はすべて、`ops-agent.json` で有効にするまで無効です(`docs/OPTIONAL_FEATURES.md` を参照): `edge serve` と `control remote` はノードごとの秘密で署名されたチャネルで通信します(ノンス、時間窓、レート制限、SQLite に保持するリプレイ状態、既定はループバックのみ。経由したデプロイにも人の署名付き承認が必要です)。`edge healing-ingest` はノード監視の遷移をインシデントにします。インシデントのイベントは設定の言語で MQTT ブローカー(`hydra/ops/incidents/<ノード>`)に公開されます。`control canary-rollout` は承認済みの提案をまず少数のノードに適用して監視し、その後は段階的に進めるか、すべて元に戻します。`control propose-from-diagnosis` はローカルモデルに diff を依頼し、生成物として印を付けた保留中の提案にします(`--yes` では承認できず、承認者はモデルが書いたことに署名します)。`control metrics` は Prometheus 形式のテキストを出力します。
 
 ## 🚀 クイックスタート
 
@@ -342,38 +337,48 @@ Windows では: 先に `build.bat`、その後 `run.bat`(引数なしの場合�
 
 ```text
 HYDRA-UMC-OPS-AGENT/
-├── src/hydra_umc_ops_agent/   ソースコード
-│   ├── __init__.py            パッケージバージョン
-│   ├── _atomic.py             ストア・提案・結果のための永続的かつアトミックなファイル書き込み
-│   ├── approval_signing.py    承認の Ed25519 署名; 承認者の登録簿
-│   ├── audit_journal.py       ハッシュで連鎖する追記専用の監査ジャーナル
-│   ├── diff_policy.py         diff が含められるもの・触れられるもの(秘密情報の形、保護パス、サイズ)
-│   ├── log_redaction.py       純粋な秘密の秘匿化(KEY=VALUE、Bearer トークン、PEM ブロック)
-│   ├── inventory.py           マニフェストスキャン + systemd/HTTP ヘルスチェック
-│   ├── incident.py            MaintenanceIncident / IncidentBatch 契約
-│   ├── edge_agent.py          各部品を 1 つの NodeSnapshot にまとめる
-│   ├── control_plane.py       読み取り専用スナップショットローダー + テキストレポートレンダラー
-│   ├── diagnosis.py           納品 2: プロバイダーに依存しない AI 支援診断の提案
-│   ├── change_proposal.py     納品 3: 不変で人による承認済みの ChangeProposal ライフサイクル
-│   ├── canary_deploy.py       納品 4: ステージング + 適用 + 検証 + 昇格、承認済みのみ
-│   ├── verification.py        納品 5: インシデントの背後にある本物のチェックを再実行
-│   ├── cli.py                 edge と control のサブコマンド
-│   └── incident_store.py      永続的で重複を排除したインシデント層: (ノード, コンポーネント) ごとに未解決レコードを1件、再確認して正常だった場合のみ解決
-├── tests/                     11 モジュールすべてに対する本物のテスト、ローカル http.server フィクスチャ、模擬 AI プロバイダー、カナリアデプロイ用の本物の使い捨て git リポジトリを含む
-├── deploy/                    カナリアデプロイのポリシーファイルの例
-├── docs/                      プロジェクトの文書
-├── images/                    メディアとアプリアイコン
-├── tools/                     プロジェクトのツールと CI の検査
-├── .github/                   CI ワークフローと Issue テンプレート
-├── build.sh / build.bat       venv + 編集可能インストール + コンパイルチェック + テスト
-├── run.sh / run.bat           本物の edge collect + control show デモ(引数なしの場合)、または本物の CLI コマンドを転送
-├── bump_version.py            明示的なバージョン更新
-├── bump_manifest_version.py   hydra-umc.project.json のバージョンをネイティブのものと同期(--sync)
-├── CHANGELOG.md               各バージョンの変更点
-├── build-test.sh              変更を伴わないビルド確認
-├── hydra-umc.project.json     マニフェスト：バージョン、成熟度、ファミリー
-├── pyproject.toml             パッケージのメタデータ
-└── test.sh                    テストを実行
+├── src/hydra_umc_ops_agent/    ソースコード
+│   ├── __init__.py             パッケージバージョン
+│   ├── _atomic.py              ストア・提案・結果のための永続的かつアトミックなファイル書き込み
+│   ├── approval_signing.py     承認の Ed25519 署名; 承認者の登録簿
+│   ├── audit_journal.py        ハッシュで連鎖する追記専用の監査ジャーナル
+│   ├── diff_policy.py          diff が含められるもの・触れられるもの(秘密情報の形、保護パス、サイズ)
+│   ├── log_redaction.py        純粋な秘密の秘匿化(KEY=VALUE、Bearer トークン、PEM ブロック)
+│   ├── inventory.py            マニフェストスキャン + systemd/HTTP ヘルスチェック
+│   ├── incident.py             MaintenanceIncident / IncidentBatch 契約
+│   ├── edge_agent.py           各部品を 1 つの NodeSnapshot にまとめる
+│   ├── control_plane.py        読み取り専用スナップショットローダー + テキストレポートレンダラー
+│   ├── diagnosis.py            納品 2: プロバイダーに依存しない AI 支援診断の提案
+│   ├── change_proposal.py      納品 3: 不変で人による承認済みの ChangeProposal ライフサイクル
+│   ├── canary_deploy.py        納品 4: ステージング + 適用 + 検証 + 昇格、承認済みのみ
+│   ├── verification.py         納品 5: インシデントの背後にある本物のチェックを再実行
+│   ├── cli.py                  edge と control のサブコマンド
+│   ├── incident_store.py       永続的で重複を排除したインシデント層: (ノード, コンポーネント) ごとに未解決レコードを1件、再確認して正常だった場合のみ解決
+│   ├── config.py               設定ファイル(機能はすべて無効が既定)
+│   ├── incident_transport.py   署名付きのエッジ-制御チャネル
+│   ├── edge_service.py         チャネルでエッジが応答する操作
+│   ├── healing_bridge.py       ノード監視の遷移をインシデントへ
+│   ├── notify.py               インシデントを MQTT ブローカーへ
+│   ├── messages.py             通知文(8 言語)
+│   ├── multinode_canary.py     ロールバック付き複数ノードカナリア
+│   ├── llm_propose.py          モデルが作る保留中の提案
+│   ├── metrics.py              ストアの Prometheus テキスト
+│   └── cli_extra.py            設定を使うコマンド
+├── tests/                      11 モジュールすべてに対する本物のテスト、ローカル http.server フィクスチャ、模擬 AI プロバイダー、カナリアデプロイ用の本物の使い捨て git リポジトリを含む
+├── deploy/                     カナリアデプロイのポリシーファイルの例
+├── docs/                       プロジェクトの文書
+├── images/                     メディアとアプリアイコン
+├── tools/                      プロジェクトのツールと CI の検査
+├── .github/                    CI ワークフローと Issue テンプレート
+├── build.sh / build.bat        venv + 編集可能インストール + コンパイルチェック + テスト
+├── run.sh / run.bat            本物の edge collect + control show デモ(引数なしの場合)、または本物の CLI コマンドを転送
+├── bump_version.py             明示的なバージョン更新
+├── bump_manifest_version.py    hydra-umc.project.json のバージョンをネイティブのものと同期(--sync)
+├── CHANGELOG.md                各バージョンの変更点
+├── build-test.sh               変更を伴わないビルド確認
+├── hydra-umc.project.json      マニフェスト：バージョン、成熟度、ファミリー
+├── pyproject.toml              パッケージのメタデータ
+└── test.sh                     テストを実行
 ```
 
 </details>
@@ -382,24 +387,12 @@ HYDRA-UMC-OPS-AGENT/
 
 **現時点の既知の制限**
 
-納品 1-5(このバージョン)は**証拠**、**診断**、**人による承認済みの
-変更**、**カナリアデプロイ**、**検証**を届けます——このプロジェクト
-自身のマニフェストと CHANGELOG に既に名付けられている本物のライフサ
-イクルです。残っているもの:
+納品 1-5 は**証拠**、**診断**、**人による承認済みの変更**、**カナリアデプロイ**、**検証**を届けます。設定で次のものを追加できますが、有効にするまではいずれも無効です: エッジとコントロール間の認証済みチャネル、ノード監視からのブリッジ、ブローカーへの通知、複数ノードにまたがるカナリア、ローカルモデルが作成する提案(常に保留で、適用されることはありません)、Prometheus 向けのメトリクス。残っているもの:
 
-- **納品 6 - 音声/通知の統合 - 単に先送りされているのではなく、本当
-  にブロックされています。** 計画では、重大なインシデントや完了した
-  カナリアを HYDRA-UMC-VOICE-UI 経由で表面化する予定でした。その本物
-  のコード(`gateway.py`)の実際の調査により、それは限定的で INBOUND
-  (受信専用)のトランスクリプトからインテントへのゲートウェイである
-  こと(Watch がテキストを送信し、返信を受け取る)が判明し、今日時点
-  で本物のアウトバウンド通知/プッシュ機能を持ちません。ここで一つ構
-  築することは、VOICE-UI 自身が持っていない統合ポイントを発明するこ
-  とを意味し、このプロジェクト自身の捏造禁止基準がそれを許しません。
-  VOICE-UI(またはその後継)が本物の「インバウンドのアシスタント告
-  知」機能を自ら備えるようになったら、これを再検討します。
-- エッジ役割とコントロールプレーン役割の間の本物の転送手段(現在、両
-  者の間でスナップショットファイルを移動するのは手動のステップです)。
+- これらは実際の台数では動かしていません。チャネル、複数ノードのカナリア、ブローカー、モデルサーバーは、模擬ノード、模擬ブローカー、模擬モデルサーバーでここでテストしています。
+- ノード監視は遷移をテキストとしてジャーナルに書きます。構造化された `transition` イベントがあれば、そのテキストを読む必要がなくなります。
+- 転送は開発サーバーのものとワイヤ互換ですが、SDK が契約を共有するまで各リポジトリが自分のコピーを持ちます。
+- モデルの下書きはチェックアウト(`git apply --check`)とポリシーに対して検証されます。開発サーバーのサンドボックスで実行し、再現した前後の結果を求めるには、他のリポジトリの契約が必要です。
 
 ## 🌍 言語
 
@@ -457,7 +450,7 @@ HYDRA-UMC-OPS-AGENT/
 *コグニティブ AI ノード(Hailo-10)*
 - **[HYDRA-UMC-COGNITIVE-NODE](https://github.com/JuanenRac/HYDRA-UMC-COGNITIVE-NODE)** — Hailo-10 コグニティブパイプライン(LLM/VLA/音声オーケストレーション)の統合ハブ。
 - **[HYDRA-UMC-VLA-ENGINE](https://github.com/JuanenRac/HYDRA-UMC-VLA-ENGINE)** — Vision-Language-Action モデル向けの、実際のアクショントークンのエンコード/デコードと軌道生成。
-- **[HYDRA-UMC-VOICE-UI](https://github.com/JuanenRac/HYDRA-UMC-VOICE-UI)** — 確認ゲート付きの限定的な Watch リレーを備えた、実際の音声フロントエンド(VAD + 意図解析)——かつて本プロジェクトの納品 6 の通知の受け皿として検討されたが、今日時点で本物のアウトバウンド通知契約を持たないことが判明した(ロードマップのセクションを参照)。
+- **[HYDRA-UMC-VOICE-UI](https://github.com/JuanenRac/HYDRA-UMC-VOICE-UI)** — 確認ゲート付きの限定的な Watch リレーを備えた、実際の音声フロントエンド(VAD + 意図解析)——アウトバウンド通知の機能がないため、本プロジェクトはインシデントのイベントを代わりにエコシステムのブローカーへ公開します。
 - **[HYDRA-UMC-SEMANTIC-PLANNER](https://github.com/JuanenRac/HYDRA-UMC-SEMANTIC-PLANNER)** — MCU エラーコードに対する、実際のルールベースのタスク分解と意味的エラー復旧。
 - **[HYDRA-UMC-DOCS-QA](https://github.com/JuanenRac/HYDRA-UMC-DOCS-QA)** — このエコシステム自身の Markdown ドキュメントに対する、標準ライブラリのみの実際の TF-IDF 文書検索。
 - **[HYDRA-UMC-LOCAL-TECHNICIAN](https://github.com/JuanenRac/HYDRA-UMC-LOCAL-TECHNICIAN)** — エコシステム自身のための、ローカルでポリシーゲート付きのAIメンテナンス技術者 — 観察、診断し、修正を提案する;最上位の2つのリスクレベルは意図的にまだ実装されていない。
@@ -502,6 +495,7 @@ HYDRA-UMC-OPS-AGENT/
 * **[docs/INCIDENT_CONTRACT.md](docs/INCIDENT_CONTRACT.md)** — `MaintenanceIncident`/`NodeSnapshot` の本物の JSON 形。
 * **[docs/DIAGNOSIS.md](docs/DIAGNOSIS.md)** — 納品 2 自身の本物の契約、プロバイダー、認証情報、安全境界。
 * **[docs/CHANGE_LIFECYCLE.md](docs/CHANGE_LIFECYCLE.md)** — 納品 3-5 自身の本物の契約、ステージング/適用/検証/昇格の完全な流れ、そして本物のオペレーターフローの例。
+* **[docs/OPTIONAL_FEATURES.md](docs/OPTIONAL_FEATURES.md)** — すべての任意機能(認証済みチャネル、ノード監視ブリッジ、ブローカー通知、複数ノードカナリア、モデルが作る提案、メトリクス)とそのスイッチおよび上限。
 * [エコシステムのセキュリティ基準](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/SECURITY_BASELINE.md)
 * [エコシステムの脅威モデル](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/THREAT_MODEL.md)
 * [このリポジトリの変更履歴](CHANGELOG.md)

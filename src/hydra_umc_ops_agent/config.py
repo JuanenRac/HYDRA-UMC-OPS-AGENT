@@ -1,0 +1,224 @@
+# =============================================================================
+# HYDRA-UMC-OPS-AGENT - src/hydra_umc_ops_agent/config.py
+# Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
+# GPL-3.0-or-later - see LICENSE
+# =============================================================================
+"""The configuration file of the agent: every tunable value and every switch lives here, never in the code.
+
+Everything that reaches beyond the local collect/propose/approve/deploy flow is OFF until the file turns it
+on: the authenticated transport, the bridge from the node watchdog, the notification to the broker, the
+multi-node canary, the model that drafts a diff and the metrics endpoint. A missing file means "all off with
+the conservative defaults"; a malformed file raises, because half a configuration must not switch half a
+feature on.
+
+The file holds no secret. It names the files (the node registry with the shared secrets, the approvers) and the
+environment variables (broker credentials, the metrics token, the model key) that do; those live outside any
+repository. See `deploy/ops-agent.json.example`.
+"""
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field, fields
+from pathlib import Path
+from typing import Any
+
+CONFIG_ENV = "OPS_AGENT_CONFIG"
+DEFAULT_CONFIG_FILE = "/etc/hydra-umc/ops-agent.json"
+
+SEVERITIES = ("info", "warning", "critical")
+LANGUAGES = ("en", "es", "de", "fr", "it", "ja", "zh", "pt")
+
+
+class ConfigError(ValueError):
+    """The configuration file is malformed or holds a value outside its allowed range."""
+
+
+@dataclass(frozen=True)
+class TransportConfig:
+    """The authenticated edge <-> control channel (`edge serve`, `control ... --remote`)."""
+
+    enabled: bool = False
+    bind: str = "127.0.0.1"
+    port: int = 18310
+    # Refused unless this is true: the channel is signed but not encrypted, so leaving the loopback is a decision.
+    allow_non_loopback: bool = False
+    registry_file: str | None = None
+    state_file: str | None = None
+    replay_window_seconds: int = 120
+    max_messages_per_minute: int = 60
+    max_body_bytes: int = 1_048_576
+    request_timeout_seconds: float = 10.0
+    tls_cert_file: str | None = None
+    tls_key_file: str | None = None
+    # A remote deploy still needs a person's Ed25519 approval inside the proposal; this only lets the edge try.
+    allow_remote_deploy: bool = False
+    approvers_file: str | None = None
+    policy_file: str | None = None
+    build_timeout_seconds: float = 600.0
+
+
+@dataclass(frozen=True)
+class HealingConfig:
+    """The bridge from the node watchdog's transitions to incidents."""
+
+    enabled: bool = False
+    journal_file: str | None = None
+    state_file: str | None = None
+    trigger_statuses: tuple[str, ...] = ("UNREACHABLE", "INVALID")
+    resolve_statuses: tuple[str, ...] = ("HEALTHY",)
+    severity: str = "critical"
+
+
+@dataclass(frozen=True)
+class NotifyConfig:
+    """Incident events published to the broker of the ecosystem."""
+
+    enabled: bool = False
+    broker_host: str = "127.0.0.1"
+    broker_port: int = 1883
+    tls: bool = False
+    username_env: str | None = None
+    password_env: str | None = None
+    topic_prefix: str = "hydra/ops/incidents"
+    qos: int = 1
+    language: str = "en"
+    min_severity: str = "warning"
+    outbox_file: str | None = None
+    timeout_seconds: float = 5.0
+    source: str = "hydra-umc-ops-agent"
+
+
+@dataclass(frozen=True)
+class MultiNodeConfig:
+    """A canary that goes to a few nodes first, is observed, and only then goes on (or is undone)."""
+
+    enabled: bool = False
+    canary_nodes: int = 1
+    wave_size: int = 0  # 0: every remaining node in one wave
+    observe_seconds: float = 300.0
+    poll_seconds: float = 10.0
+    max_failed_probes: int = 1
+    max_nodes: int = 20
+
+
+@dataclass(frozen=True)
+class LlmProposeConfig:
+    """A model drafts the diff of a proposal. The draft is only a PENDING proposal; a person signs or rejects it."""
+
+    enabled: bool = False
+    endpoint: str = "http://127.0.0.1:11434/v1/chat/completions"
+    model: str = ""
+    allow_non_loopback: bool = False
+    api_key_env: str | None = None
+    timeout_seconds: float = 120.0
+    max_tokens: int = 2048
+    max_diff_bytes: int = 20_000
+    max_files: int = 3
+    max_changed_lines: int = 120
+
+
+@dataclass(frozen=True)
+class MetricsConfig:
+    """Prometheus/OpenMetrics text of the incident store and of the audit journal."""
+
+    enabled: bool = False
+    namespace: str = "hydra_ops_agent"
+    include_audit: bool = True
+    token_env: str | None = None
+
+
+@dataclass(frozen=True)
+class AgentConfig:
+    transport: TransportConfig = field(default_factory=TransportConfig)
+    healing: HealingConfig = field(default_factory=HealingConfig)
+    notify: NotifyConfig = field(default_factory=NotifyConfig)
+    multinode: MultiNodeConfig = field(default_factory=MultiNodeConfig)
+    llm_propose: LlmProposeConfig = field(default_factory=LlmProposeConfig)
+    metrics: MetricsConfig = field(default_factory=MetricsConfig)
+
+
+# (minimum, maximum) of every number; anything outside raises.
+_RANGES: dict[str, tuple[float, float]] = {
+    "port": (1, 65535), "broker_port": (1, 65535),
+    "replay_window_seconds": (1, 3600), "max_messages_per_minute": (1, 6000),
+    "max_body_bytes": (1024, 64 * 1024 * 1024), "request_timeout_seconds": (0.1, 600),
+    "build_timeout_seconds": (1, 86400), "qos": (0, 1), "timeout_seconds": (0.1, 600),
+    "canary_nodes": (1, 100), "wave_size": (0, 100), "observe_seconds": (0, 86400),
+    "poll_seconds": (0.05, 3600), "max_failed_probes": (1, 100), "max_nodes": (1, 500),
+    "max_tokens": (64, 32768), "max_diff_bytes": (100, 1_000_000), "max_files": (1, 50),
+    "max_changed_lines": (1, 5000),
+}
+_CHOICES: dict[str, tuple[str, ...]] = {"severity": SEVERITIES, "min_severity": SEVERITIES, "language": LANGUAGES}
+
+
+def _build(section: str, cls: type, raw: object) -> Any:
+    if raw is None:
+        return cls()
+    if not isinstance(raw, dict):
+        raise ConfigError(f"'{section}' must be an object")
+    known = {item.name: item for item in fields(cls)}
+    unknown = sorted(set(raw) - set(known))
+    if unknown:
+        raise ConfigError(f"'{section}' has unknown key(s): {', '.join(unknown)}")
+    default = cls()
+    values: dict[str, Any] = {}
+    for name, value in raw.items():
+        reference = getattr(default, name)
+        where = f"'{section}.{name}'"
+        if isinstance(reference, bool):
+            if not isinstance(value, bool):
+                raise ConfigError(f"{where} must be true or false")
+        elif isinstance(reference, tuple):
+            if not isinstance(value, list) or not all(isinstance(part, str) and part for part in value):
+                raise ConfigError(f"{where} must be a list of non-empty strings")
+            value = tuple(part.upper() for part in value)
+        elif isinstance(reference, (int, float)):
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ConfigError(f"{where} must be a number")
+            low, high = _RANGES.get(name, (float("-inf"), float("inf")))
+            if not low <= value <= high:
+                raise ConfigError(f"{where} must be between {low} and {high}")
+            if isinstance(reference, int):
+                if not float(value).is_integer():
+                    raise ConfigError(f"{where} must be a whole number")
+                value = int(value)
+            else:
+                value = float(value)
+        else:  # a string, or a string-or-null
+            if value is not None and not isinstance(value, str):
+                raise ConfigError(f"{where} must be a string")
+            if value is None and reference is not None:
+                raise ConfigError(f"{where} must be a string")
+            if isinstance(value, str) and not value.strip() and reference is not None and name != "model":
+                raise ConfigError(f"{where} must not be empty")
+        if name in _CHOICES and value not in _CHOICES[name]:
+            raise ConfigError(f"{where} must be one of {', '.join(_CHOICES[name])}")
+        values[name] = value
+    return cls(**values)
+
+
+def parse_config(raw: object) -> AgentConfig:
+    if not isinstance(raw, dict):
+        raise ConfigError("the configuration must be a JSON object")
+    unknown = sorted(set(raw) - {item.name for item in fields(AgentConfig)})
+    if unknown:
+        raise ConfigError(f"unknown section(s): {', '.join(unknown)}")
+    return AgentConfig(
+        transport=_build("transport", TransportConfig, raw.get("transport")),
+        healing=_build("healing", HealingConfig, raw.get("healing")),
+        notify=_build("notify", NotifyConfig, raw.get("notify")),
+        multinode=_build("multinode", MultiNodeConfig, raw.get("multinode")),
+        llm_propose=_build("llm_propose", LlmProposeConfig, raw.get("llm_propose")),
+        metrics=_build("metrics", MetricsConfig, raw.get("metrics")),
+    )
+
+
+def load_config(path: Path | None) -> AgentConfig:
+    """`path` None or missing: everything off. A file that exists but cannot be read or parsed raises."""
+    if path is None or not path.is_file():
+        return AgentConfig()
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ConfigError(f"cannot read the configuration {path}: {exc.__class__.__name__}") from exc
+    return parse_config(raw)

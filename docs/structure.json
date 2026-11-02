@@ -385,6 +385,236 @@
             "zh": "持久且去重的事件层: 每个 (节点, 组件) 一条未结记录,仅当该组件被重新检查且正常时才关闭",
             "pt": "A camada durável e sem duplicados de incidentes: um registo aberto por (nó, componente), resolvido só quando esse componente foi reverificado e está limpo"
           }
+        },
+        {
+          "name": "config.py",
+          "desc": {
+            "en": "Configuration file, all features off",
+            "es": "Archivo de configuración, todo apagado",
+            "de": "Konfigurationsdatei, alles aus",
+            "fr": "Fichier de configuration, tout désactivé",
+            "it": "File di configurazione, tutto spento",
+            "ja": "設定ファイル(機能はすべて無効が既定)",
+            "zh": "配置文件，所有功能默认关闭",
+            "pt": "Ficheiro de configuração, tudo desligado"
+          },
+          "tree_desc": {
+            "en": "Configuration file, all features off",
+            "es": "Archivo de configuración, todo apagado",
+            "de": "Konfigurationsdatei, alles aus",
+            "fr": "Fichier de configuration, tout désactivé",
+            "it": "File di configurazione, tutto spento",
+            "ja": "設定ファイル(機能はすべて無効が既定)",
+            "zh": "配置文件，所有功能默认关闭",
+            "pt": "Ficheiro de configuração, tudo desligado"
+          }
+        },
+        {
+          "name": "incident_transport.py",
+          "desc": {
+            "en": "Signed edge-to-control channel",
+            "es": "Canal firmado edge-control",
+            "de": "Signierter Edge-Control-Kanal",
+            "fr": "Canal signé edge-contrôle",
+            "it": "Canale firmato edge-controllo",
+            "ja": "署名付きのエッジ-制御チャネル",
+            "zh": "经签名的边缘-控制通道",
+            "pt": "Canal assinado periferia-controlo"
+          },
+          "tree_desc": {
+            "en": "Signed edge-to-control channel",
+            "es": "Canal firmado edge-control",
+            "de": "Signierter Edge-Control-Kanal",
+            "fr": "Canal signé edge-contrôle",
+            "it": "Canale firmato edge-controllo",
+            "ja": "署名付きのエッジ-制御チャネル",
+            "zh": "经签名的边缘-控制通道",
+            "pt": "Canal assinado periferia-controlo"
+          }
+        },
+        {
+          "name": "edge_service.py",
+          "desc": {
+            "en": "What the edge answers over the channel",
+            "es": "Lo que responde el edge por el canal",
+            "de": "Was der Edge über den Kanal beantwortet",
+            "fr": "Ce que l'edge répond sur le canal",
+            "it": "Cosa risponde l'edge sul canale",
+            "ja": "チャネルでエッジが応答する操作",
+            "zh": "边缘通过通道响应的操作",
+            "pt": "O que a periferia responde no canal"
+          },
+          "tree_desc": {
+            "en": "What the edge answers over the channel",
+            "es": "Lo que responde el edge por el canal",
+            "de": "Was der Edge über den Kanal beantwortet",
+            "fr": "Ce que l'edge répond sur le canal",
+            "it": "Cosa risponde l'edge sul canale",
+            "ja": "チャネルでエッジが応答する操作",
+            "zh": "边缘通过通道响应的操作",
+            "pt": "O que a periferia responde no canal"
+          }
+        },
+        {
+          "name": "healing_bridge.py",
+          "desc": {
+            "en": "Node watchdog transitions to incidents",
+            "es": "Transiciones del vigilante a incidencias",
+            "de": "Watchdog-Übergänge zu Vorfällen",
+            "fr": "Transitions du chien de garde en incidents",
+            "it": "Transizioni del watchdog in incidenti",
+            "ja": "ノード監視の遷移をインシデントへ",
+            "zh": "看门狗状态转换变为事件",
+            "pt": "Transições do vigilante em incidentes"
+          },
+          "tree_desc": {
+            "en": "Node watchdog transitions to incidents",
+            "es": "Transiciones del vigilante a incidencias",
+            "de": "Watchdog-Übergänge zu Vorfällen",
+            "fr": "Transitions du chien de garde en incidents",
+            "it": "Transizioni del watchdog in incidenti",
+            "ja": "ノード監視の遷移をインシデントへ",
+            "zh": "看门狗状态转换变为事件",
+            "pt": "Transições do vigilante em incidentes"
+          }
+        },
+        {
+          "name": "notify.py",
+          "desc": {
+            "en": "Incident events to the MQTT broker",
+            "es": "Eventos de incidencia al broker MQTT",
+            "de": "Vorfallereignisse an den MQTT-Broker",
+            "fr": "Événements d'incident vers le broker MQTT",
+            "it": "Eventi di incidente al broker MQTT",
+            "ja": "インシデントを MQTT ブローカーへ",
+            "zh": "事件发布到 MQTT 代理",
+            "pt": "Eventos de incidente para o broker MQTT"
+          },
+          "tree_desc": {
+            "en": "Incident events to the MQTT broker",
+            "es": "Eventos de incidencia al broker MQTT",
+            "de": "Vorfallereignisse an den MQTT-Broker",
+            "fr": "Événements d'incident vers le broker MQTT",
+            "it": "Eventi di incidente al broker MQTT",
+            "ja": "インシデントを MQTT ブローカーへ",
+            "zh": "事件发布到 MQTT 代理",
+            "pt": "Eventos de incidente para o broker MQTT"
+          }
+        },
+        {
+          "name": "messages.py",
+          "desc": {
+            "en": "Notification text in eight languages",
+            "es": "Texto de avisos en ocho idiomas",
+            "de": "Benachrichtigungstext in acht Sprachen",
+            "fr": "Texte des avis en huit langues",
+            "it": "Testo degli avvisi in otto lingue",
+            "ja": "通知文(8 言語)",
+            "zh": "八种语言的通知文本",
+            "pt": "Texto de avisos em oito idiomas"
+          },
+          "tree_desc": {
+            "en": "Notification text in eight languages",
+            "es": "Texto de avisos en ocho idiomas",
+            "de": "Benachrichtigungstext in acht Sprachen",
+            "fr": "Texte des avis en huit langues",
+            "it": "Testo degli avvisi in otto lingue",
+            "ja": "通知文(8 言語)",
+            "zh": "八种语言的通知文本",
+            "pt": "Texto de avisos em oito idiomas"
+          }
+        },
+        {
+          "name": "multinode_canary.py",
+          "desc": {
+            "en": "Canary across nodes with rollback",
+            "es": "Canario multinodo con reversión",
+            "de": "Mehrknoten-Canary mit Rollback",
+            "fr": "Canari multinœud avec retour arrière",
+            "it": "Canary multinodo con rollback",
+            "ja": "ロールバック付き複数ノードカナリア",
+            "zh": "带回滚的多节点金丝雀",
+            "pt": "Canário multinó com reversão"
+          },
+          "tree_desc": {
+            "en": "Canary across nodes with rollback",
+            "es": "Canario multinodo con reversión",
+            "de": "Mehrknoten-Canary mit Rollback",
+            "fr": "Canari multinœud avec retour arrière",
+            "it": "Canary multinodo con rollback",
+            "ja": "ロールバック付き複数ノードカナリア",
+            "zh": "带回滚的多节点金丝雀",
+            "pt": "Canário multinó com reversão"
+          }
+        },
+        {
+          "name": "llm_propose.py",
+          "desc": {
+            "en": "Pending proposal drafted by a model",
+            "es": "Propuesta pendiente de un modelo",
+            "de": "Ausstehender Modellvorschlag",
+            "fr": "Proposition en attente d'un modèle",
+            "it": "Proposta in attesa da un modello",
+            "ja": "モデルが作る保留中の提案",
+            "zh": "模型起草的待定提案",
+            "pt": "Proposta pendente de um modelo"
+          },
+          "tree_desc": {
+            "en": "Pending proposal drafted by a model",
+            "es": "Propuesta pendiente de un modelo",
+            "de": "Ausstehender Modellvorschlag",
+            "fr": "Proposition en attente d'un modèle",
+            "it": "Proposta in attesa da un modello",
+            "ja": "モデルが作る保留中の提案",
+            "zh": "模型起草的待定提案",
+            "pt": "Proposta pendente de um modelo"
+          }
+        },
+        {
+          "name": "metrics.py",
+          "desc": {
+            "en": "Prometheus text of the incident store",
+            "es": "Texto Prometheus del almacén",
+            "de": "Prometheus-Text des Vorfallspeichers",
+            "fr": "Texte Prometheus du magasin",
+            "it": "Testo Prometheus dell'archivio",
+            "ja": "ストアの Prometheus テキスト",
+            "zh": "事件存储的 Prometheus 文本",
+            "pt": "Texto Prometheus do armazém"
+          },
+          "tree_desc": {
+            "en": "Prometheus text of the incident store",
+            "es": "Texto Prometheus del almacén",
+            "de": "Prometheus-Text des Vorfallspeichers",
+            "fr": "Texte Prometheus du magasin",
+            "it": "Testo Prometheus dell'archivio",
+            "ja": "ストアの Prometheus テキスト",
+            "zh": "事件存储的 Prometheus 文本",
+            "pt": "Texto Prometheus do armazém"
+          }
+        },
+        {
+          "name": "cli_extra.py",
+          "desc": {
+            "en": "Commands that need the configuration",
+            "es": "Comandos que usan la configuración",
+            "de": "Befehle, die die Konfiguration brauchen",
+            "fr": "Commandes qui utilisent la configuration",
+            "it": "Comandi che usano la configurazione",
+            "ja": "設定を使うコマンド",
+            "zh": "依赖配置的命令",
+            "pt": "Comandos que usam a configuração"
+          },
+          "tree_desc": {
+            "en": "Commands that need the configuration",
+            "es": "Comandos que usan la configuración",
+            "de": "Befehle, die die Konfiguration brauchen",
+            "fr": "Commandes qui utilisent la configuration",
+            "it": "Comandi che usano la configurazione",
+            "ja": "設定を使うコマンド",
+            "zh": "依赖配置的命令",
+            "pt": "Comandos que usam a configuração"
+          }
         }
       ],
       "tree_head": {
