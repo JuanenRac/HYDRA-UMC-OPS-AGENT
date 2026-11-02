@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.2.2] - A signed channel between the edge and the control sides, incidents taken from the node healing journal, notifications without the voice interface, a canary rollout over several nodes with rollback, proposals drafted from a diagnosis and Prometheus metrics
+
 - **A signed channel between the edge and the control host (off by default):** `edge serve` answers `snapshot`, `verify` and `health` (and, only with `transport.allow_remote_deploy`, `deploy` and `rollback`) and `control remote` asks. Every message is HMAC-signed with the secret of the node that sends it, with a nonce, a timestamp and a contract version, in the wire format of the development server's incident transport; a bad signature, a node speaking as another, a message for someone else, a stale timestamp, a replay and an overloaded sender are each refused with a named code, replies are checked the same way, and the replay state lives in SQLite. It listens on the loopback unless the configuration says otherwise, and a deploy over it still needs a person's signed approval that the edge verifies itself.
 - **Verification is asked of the node that owns the incident:** `control remote verify` runs the check on that node, so an incident can no longer be "verified" against the wrong machine.
 - **Node watchdog transitions become incidents (off by default):** `edge healing-ingest` reads the watchdog's journal from where it stopped and opens, updates or closes the incident of a node in the same store `edge collect` uses; the statuses that open and close are configurable.
