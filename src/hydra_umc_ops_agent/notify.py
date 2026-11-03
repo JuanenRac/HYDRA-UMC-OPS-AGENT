@@ -83,7 +83,9 @@ class MqttPublisher:
             with socket.create_connection((self.host, self.port), timeout=self.timeout_s) as raw:
                 sock: socket.socket = raw
                 if self.tls:
-                    sock = ssl.create_default_context().wrap_socket(raw, server_hostname=self.host)
+                    context = ssl.create_default_context()
+                    context.minimum_version = ssl.TLSVersion.TLSv1_2
+                    sock = context.wrap_socket(raw, server_hostname=self.host)
                 sock.settimeout(self.timeout_s)
                 flags = 0x02 | (0x80 if self.username else 0) | (0x40 if self.username and self.password else 0)
                 body = _utf8("MQTT") + bytes([4, flags]) + struct.pack(">H", 30) + _utf8(self.client_id)
