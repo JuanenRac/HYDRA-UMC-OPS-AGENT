@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **Bench test script:** `docs/BENCH_TESTS.md` lists the checks of the signed channel, the canary rollout and the health of a real board, all marked not executed.
+
 ## [0.2.2] - A signed channel between the edge and the control sides, incidents taken from the node healing journal, notifications without the voice interface, a canary rollout over several nodes with rollback, proposals drafted from a diagnosis and Prometheus metrics
 
 - **A signed channel between the edge and the control host (off by default):** `edge serve` answers `snapshot`, `verify` and `health` (and, only with `transport.allow_remote_deploy`, `deploy` and `rollback`) and `control remote` asks. Every message is HMAC-signed with the secret of the node that sends it, with a nonce, a timestamp and a contract version, in the wire format of the development server's incident transport; a bad signature, a node speaking as another, a message for someone else, a stale timestamp, a replay and an overloaded sender are each refused with a named code, replies are checked the same way, and the replay state lives in SQLite. It listens on the loopback unless the configuration says otherwise, and a deploy over it still needs a person's signed approval that the edge verifies itself.
