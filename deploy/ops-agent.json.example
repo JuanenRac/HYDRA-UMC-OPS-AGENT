@@ -21,6 +21,21 @@
     "resolve_statuses": ["HEALTHY"],
     "severity": "critical"
   },
+  "proposals": {
+    "enabled": false,
+    "broker_host": "127.0.0.1",
+    "broker_port": 1883,
+    "tls": false,
+    "username_env": "OPS_AGENT_MQTT_USER",
+    "password_env": "OPS_AGENT_MQTT_PASSWORD",
+    "topic_filter": "hydra/health/+/incident-proposal",
+    "allowed_nodes": null,
+    "max_payload_bytes": 16384,
+    "max_per_minute": 30,
+    "max_messages": 100,
+    "listen_seconds": 30,
+    "severity_cap": "critical"
+  },
   "notify": {
     "enabled": false,
     "broker_host": "127.0.0.1",

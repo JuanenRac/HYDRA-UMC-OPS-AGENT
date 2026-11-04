@@ -89,6 +89,27 @@ class NotifyConfig:
 
 
 @dataclass(frozen=True)
+class ProposalsConfig:
+    """Incident proposals that the node watchdog publishes to the broker, turned into incidents for a person to review."""
+
+    enabled: bool = False
+    broker_host: str = "127.0.0.1"
+    broker_port: int = 1883
+    tls: bool = False
+    username_env: str | None = None
+    password_env: str | None = None
+    topic_filter: str = "hydra/health/+/incident-proposal"
+    # Comma-separated node names that may propose; empty accepts any node the topic names.
+    allowed_nodes: str | None = None
+    max_payload_bytes: int = 16_384
+    max_per_minute: int = 30
+    max_messages: int = 100
+    listen_seconds: float = 30.0
+    timeout_seconds: float = 5.0
+    severity_cap: str = "critical"
+
+
+@dataclass(frozen=True)
 class MultiNodeConfig:
     """A canary that goes to a few nodes first, is observed, and only then goes on (or is undone)."""
 
@@ -132,6 +153,7 @@ class AgentConfig:
     transport: TransportConfig = field(default_factory=TransportConfig)
     healing: HealingConfig = field(default_factory=HealingConfig)
     notify: NotifyConfig = field(default_factory=NotifyConfig)
+    proposals: ProposalsConfig = field(default_factory=ProposalsConfig)
     multinode: MultiNodeConfig = field(default_factory=MultiNodeConfig)
     llm_propose: LlmProposeConfig = field(default_factory=LlmProposeConfig)
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
@@ -147,8 +169,10 @@ _RANGES: dict[str, tuple[float, float]] = {
     "poll_seconds": (0.05, 3600), "max_failed_probes": (1, 100), "max_nodes": (1, 500),
     "max_tokens": (64, 32768), "max_diff_bytes": (100, 1_000_000), "max_files": (1, 50),
     "max_changed_lines": (1, 5000),
+    "max_payload_bytes": (256, 1_048_576), "max_per_minute": (1, 6000), "max_messages": (1, 10000),
+    "listen_seconds": (0.1, 86400),
 }
-_CHOICES: dict[str, tuple[str, ...]] = {"severity": SEVERITIES, "min_severity": SEVERITIES, "language": LANGUAGES}
+_CHOICES: dict[str, tuple[str, ...]] = {"severity": SEVERITIES, "min_severity": SEVERITIES, "severity_cap": SEVERITIES, "language": LANGUAGES}
 
 
 def _build(section: str, cls: type, raw: object) -> Any:
@@ -207,6 +231,7 @@ def parse_config(raw: object) -> AgentConfig:
         transport=_build("transport", TransportConfig, raw.get("transport")),
         healing=_build("healing", HealingConfig, raw.get("healing")),
         notify=_build("notify", NotifyConfig, raw.get("notify")),
+        proposals=_build("proposals", ProposalsConfig, raw.get("proposals")),
         multinode=_build("multinode", MultiNodeConfig, raw.get("multinode")),
         llm_propose=_build("llm_propose", LlmProposeConfig, raw.get("llm_propose")),
         metrics=_build("metrics", MetricsConfig, raw.get("metrics")),

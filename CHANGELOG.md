@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **Incident proposals of the node watchdog are heard from the broker (off by default):** `edge proposals-ingest` subscribes to `<prefix>/<node>/incident-proposal`, checks each message (size, shape, contract version, labels, the node in the payload against the node in the topic, an optional list of nodes, a rate limit, no retained messages, a severity cap) and opens or updates the incident of that node in the same store as `edge healing-ingest`, marked as a proposal. The switches and limits are in the `proposals` section of the configuration file.
+
 - **Bench test script:** `docs/BENCH_TESTS.md` lists the checks of the signed channel, the canary rollout and the health of a real board, all marked not executed.
 
 ## [0.2.2] - A signed channel between the edge and the control sides, incidents taken from the node healing journal, notifications without the voice interface, a canary rollout over several nodes with rollback, proposals drafted from a diagnosis and Prometheus metrics

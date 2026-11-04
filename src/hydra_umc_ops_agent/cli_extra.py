@@ -8,6 +8,7 @@ the switch, when its feature is off:
 
 * `edge serve` - the authenticated channel (transport), with the metrics route when enabled;
 * `edge healing-ingest` - the node watchdog's transitions into the incident store (healing);
+* `edge proposals-ingest` - the incident proposals the watchdog publishes to the broker, listened to for a while (proposals);
 * `control remote <operation>` - a request over the channel to an edge node (transport);
 * `control canary-rollout` - one approved proposal to several nodes, watched, undone on a failure (multinode);
 * `control propose-from-diagnosis` - a model drafts a PENDING proposal (llm_propose);
@@ -46,7 +47,8 @@ from .log_redaction import redact_json
 from .messages import translate
 from .metrics import collect_metrics
 from .multinode_canary import MultiNodeCanaryError, RemoteTarget, run_multinode_canary
-from .notify import MqttPublisher, Notifier
+from .notify import MqttPublisher, NotifyError, Notifier
+from .proposal_intake import MqttSubscriber, run_intake
 
 
 def _config(args: argparse.Namespace) -> AgentConfig | None:
@@ -173,6 +175,27 @@ def _cmd_edge_healing_ingest(args: argparse.Namespace) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     print(f"Read {result.transitions} transition(s): {result.opened_or_updated} opened or updated, {result.resolved} resolved.")
+    return 0
+
+
+def _cmd_edge_proposals_ingest(args: argparse.Namespace) -> int:
+    config = _config(args)
+    if config is None:
+        return 1
+    settings = config.proposals
+    subscriber = MqttSubscriber(
+        settings.broker_host, settings.broker_port, tls=settings.tls, timeout_s=settings.timeout_seconds,
+        username=os.environ.get(settings.username_env) if settings.username_env else None,
+        password=os.environ.get(settings.password_env) if settings.password_env else None,
+    )
+    try:
+        result = run_intake(settings, Path(args.incident_store), subscriber, notifier=make_notifier(config))
+    except (IncidentStoreError, NotifyError, OSError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    refused = ", ".join(f"{reason}={count}" for reason, count in sorted(result.refused.items())) or "none"
+    print(f"Received {result.received} message(s): {result.accepted} accepted, retained ignored {result.ignored_retained}, "
+          f"rate limited {result.rate_limited}, refused: {refused}.")
     return 0
 
 
@@ -309,6 +332,10 @@ def register(edge_sub: Any, control_sub: Any) -> None:
     ingest_parser = edge_sub.add_parser("healing-ingest", help="Turn the new transitions of the node watchdog's journal into incidents (needs healing.enabled).")
     ingest_parser.add_argument("--incident-store", required=True, help="The durable incident store (the one `edge collect --incident-store` uses).")
     ingest_parser.set_defaults(func=_cmd_edge_healing_ingest)
+
+    proposals_parser = edge_sub.add_parser("proposals-ingest", help="Listen to the broker for the incident proposals of the node watchdog and open them as incidents to review (needs proposals.enabled).")
+    proposals_parser.add_argument("--incident-store", required=True, help="The durable incident store (the one `edge healing-ingest` uses).")
+    proposals_parser.set_defaults(func=_cmd_edge_proposals_ingest)
 
     remote = control_sub.add_parser("remote", help="Ask an edge node over the authenticated channel (needs transport.enabled).")
     remote.add_argument("operation", choices=("snapshot", "verify", "health", "deploy", "rollback"))

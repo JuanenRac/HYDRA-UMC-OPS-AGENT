@@ -13,6 +13,7 @@ repository.
 |---|---|---|
 | `transport` | `enabled` | the authenticated channel between an edge and a control host |
 | `healing` | `enabled` | incidents from the node watchdog's transitions |
+| `proposals` | `enabled` | incident proposals of the node watchdog, heard from the broker and opened as incidents to review |
 | `notify` | `enabled` | incident events published to the MQTT broker |
 | `multinode` | `enabled` | a canary across several nodes |
 | `llm_propose` | `enabled` | a local model drafts a pending proposal |
@@ -47,6 +48,20 @@ repository.
 `edge collect` uses. A transition into one of `resolve_statuses` (default `HEALTHY`) closes it. Both the structured
 line (`{"event": "transition", "node", "from", "to", "detail"}`) and the text of the watchdog's own log line are
 understood.
+
+## Incident proposals from the broker (`proposals`)
+
+`edge proposals-ingest --incident-store FILE` connects to the broker (plain MQTT 3.1.1, TLS optional, credentials from
+the environment variables `username_env` and `password_env`), subscribes to `topic_filter` (default
+`hydra/health/+/incident-proposal`, where the node watchdog publishes ONE proposal after a node stayed in a failing
+state) and listens for `listen_seconds` or `max_messages`. A proposal is untrusted: an oversized payload, a message
+that is not a JSON object, another `schema_version`, a missing or ill-typed field, a label outside the contract and
+a retained message are refused or ignored with a named reason; the node in the payload must be the node in the topic,
+`allowed_nodes` (comma separated) narrows who may propose, at most `max_per_minute` messages are looked at, and the
+severity never goes above `severity_cap`. An accepted proposal opens (or updates) the incident of that node in the
+store `healing-ingest` uses, with the same component, so a transition to `HEALTHY` read by the bridge closes it;
+it is marked `requestedBy = node-healing:proposal` and nothing is deployed or changed by it. A broker that cannot be
+reached ends the command with an error and the store is left as it was.
 
 ## Notifications (`notify`)
 
