@@ -32,7 +32,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .incident import IncidentBatch, MaintenanceIncident
+from .config import HostChecksConfig
+from .host_health import HostHealth, collect_host_health
+from .incident import IncidentBatch, MaintenanceIncident, host_components_checked
 from ._atomic import exclusive_lock
 from .incident_store import IncidentStoreError, incident_key, load_incident_store, reconcile_incidents, save_incident_store
 from .log_redaction import redact_secrets
@@ -65,6 +67,8 @@ class NodeSnapshot:
     service_health: tuple[ServiceHealthResult, ...]
     http_health: tuple[HttpHealthResult, ...]
     incidents: tuple[MaintenanceIncident, ...]
+    # What the machine reports about itself (disk, temperature, throttling, backups); None when the host checks are off.
+    host_health: HostHealth | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -99,6 +103,7 @@ class NodeSnapshot:
                 for h in self.http_health
             ],
             "incidents": [incident.to_dict() for incident in self.incidents],
+            **({"hostHealth": self.host_health.to_dict()} if self.host_health is not None else {}),
         }
 
 
@@ -109,6 +114,7 @@ def collect_snapshot(
     systemd_units: list[str] | None = None,
     http_health_urls: list[str] | None = None,
     incident_store_path: Path | None = None,
+    host_checks: HostChecksConfig | None = None,
 ) -> NodeSnapshot:
     """Real, read-only collection - the only network/subprocess calls this
     makes are the ones explicitly asked for (`systemd_units`,
@@ -163,6 +169,11 @@ def collect_snapshot(
         http_health.append(result)
         batch.add_http_health(source_node, result)
 
+    host_health: HostHealth | None = None
+    if host_checks is not None and host_checks.enabled:
+        host_health = collect_host_health(host_checks)
+        batch.add_host_health(source_node, host_checks, host_health)
+
     incidents = tuple(batch.incidents)
     if incident_store_path is not None:
         # The real, complete set of (source_node, component) this pass
@@ -174,6 +185,8 @@ def collect_snapshot(
         checked_components |= {(source_node, i.path) for i in scan.issues}
         checked_components |= {(source_node, s.unit_name) for s in service_health}
         checked_components |= {(source_node, h.url) for h in http_health}
+        if host_health is not None:
+            checked_components |= {(source_node, name) for name in host_components_checked(host_health)}
 
         # Load, reconcile and save as one step under a lock: two collections
         # at the same time (a cron job and a manual run) would otherwise each
@@ -204,4 +217,5 @@ def collect_snapshot(
         service_health=tuple(service_health),
         http_health=tuple(http_health),
         incidents=incidents,
+        host_health=host_health,
     )

@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **What the machine says about itself, in `edge collect` (off by default):** the new `host_checks` section of the configuration file adds free disk space, temperature, the `vcgencmd get_throttled` flags and the backups of a folder to the snapshot (`hostHealth`) and opens an incident when a threshold of the file is crossed. A reading the machine cannot give is reported as unavailable, not as a failure; an incident is resolved when its reading is fine again. Every threshold is in the configuration file, none in the code. New: `src/hydra_umc_ops_agent/host_health.py`, `tests/test_host_health.py`.
+
 - **Incident proposals of the node watchdog are heard from the broker (off by default):** `edge proposals-ingest` subscribes to `<prefix>/<node>/incident-proposal`, checks each message (size, shape, contract version, labels, the node in the payload against the node in the topic, an optional list of nodes, a rate limit, no retained messages, a severity cap) and opens or updates the incident of that node in the same store as `edge healing-ingest`, marked as a proposal. The switches and limits are in the `proposals` section of the configuration file.
 
 - **Bench test script:** `docs/BENCH_TESTS.md` lists the checks of the signed channel, the canary rollout and the health of a real board, all marked not executed.

@@ -141,6 +141,7 @@ def _cmd_edge_collect(args: argparse.Namespace) -> int:
             systemd_units=args.systemd_unit or None,
             http_health_urls=args.http_health_url or None,
             incident_store_path=Path(args.incident_store) if args.incident_store else None,
+            host_checks=config.host_checks,
         )
     except (IncidentStoreError, OSError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

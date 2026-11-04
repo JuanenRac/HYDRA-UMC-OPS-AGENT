@@ -109,6 +109,17 @@ ones and the count of each audit event. Labels are only the severity and the eve
 when the store cannot be read. `edge serve` also serves it at `GET /metrics` with a bearer token from the variable
 named by `token_env` (required off the loopback).
 
+## What the machine says about itself (`host_checks`)
+
+Off by default. With `host_checks.enabled`, `edge collect` also reads, without changing anything: the free space of each folder in
+`disk_paths`, the temperature of the thermal zone, the throttling flags of `vcgencmd get_throttled` (Raspberry Pi) and, when
+`backup_dir` is set, the backups in that folder. The readings go into the snapshot as `hostHealth`, and an incident is opened for a disk
+below `disk_warn_free_percent` (critical below `disk_critical_free_percent`), a temperature above `temperature_warn_celsius`
+(critical above `temperature_critical_celsius`), a throttling flag that is active now, fewer than `backup_min_count` backups
+matching `backup_pattern`, or a newest backup older than `backup_max_age_days` (0 switches the age check off). A reading the machine
+cannot give (no thermal zone, no `vcgencmd`) is reported as unavailable and never becomes an incident. When a reading is fine again,
+the open incident of that component is resolved. Every threshold is in the configuration file.
+
 ## What is not done yet
 
 * None of this has run on a real fleet; it is tested against simulated nodes, broker and model server.

@@ -24,6 +24,8 @@ from datetime import datetime, timezone
 
 from pathlib import Path
 
+from .config import HostChecksConfig
+from .host_health import HostHealth
 from .inventory import HttpHealthResult, ManifestScanIssue, ServiceHealthResult, read_git_commit_hash
 from .log_redaction import redact_secrets
 
@@ -199,3 +201,78 @@ class IncidentBatch:
             symptom=f"health endpoint check failed: {result.detail}",
             evidence_refs=(result.url,),
         )
+
+    def add_host_health(self, source_node: str, settings: HostChecksConfig, health: HostHealth) -> list[MaintenanceIncident]:
+        """Incidents for what the machine reports about itself; a reading that is fine, or that the machine cannot give, produces none."""
+        added: list[MaintenanceIncident] = []
+        for disk in health.disks:
+            if disk.free_percent is None:
+                continue
+            if disk.free_percent <= settings.disk_critical_free_percent:
+                severity = SEVERITY_CRITICAL
+            elif disk.free_percent <= settings.disk_warn_free_percent:
+                severity = SEVERITY_WARNING
+            else:
+                continue
+            added.append(self._new_incident(
+                source_node=source_node, severity=severity, component=host_component_disk(disk.path),
+                symptom=f"free disk space is low: {disk.free_percent}% of {disk.total_bytes} bytes free on {disk.path}",
+                evidence_refs=(f"df {disk.path}",),
+            ))
+        celsius = health.thermal.celsius
+        if celsius is not None and celsius >= settings.temperature_warn_celsius:
+            added.append(self._new_incident(
+                source_node=source_node,
+                severity=SEVERITY_CRITICAL if celsius >= settings.temperature_critical_celsius else SEVERITY_WARNING,
+                component=HOST_COMPONENT_TEMPERATURE,
+                symptom=f"the board is hot: {celsius:.1f} C (warning from {settings.temperature_warn_celsius:.1f} C)",
+                evidence_refs=("/sys/class/thermal/thermal_zone0/temp",),
+            ))
+        if health.thermal.throttled_now:
+            added.append(self._new_incident(
+                source_node=source_node, severity=SEVERITY_WARNING, component=HOST_COMPONENT_THROTTLING,
+                symptom="the firmware reports: " + ", ".join(health.thermal.throttled_now),
+                evidence_refs=("vcgencmd get_throttled",),
+            ))
+        backups = health.backups
+        if backups is not None and backups.error is None and backups.count is not None:
+            problems: list[str] = []
+            if backups.count < settings.backup_min_count:
+                problems.append(f"{backups.count} backup(s) found, at least {settings.backup_min_count} expected")
+            if settings.backup_max_age_days > 0 and backups.newest_age_days is not None and backups.newest_age_days > settings.backup_max_age_days:
+                problems.append(f"the newest backup is {backups.newest_age_days} day(s) old, more than {settings.backup_max_age_days}")
+            if problems:
+                added.append(self._new_incident(
+                    source_node=source_node, severity=SEVERITY_WARNING, component=host_component_backups(backups.directory),
+                    symptom="backups: " + "; ".join(problems), evidence_refs=(f"ls {backups.directory}",),
+                ))
+        elif backups is not None and backups.error is not None:
+            added.append(self._new_incident(
+                source_node=source_node, severity=SEVERITY_WARNING, component=host_component_backups(backups.directory),
+                symptom=f"backups: the folder cannot be read ({backups.error})", evidence_refs=(f"ls {backups.directory}",),
+            ))
+        return added
+
+
+HOST_COMPONENT_TEMPERATURE = "host:temperature"
+HOST_COMPONENT_THROTTLING = "host:throttling"
+
+
+def host_component_disk(path: str) -> str:
+    return f"host:disk:{path}"
+
+
+def host_component_backups(directory: str) -> str:
+    return f"host:backups:{directory}"
+
+
+def host_components_checked(health: HostHealth) -> list[str]:
+    """Every component the host checks looked at in this pass, clean or not: an open incident of one that came back clean can then be resolved."""
+    names = [host_component_disk(d.path) for d in health.disks if d.free_percent is not None]
+    if health.thermal.celsius is not None:
+        names.append(HOST_COMPONENT_TEMPERATURE)
+    if health.thermal.vcgencmd_available:
+        names.append(HOST_COMPONENT_THROTTLING)
+    if health.backups is not None:
+        names.append(host_component_backups(health.backups.directory))
+    return names

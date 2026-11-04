@@ -149,6 +149,30 @@ class MetricsConfig:
 
 
 @dataclass(frozen=True)
+class HostChecksConfig:
+    """What the machine says about itself, added to `edge collect`: free disk space, temperature, throttling (`vcgencmd` on a Raspberry Pi) and the backups on disk.
+
+    A reading the machine cannot give (no thermal zone, no `vcgencmd`) is reported as unavailable and never becomes an incident.
+    """
+
+    enabled: bool = False
+    # Comma-separated folders; the volume of each one is measured.
+    disk_paths: str = "/"
+    disk_warn_free_percent: float = 15.0
+    disk_critical_free_percent: float = 5.0
+    temperature_warn_celsius: float = 75.0
+    temperature_critical_celsius: float = 82.0
+    check_throttling: bool = True
+    vcgencmd_timeout_seconds: float = 3.0
+    # The folder that holds the backups (for example the output of cm5_recovery.sh); none: backups are not checked.
+    backup_dir: str | None = None
+    backup_pattern: str = "*"
+    backup_min_count: int = 1
+    # An incident when the newest backup is older than this many days; 0 switches the age check off.
+    backup_max_age_days: float = 8.0
+
+
+@dataclass(frozen=True)
 class AgentConfig:
     transport: TransportConfig = field(default_factory=TransportConfig)
     healing: HealingConfig = field(default_factory=HealingConfig)
@@ -157,6 +181,7 @@ class AgentConfig:
     multinode: MultiNodeConfig = field(default_factory=MultiNodeConfig)
     llm_propose: LlmProposeConfig = field(default_factory=LlmProposeConfig)
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
+    host_checks: HostChecksConfig = field(default_factory=HostChecksConfig)
 
 
 # (minimum, maximum) of every number; anything outside raises.
@@ -171,6 +196,9 @@ _RANGES: dict[str, tuple[float, float]] = {
     "max_changed_lines": (1, 5000),
     "max_payload_bytes": (256, 1_048_576), "max_per_minute": (1, 6000), "max_messages": (1, 10000),
     "listen_seconds": (0.1, 86400),
+    "disk_warn_free_percent": (0, 100), "disk_critical_free_percent": (0, 100),
+    "temperature_warn_celsius": (30, 120), "temperature_critical_celsius": (30, 120),
+    "vcgencmd_timeout_seconds": (0.1, 60), "backup_min_count": (0, 10000), "backup_max_age_days": (0, 3650),
 }
 _CHOICES: dict[str, tuple[str, ...]] = {"severity": SEVERITIES, "min_severity": SEVERITIES, "severity_cap": SEVERITIES, "language": LANGUAGES}
 
@@ -235,7 +263,19 @@ def parse_config(raw: object) -> AgentConfig:
         multinode=_build("multinode", MultiNodeConfig, raw.get("multinode")),
         llm_propose=_build("llm_propose", LlmProposeConfig, raw.get("llm_propose")),
         metrics=_build("metrics", MetricsConfig, raw.get("metrics")),
+        host_checks=_check_host_checks(_build("host_checks", HostChecksConfig, raw.get("host_checks"))),
     )
+
+
+def _check_host_checks(settings: HostChecksConfig) -> HostChecksConfig:
+    """The critical thresholds must be stricter than the warning ones, or the warning could never be seen."""
+    if settings.disk_critical_free_percent > settings.disk_warn_free_percent:
+        raise ConfigError("'host_checks.disk_critical_free_percent' must not be above 'host_checks.disk_warn_free_percent'")
+    if settings.temperature_critical_celsius < settings.temperature_warn_celsius:
+        raise ConfigError("'host_checks.temperature_critical_celsius' must not be below 'host_checks.temperature_warn_celsius'")
+    if not [part for part in settings.disk_paths.split(",") if part.strip()]:
+        raise ConfigError("'host_checks.disk_paths' must name at least one folder")
+    return settings
 
 
 def load_config(path: Path | None) -> AgentConfig:

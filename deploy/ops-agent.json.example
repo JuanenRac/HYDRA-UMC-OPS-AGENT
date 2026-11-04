@@ -70,6 +70,20 @@
     "max_files": 3,
     "max_changed_lines": 120
   },
+  "host_checks": {
+    "enabled": false,
+    "disk_paths": "/",
+    "disk_warn_free_percent": 15,
+    "disk_critical_free_percent": 5,
+    "temperature_warn_celsius": 75,
+    "temperature_critical_celsius": 82,
+    "check_throttling": true,
+    "vcgencmd_timeout_seconds": 3,
+    "backup_dir": null,
+    "backup_pattern": "*",
+    "backup_min_count": 1,
+    "backup_max_age_days": 8
+  },
   "metrics": {
     "enabled": false,
     "namespace": "hydra_ops_agent",

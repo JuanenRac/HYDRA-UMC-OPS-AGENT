@@ -99,7 +99,7 @@ def collect_with_notification(args: argparse.Namespace, config: AgentConfig) -> 
     before = load_incident_store(store_path) if store_path else []
     snapshot = collect_snapshot(
         source_node=args.node_name, projects_root=Path(args.projects_root), systemd_units=args.systemd_unit or None,
-        http_health_urls=args.http_health_url or None, incident_store_path=store_path,
+        http_health_urls=args.http_health_url or None, incident_store_path=store_path, host_checks=config.host_checks,
     )
     if notifier is not None and store_path is not None:
         notifier.flush_outbox()
@@ -132,7 +132,8 @@ def _cmd_edge_serve(args: argparse.Namespace) -> int:
             def provider() -> dict[str, Any]:
                 fresh = collect_snapshot(args.node_name, projects_root, systemd_units=args.systemd_unit or None,
                                          http_health_urls=args.http_health_url or None,
-                                         incident_store_path=Path(args.incident_store) if args.incident_store else None)
+                                         incident_store_path=Path(args.incident_store) if args.incident_store else None,
+                                         host_checks=config.host_checks)
                 redacted: dict[str, Any] = redact_json(fresh.to_dict())  # type: ignore[assignment]
                 return redacted
         else:
