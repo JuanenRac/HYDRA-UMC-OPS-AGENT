@@ -207,7 +207,7 @@ class MqttSubscriber:
         self.timeout_s = timeout_s
         self.client_id = client_id or f"ops-agent-sub-{uuid.uuid4().hex[:8]}"
 
-    def listen(self, topic_filter: str, on_message: Callable[[str, bytes, bool], None], *, duration_s: float,
+    def listen(self, topic_filter: str, on_message: Callable[[str, bytes, bool], object], *, duration_s: float,
                max_messages: int, qos: int = 1) -> int:
         """Returns the number of messages delivered. Raises NotifyError when the broker cannot be used."""
         delivered = 0
@@ -293,4 +293,3 @@ def run_intake(config: ProposalsConfig, store_path: Path, subscriber: MqttSubscr
         duration_s=config.listen_seconds, max_messages=config.max_messages,
     )
     return intake.result
-
