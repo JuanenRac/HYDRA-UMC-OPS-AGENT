@@ -48,7 +48,9 @@ from .messages import translate
 from .metrics import collect_metrics
 from .multinode_canary import MultiNodeCanaryError, RemoteTarget, run_multinode_canary
 from .notify import MqttPublisher, NotifyError, Notifier
-from .proposal_intake import MqttSubscriber, run_intake
+from .proposal_intake import (
+    MqttSubscriber, PendingError, decide_pending, load_pending, pending_path_for, run_intake,
+)
 
 
 def _config(args: argparse.Namespace) -> AgentConfig | None:
@@ -140,7 +142,8 @@ def _cmd_edge_serve(args: argparse.Namespace) -> int:
             raise TransportError("operation-disabled", "give --snapshot-file or --projects-root so there is something to serve")
         handlers = build_handlers(args.node_name, provider, transport, projects_root=projects_root,
                                   health_url=args.health_url or os.environ.get("OPS_AGENT_HEALTH_URL"), service_unit=args.service_unit,
-                                  audit_path=Path(args.audit_journal) if args.audit_journal else None)
+                                  audit_path=Path(args.audit_journal) if args.audit_journal else None,
+                                  proposals=config.proposals, incident_store_path=Path(args.incident_store) if args.incident_store else None)
         service = EdgeService(args.node_name, registry, TransportPolicy.from_config(transport), SqliteVerifierState(Path(transport.state_file)), handlers)
         metrics_fn = None
         token = None
@@ -190,13 +193,52 @@ def _cmd_edge_proposals_ingest(args: argparse.Namespace) -> int:
         password=os.environ.get(settings.password_env) if settings.password_env else None,
     )
     try:
-        result = run_intake(settings, Path(args.incident_store), subscriber, notifier=make_notifier(config))
+        result = run_intake(settings, Path(args.incident_store), subscriber, notifier=make_notifier(config),
+                            pending_path=Path(args.pending_store) if args.pending_store else None)
     except (IncidentStoreError, NotifyError, OSError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     refused = ", ".join(f"{reason}={count}" for reason, count in sorted(result.refused.items())) or "none"
-    print(f"Received {result.received} message(s): {result.accepted} accepted, retained ignored {result.ignored_retained}, "
+    print(f"Received {result.received} message(s): {result.accepted} accepted ({result.pending} waiting for a person, "
+          f"{result.pending_full} dropped because the pending list is full), retained ignored {result.ignored_retained}, "
           f"rate limited {result.rate_limited}, refused: {refused}.")
+    return 0
+
+
+def _pending_file(args: argparse.Namespace, config: AgentConfig) -> Path:
+    return Path(args.pending_store) if args.pending_store else pending_path_for(config.proposals, Path(args.incident_store))
+
+
+def _cmd_edge_proposals_list(args: argparse.Namespace) -> int:
+    config = _config(args)
+    if config is None:
+        return 1
+    if not config.proposals.enabled:
+        print("ERROR: the incident proposals are switched off in the configuration (proposals.enabled)", file=sys.stderr)
+        return 1
+    try:
+        data = load_pending(_pending_file(args, config))
+    except IncidentStoreError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    print(json.dumps({"pending": data["pending"], "decided": data["decided"]}, indent=2))
+    return 0
+
+
+def _cmd_edge_proposals_decide(args: argparse.Namespace) -> int:
+    config = _config(args)
+    if config is None:
+        return 1
+    if not config.proposals.enabled:
+        print("ERROR: the incident proposals are switched off in the configuration (proposals.enabled)", file=sys.stderr)
+        return 1
+    try:
+        record = decide_pending(_pending_file(args, config), Path(args.incident_store), args.incident_id,
+                                "approved" if args.decision == "approve" else "rejected", by=args.by, notifier=make_notifier(config))
+    except (PendingError, IncidentStoreError, NotifyError, OSError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    print(json.dumps(record))
     return 0
 
 
@@ -222,6 +264,11 @@ def _cmd_control_remote(args: argparse.Namespace) -> int:
             payload["project"] = args.project
         elif args.operation == "deploy":
             payload["proposal"] = load_proposal(Path(args.proposal_file)).to_dict()
+        elif args.operation == "proposal-decide":
+            if not (args.incident_id and args.decision and args.by):
+                print("ERROR: proposal-decide needs --incident-id, --decision and --by", file=sys.stderr)
+                return 1
+            payload.update({"incidentId": args.incident_id, "decision": args.decision, "by": args.by})
         if args.operation in ("verify", "rollback", "deploy") and not (args.incident_id or args.project or args.proposal_file):
             print(f"ERROR: {args.operation} needs its argument", file=sys.stderr)
             return 1
@@ -336,14 +383,30 @@ def register(edge_sub: Any, control_sub: Any) -> None:
 
     proposals_parser = edge_sub.add_parser("proposals-ingest", help="Listen to the broker for the incident proposals of the node watchdog and open them as incidents to review (needs proposals.enabled).")
     proposals_parser.add_argument("--incident-store", required=True, help="The durable incident store (the one `edge healing-ingest` uses).")
+    proposals_parser.add_argument("--pending-store", help="Where the proposals wait for a person (default: proposals.pending_store, or next to the incident store).")
     proposals_parser.set_defaults(func=_cmd_edge_proposals_ingest)
 
+    listing = edge_sub.add_parser("proposals-list", help="Show the proposals that wait for a person and the decisions taken (needs proposals.enabled).")
+    listing.add_argument("--incident-store", required=True)
+    listing.add_argument("--pending-store")
+    listing.set_defaults(func=_cmd_edge_proposals_list)
+
+    deciding = edge_sub.add_parser("proposals-decide", help="Approve (opens the incident) or reject a pending proposal (needs proposals.enabled).")
+    deciding.add_argument("decision", choices=("approve", "reject"))
+    deciding.add_argument("incident_id")
+    deciding.add_argument("--by", required=True, help="Who decides (a label of letters, digits and . _ : -).")
+    deciding.add_argument("--incident-store", required=True)
+    deciding.add_argument("--pending-store")
+    deciding.set_defaults(func=_cmd_edge_proposals_decide)
+
     remote = control_sub.add_parser("remote", help="Ask an edge node over the authenticated channel (needs transport.enabled).")
-    remote.add_argument("operation", choices=("snapshot", "verify", "health", "deploy", "rollback"))
+    remote.add_argument("operation", choices=("snapshot", "verify", "health", "deploy", "rollback", "proposals", "proposal-decide"))
     remote.add_argument("--url", required=True, help="Base URL of the edge, e.g. http://192.168.0.180:18310.")
     remote.add_argument("--node", required=True, help="The edge node's identity in the registry.")
     remote.add_argument("--local-node", required=True, help="This host's identity in the registry.")
-    remote.add_argument("--incident-id", help="For verify.")
+    remote.add_argument("--incident-id", help="For verify and proposal-decide.")
+    remote.add_argument("--decision", choices=("approved", "rejected"), help="For proposal-decide.")
+    remote.add_argument("--by", help="For proposal-decide: who decides.")
     remote.add_argument("--project", help="For rollback.")
     remote.add_argument("--proposal-file", help="For deploy: an APPROVED proposal; the edge verifies the approval itself.")
     remote.add_argument("--out", help="Write the result JSON here instead of stdout.")

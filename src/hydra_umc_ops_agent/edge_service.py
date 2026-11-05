@@ -22,10 +22,12 @@ from typing import Any
 from .approval_signing import ApprovalSigningError, load_approvers
 from .canary_deploy import CanaryDeployError, deploy_canary, rollback_deploy
 from .change_proposal import ChangeProposal, ChangeProposalError
-from .config import TransportConfig
+from .config import ProposalsConfig, TransportConfig
 from .deploy_policy import DeployPolicyError, load_policy
 from .incident import MaintenanceIncident
+from .incident_store import IncidentStoreError
 from .incident_transport import Handler, TransportError
+from .proposal_intake import PendingError, decide_pending, load_pending, pending_path_for
 from .verification import VerificationError, verify_incident_resolved
 
 
@@ -52,6 +54,8 @@ def build_handlers(
     health_url: str | None = None,
     service_unit: str | None = None,
     audit_path: Path | None = None,
+    proposals: ProposalsConfig | None = None,
+    incident_store_path: Path | None = None,
 ) -> dict[str, Handler]:
     """The operations this edge offers. `deploy` and `rollback` exist only with `allow_remote_deploy` and a projects root."""
 
@@ -80,6 +84,28 @@ def build_handlers(
         return {"node": node_name, "healthy": healthy, "detail": detail}
 
     handlers: dict[str, Handler] = {"snapshot": snapshot, "verify": verify, "health": health}
+
+    if proposals is not None and proposals.enabled and incident_store_path is not None:
+        pending_file = pending_path_for(proposals, incident_store_path)
+
+        def list_proposals(_: dict[str, Any]) -> dict[str, Any]:
+            try:
+                data = load_pending(pending_file)
+            except IncidentStoreError as exc:
+                raise TransportError("operation-failed", str(exc)) from exc
+            return {"pending": data["pending"], "decided": data["decided"]}
+
+        def decide_proposal(payload: dict[str, Any]) -> dict[str, Any]:
+            incident_id, decision, by = payload.get("incidentId"), payload.get("decision"), payload.get("by")
+            if not isinstance(incident_id, str) or decision not in ("approved", "rejected") or not isinstance(by, str):
+                raise TransportError("malformed", "proposal-decide needs incidentId, decision (approved or rejected) and by")
+            try:
+                return decide_pending(pending_file, incident_store_path, incident_id, decision, by=by)
+            except (PendingError, IncidentStoreError) as exc:
+                raise TransportError("operation-failed", str(exc)) from exc
+
+        handlers["proposals"] = list_proposals
+        handlers["proposal-decide"] = decide_proposal
     if not (config.allow_remote_deploy and projects_root is not None):
         return handlers
 

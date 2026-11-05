@@ -34,7 +34,10 @@
     "max_per_minute": 30,
     "max_messages": 100,
     "listen_seconds": 30,
-    "severity_cap": "critical"
+    "severity_cap": "critical",
+    "auto_open": false,
+    "pending_store": null,
+    "max_pending": 200
   },
   "notify": {
     "enabled": false,

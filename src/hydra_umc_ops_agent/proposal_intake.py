@@ -17,9 +17,12 @@ this module decides whether to believe it. Everything that arrives is untrusted:
 * at most `max_per_minute` messages are looked at, the rest are counted and dropped;
 * the severity can never be above `severity_cap`, and every text is redacted again before it is stored.
 
-An accepted proposal becomes (or updates) the open incident of that node in the same durable store the watchdog
-bridge uses, under the same component, so the `HEALTHY` transition that `edge healing-ingest` reads closes it. It
-is marked `requestedBy = node-healing:proposal`; nothing is deployed, changed or stopped by it.
+An accepted proposal WAITS FOR A PERSON: it is kept in the pending file (`proposals.pending_store`) and nothing else
+happens until an operator approves it (`edge proposals-decide approve`, or the `proposal-decide` operation of the
+authenticated channel). Approving it becomes (or updates) the open incident of that node in the same durable store the
+watchdog bridge uses, under the same component, so the `HEALTHY` transition that `edge healing-ingest` reads closes it;
+rejecting it only records the decision. With `proposals.auto_open` (off by default) an accepted proposal is opened
+directly. It is marked `requestedBy = node-healing:proposal`; nothing is deployed, changed or stopped by it.
 
 The subscriber is a plain MQTT 3.1.1 client (CONNECT, SUBSCRIBE at QoS 0 or 1, PUBACK, PINGREQ) with no dependency.
 """
@@ -37,7 +40,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-from ._atomic import exclusive_lock
+from ._atomic import atomic_write_text, exclusive_lock
 from .config import SEVERITIES, ProposalsConfig
 from .healing_bridge import COMPONENT_PREFIX
 from .incident import REDACTION_LEVEL_SANITIZED, MaintenanceIncident
@@ -146,6 +149,8 @@ def parse_proposal(topic: str, payload: bytes, config: ProposalsConfig) -> Maint
 class IntakeResult:
     received: int = 0
     accepted: int = 0
+    pending: int = 0
+    pending_full: int = 0
     refused: dict[str, int] = field(default_factory=dict)
     ignored_retained: int = 0
     rate_limited: int = 0
@@ -154,14 +159,99 @@ class IntakeResult:
         self.refused[reason] = self.refused.get(reason, 0) + 1
 
 
+PENDING_SCHEMA = "ops-pending-proposals/1"
+MAX_DECIDED = 200
+DECISIONS = ("approved", "rejected")
+
+
+class PendingError(ValueError):
+    """A pending proposal could not be found or decided; the text is the named reason."""
+
+
+def pending_path_for(config: ProposalsConfig, store_path: Path) -> Path:
+    """The pending file of the configuration, or the one next to the incident store."""
+    if config.pending_store:
+        return Path(config.pending_store)
+    return store_path.with_name(store_path.name + ".pending-proposals.json")
+
+
+def _utc_now() -> str:
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def load_pending(path: Path) -> dict:
+    """`{"schema", "pending": [...], "decided": [...]}`; a file that has never been written is an empty one."""
+    if not path.is_file():
+        return {"schema": PENDING_SCHEMA, "pending": [], "decided": []}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
+        raise IncidentStoreError(f"could not read {path}: {exc.__class__.__name__}") from exc
+    if not isinstance(data, dict) or data.get("schema") != PENDING_SCHEMA or not isinstance(data.get("pending"), list) \
+            or not isinstance(data.get("decided"), list):
+        raise IncidentStoreError(f"{path} is not a pending-proposals file")
+    return data
+
+
+def _save_pending(path: Path, data: dict) -> None:
+    data["decided"] = data["decided"][-MAX_DECIDED:]
+    atomic_write_text(path, json.dumps(data, indent=2))
+
+
+def add_pending(path: Path, incident: MaintenanceIncident, max_pending: int, *, received_at: str | None = None) -> str:
+    """Keeps the proposal for a person. Returns `queued`, `updated` (the same incident id was waiting) or `full`."""
+    with exclusive_lock(path):
+        data = load_pending(path)
+        entry = {"incident": incident.to_dict(), "receivedAt": received_at or _utc_now()}
+        for index, item in enumerate(data["pending"]):
+            if isinstance(item, dict) and item.get("incident", {}).get("incidentId") == incident.incident_id:
+                data["pending"][index] = entry
+                _save_pending(path, data)
+                return "updated"
+        if len(data["pending"]) >= max_pending:
+            return "full"
+        data["pending"].append(entry)
+        _save_pending(path, data)
+        return "queued"
+
+
+def decide_pending(path: Path, store_path: Path, incident_id: str, decision: str, *, by: str, notifier: object | None = None) -> dict:
+    """Approves (opens the incident in the store) or rejects (records only) the pending proposal. Returns the record of the decision."""
+    if decision not in DECISIONS:
+        raise PendingError("decision")
+    if not isinstance(by, str) or not LABEL.match(by):
+        raise PendingError("by")
+    with exclusive_lock(path):
+        data = load_pending(path)
+        found = next((item for item in data["pending"] if isinstance(item, dict) and item.get("incident", {}).get("incidentId") == incident_id), None)
+        if found is None:
+            raise PendingError("not-pending")
+        incident = MaintenanceIncident.from_dict(found["incident"])
+        before = None
+        store = None
+        if decision == "approved":
+            with exclusive_lock(store_path):
+                before = load_incident_store(store_path)
+                store = reconcile_incidents(before, [incident], set())
+                save_incident_store(store, store_path)
+        data["pending"].remove(found)
+        record = {"incidentId": incident_id, "decision": decision, "by": by, "decidedAt": _utc_now(), "receivedAt": found.get("receivedAt")}
+        data["decided"].append(record)
+        _save_pending(path, data)
+    if notifier is not None and store is not None and before is not None:
+        notifier.notify_changes(before, store)  # type: ignore[attr-defined]
+    return record
+
+
 class ProposalIntake:
     """Applies messages one at a time to the incident store, with the rate limit and the counters."""
 
     def __init__(self, config: ProposalsConfig, store_path: Path, *, notifier: object | None = None,
-                 clock: Callable[[], float] = time.monotonic) -> None:
+                 clock: Callable[[], float] = time.monotonic, pending_path: Path | None = None) -> None:
         if not config.enabled:
             raise IncidentStoreError("the incident proposals are switched off in the configuration (proposals.enabled)")
         self.config, self.store_path, self.notifier, self.clock = config, store_path, notifier, clock
+        self.pending_path = pending_path or pending_path_for(config, store_path)
         self.result = IntakeResult()
         self._window: list[float] = []
 
@@ -187,6 +277,14 @@ class ProposalIntake:
         except ProposalRefused as exc:
             result.refuse(str(exc))
             return False
+        if not self.config.auto_open:
+            outcome = add_pending(self.pending_path, incident, self.config.max_pending)
+            if outcome == "full":
+                result.pending_full += 1
+                return False
+            result.pending += 1
+            result.accepted += 1
+            return True
         with exclusive_lock(self.store_path):
             before = load_incident_store(self.store_path)
             store = reconcile_incidents(before, [incident], set())
@@ -285,9 +383,10 @@ class MqttSubscriber:
             sock.settimeout(previous)
 
 
-def run_intake(config: ProposalsConfig, store_path: Path, subscriber: MqttSubscriber, *, notifier: object | None = None) -> IntakeResult:
+def run_intake(config: ProposalsConfig, store_path: Path, subscriber: MqttSubscriber, *, notifier: object | None = None,
+               pending_path: Path | None = None) -> IntakeResult:
     """Listens to the broker for `listen_seconds` (or `max_messages`) and applies what arrives."""
-    intake = ProposalIntake(config, store_path, notifier=notifier)
+    intake = ProposalIntake(config, store_path, notifier=notifier, pending_path=pending_path)
     subscriber.listen(
         config.topic_filter, lambda topic, payload, retained: intake.handle(topic, payload, retained=retained),
         duration_s=config.listen_seconds, max_messages=config.max_messages,

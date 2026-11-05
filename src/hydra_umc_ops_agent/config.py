@@ -107,6 +107,11 @@ class ProposalsConfig:
     listen_seconds: float = 30.0
     timeout_seconds: float = 5.0
     severity_cap: str = "critical"
+    # A proposal WAITS for a person (stored as pending, listed and approved or rejected on purpose). true opens it as an incident directly.
+    auto_open: bool = False
+    # Where the pending proposals are kept; none: next to the incident store, with the ending ".pending-proposals.json".
+    pending_store: str | None = None
+    max_pending: int = 200
 
 
 @dataclass(frozen=True)
@@ -195,7 +200,7 @@ _RANGES: dict[str, tuple[float, float]] = {
     "max_tokens": (64, 32768), "max_diff_bytes": (100, 1_000_000), "max_files": (1, 50),
     "max_changed_lines": (1, 5000),
     "max_payload_bytes": (256, 1_048_576), "max_per_minute": (1, 6000), "max_messages": (1, 10000),
-    "listen_seconds": (0.1, 86400),
+    "listen_seconds": (0.1, 86400), "max_pending": (1, 10000),
     "disk_warn_free_percent": (0, 100), "disk_critical_free_percent": (0, 100),
     "temperature_warn_celsius": (30, 120), "temperature_critical_celsius": (30, 120),
     "vcgencmd_timeout_seconds": (0.1, 60), "backup_min_count": (0, 10000), "backup_max_age_days": (0, 3650),

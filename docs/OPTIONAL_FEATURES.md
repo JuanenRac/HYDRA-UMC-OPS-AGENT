@@ -13,7 +13,7 @@ repository.
 |---|---|---|
 | `transport` | `enabled` | the authenticated channel between an edge and a control host |
 | `healing` | `enabled` | incidents from the node watchdog's transitions |
-| `proposals` | `enabled` | incident proposals of the node watchdog, heard from the broker and opened as incidents to review |
+| `proposals` | `enabled` | incident proposals of the node watchdog, heard from the broker; they wait for a person to approve them (`auto_open` opens them directly) |
 | `notify` | `enabled` | incident events published to the MQTT broker |
 | `multinode` | `enabled` | a canary across several nodes |
 | `llm_propose` | `enabled` | a local model drafts a pending proposal |
@@ -58,9 +58,14 @@ state) and listens for `listen_seconds` or `max_messages`. A proposal is untrust
 that is not a JSON object, another `schema_version`, a missing or ill-typed field, a label outside the contract and
 a retained message are refused or ignored with a named reason; the node in the payload must be the node in the topic,
 `allowed_nodes` (comma separated) narrows who may propose, at most `max_per_minute` messages are looked at, and the
-severity never goes above `severity_cap`. An accepted proposal opens (or updates) the incident of that node in the
+severity never goes above `severity_cap`. An accepted proposal WAITS FOR A PERSON: it is kept in the pending file (`pending_store`, by default next to the incident
+store with the ending `.pending-proposals.json`, at most `max_pending` entries) and nothing reaches the incident store.
+`edge proposals-list` shows what waits and what was decided, `edge proposals-decide approve|reject INCIDENT_ID --by NAME`
+(or the `proposals` and `proposal-decide` operations of the authenticated channel, which a control side or Studio can call)
+takes the decision and records who took it. Approving opens (or updates) the incident of that node in the
 store `healing-ingest` uses, with the same component, so a transition to `HEALTHY` read by the bridge closes it;
-it is marked `requestedBy = node-healing:proposal` and nothing is deployed or changed by it. A broker that cannot be
+rejecting only records the decision. With `"auto_open": true` (off by default) an accepted proposal is opened directly.
+Either way it is marked `requestedBy = node-healing:proposal` and nothing is deployed or changed by it. A broker that cannot be
 reached ends the command with an error and the store is left as it was.
 
 ## Notifications (`notify`)

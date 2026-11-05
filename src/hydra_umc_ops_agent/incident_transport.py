@@ -56,6 +56,8 @@ KINDS = (KIND_INCIDENT, KIND_DIAGNOSIS, KIND_DEPLOY_VERIFICATION, KIND_ACK)
 #: Which kind carries which operation of the edge.
 OPERATION_KIND = {
     "snapshot": KIND_INCIDENT,
+    "proposals": KIND_INCIDENT,
+    "proposal-decide": KIND_ACK,
     "verify": KIND_DEPLOY_VERIFICATION,
     "health": KIND_DEPLOY_VERIFICATION,
     "deploy": KIND_DEPLOY_VERIFICATION,

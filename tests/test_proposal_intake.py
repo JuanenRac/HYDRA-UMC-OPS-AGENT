@@ -17,14 +17,18 @@ from hydra_umc_ops_agent.healing_bridge import COMPONENT_PREFIX
 from hydra_umc_ops_agent.incident_store import IncidentStoreError, load_incident_store
 from hydra_umc_ops_agent.notify import NotifyError
 from hydra_umc_ops_agent.proposal_intake import (
-    MqttSubscriber, ProposalIntake, ProposalRefused, node_of_topic, parse_proposal, run_intake, topic_matches,
+    MqttSubscriber, PendingError, ProposalIntake, ProposalRefused, decide_pending, load_pending, node_of_topic,
+    parse_proposal, pending_path_for, run_intake, topic_matches,
 )
+from hydra_umc_ops_agent.edge_service import build_handlers
+from hydra_umc_ops_agent.config import TransportConfig
+from hydra_umc_ops_agent.incident_transport import TransportError, OPERATION_KIND
 
 TOPIC = "hydra/health/cm5-01/incident-proposal"
 
 
 def cfg(**changes):
-    values = {"enabled": True}
+    values = {"enabled": True, "auto_open": True}
     values.update(changes)
     return ProposalsConfig(**values)
 
@@ -227,6 +231,95 @@ class ConfigTests(unittest.TestCase):
             parse_config({"proposals": {"max_per_minute": 0}})
         with self.assertRaises(Exception):
             parse_config({"proposals": {"severity_cap": "fatal"}})
+
+
+class HumanApprovalTests(unittest.TestCase):
+    """Without `auto_open` a proposal waits for a person; nothing reaches the incident store until it is approved."""
+
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.store = Path(self.dir.name) / "store.json"
+        self.config = ProposalsConfig(enabled=True)
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def test_the_default_is_to_wait_for_a_person(self):
+        self.assertFalse(ProposalsConfig().auto_open)
+        intake = ProposalIntake(self.config, self.store)
+        self.assertTrue(intake.handle(TOPIC, proposal()))
+        self.assertEqual((intake.result.accepted, intake.result.pending), (1, 1))
+        self.assertEqual(load_incident_store(self.store), [])
+        pending = load_pending(pending_path_for(self.config, self.store))["pending"]
+        self.assertEqual([item["incident"]["incidentId"] for item in pending], ["heal-cm5-01-1"])
+
+    def test_the_same_incident_updates_the_waiting_one(self):
+        intake = ProposalIntake(self.config, self.store)
+        intake.handle(TOPIC, proposal())
+        intake.handle(TOPIC, proposal(symptom="again"))
+        self.assertEqual(len(load_pending(pending_path_for(self.config, self.store))["pending"]), 1)
+
+    def test_the_pending_list_has_a_limit(self):
+        intake = ProposalIntake(ProposalsConfig(enabled=True, max_pending=1), self.store)
+        self.assertTrue(intake.handle(TOPIC, proposal()))
+        self.assertFalse(intake.handle(TOPIC, proposal(incidentId="heal-cm5-01-2")))
+        self.assertEqual(intake.result.pending_full, 1)
+
+    def test_approving_opens_the_incident_and_records_who(self):
+        intake = ProposalIntake(self.config, self.store)
+        intake.handle(TOPIC, proposal())
+        pending = pending_path_for(self.config, self.store)
+        record = decide_pending(pending, self.store, "heal-cm5-01-1", "approved", by="operator-1")
+        self.assertEqual((record["decision"], record["by"]), ("approved", "operator-1"))
+        incidents = load_incident_store(self.store)
+        self.assertEqual(len(incidents), 1)
+        self.assertEqual(incidents[0].incident.requested_by, "node-healing:proposal")
+        data = load_pending(pending)
+        self.assertEqual(data["pending"], [])
+        self.assertEqual(data["decided"][0]["incidentId"], "heal-cm5-01-1")
+
+    def test_rejecting_opens_nothing(self):
+        intake = ProposalIntake(self.config, self.store)
+        intake.handle(TOPIC, proposal())
+        pending = pending_path_for(self.config, self.store)
+        decide_pending(pending, self.store, "heal-cm5-01-1", "rejected", by="operator-1")
+        self.assertEqual(load_incident_store(self.store), [])
+        self.assertEqual(load_pending(pending)["decided"][0]["decision"], "rejected")
+
+    def test_a_decision_needs_a_waiting_proposal_a_known_verdict_and_a_name(self):
+        pending = pending_path_for(self.config, self.store)
+        ProposalIntake(self.config, self.store).handle(TOPIC, proposal())
+        for args, reason in ((("nope", "approved"), "not-pending"), (("heal-cm5-01-1", "maybe"), "decision")):
+            with self.assertRaises(PendingError) as caught:
+                decide_pending(pending, self.store, args[0], args[1], by="op")
+            self.assertEqual(str(caught.exception), reason)
+        with self.assertRaises(PendingError):
+            decide_pending(pending, self.store, "heal-cm5-01-1", "approved", by="bad name")
+        self.assertEqual(len(load_pending(pending)["pending"]), 1)
+        self.assertEqual(load_incident_store(self.store), [])
+        with self.assertRaises(PendingError):  # decided once, it is not pending any more
+            decide_pending(pending, self.store, "heal-cm5-01-1", "rejected", by="op")
+            decide_pending(pending, self.store, "heal-cm5-01-1", "approved", by="op")
+
+    def test_the_channel_lists_and_decides_only_when_the_feature_is_on(self):
+        transport = TransportConfig()
+        off = build_handlers("n", lambda: {}, transport, proposals=ProposalsConfig(), incident_store_path=self.store)
+        self.assertNotIn("proposals", off)
+        handlers = build_handlers("n", lambda: {}, transport, proposals=self.config, incident_store_path=self.store)
+        ProposalIntake(self.config, self.store).handle(TOPIC, proposal())
+        self.assertEqual(len(handlers["proposals"]({})["pending"]), 1)
+        with self.assertRaises(TransportError):
+            handlers["proposal-decide"]({"incidentId": "heal-cm5-01-1", "decision": "maybe", "by": "op"})
+        done = handlers["proposal-decide"]({"incidentId": "heal-cm5-01-1", "decision": "approved", "by": "op"})
+        self.assertEqual(done["decision"], "approved")
+        self.assertEqual(len(load_incident_store(self.store)), 1)
+        self.assertIn("proposals", OPERATION_KIND)
+
+    def test_config_keys(self):
+        config = parse_config({"proposals": {"auto_open": True, "max_pending": 5, "pending_store": "/tmp/p.json"}})
+        self.assertTrue(config.proposals.auto_open)
+        with self.assertRaises(Exception):
+            parse_config({"proposals": {"max_pending": 0}})
 
 
 if __name__ == "__main__":
