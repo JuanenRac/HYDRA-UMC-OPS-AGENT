@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **The build test of the repository compiles only on CI or when allowed:** for the stacks that compile (`rust`, `go`, `android`, `flutter`, `firmware-c`), `tools/build_test.py` prints `BUILD_TEST=SKIPPED` with exit status 2 on a plain PC, never a pass; `ALLOW_LOCAL_BUILD=1` allows it and a CI runner always may. The `python` and `node` stacks are not locked.
+
 - **Private-key blocks are redacted in one linear pass:** the shared redaction no longer takes quadratic time on a text with thousands of private-key BEGIN markers.
 
 - **What the machine says about itself, in `edge collect` (off by default):** the new `host_checks` section of the configuration file adds free disk space, temperature, the `vcgencmd get_throttled` flags and the backups of a folder to the snapshot (`hostHealth`) and opens an incident when a threshold of the file is crossed. A reading the machine cannot give is reported as unavailable, not as a failure; an incident is resolved when its reading is fine again. Every threshold is in the configuration file, none in the code. New: `src/hydra_umc_ops_agent/host_health.py`, `tests/test_host_health.py`.
