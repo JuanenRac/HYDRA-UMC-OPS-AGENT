@@ -125,7 +125,7 @@ def verify_incident_resolved(
     timeout_s: float = 5.0,
     local_node_name: str | None = None,
     http_health_url: str | None = None,
-    outcome_sink: "Callable[[dict[str, object]], object] | None" = None,
+    outcome_sink: "Callable[[Any], object] | None" = None,
 ) -> VerificationResult:
     """Re-runs the real check implied by the incident's own symptom text.
     Only the two Delivery-1 check kinds that can be re-run automatically
@@ -180,7 +180,7 @@ def _find_base_commit(evidence_refs: tuple[str, ...]) -> str | None:
     return None
 
 
-def _verify_manifest_incident(incident: MaintenanceIncident, outcome_sink: "Callable[[dict[str, object]], object] | None" = None) -> VerificationResult:
+def _verify_manifest_incident(incident: MaintenanceIncident, outcome_sink: "Callable[[Any], object] | None" = None) -> VerificationResult:
     """Re-checks THIS exact manifest (incident.component IS its real
     path - see incident.py's own add_manifest_issue()) via
     check_project_manifest(), then - only when a real `base_commit:`
