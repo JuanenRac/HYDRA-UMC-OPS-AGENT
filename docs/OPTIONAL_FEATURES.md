@@ -18,6 +18,7 @@ repository.
 | `multinode` | `enabled` | a canary across several nodes |
 | `llm_propose` | `enabled` | a local model drafts a pending proposal |
 | `metrics` | `enabled` | Prometheus text of the incident store |
+| `scenario_ingest` | `enabled` | the before/after `ScenarioOutcome` of `control verify` handed to HYDRA-UMC-SERVER |
 
 ## Authenticated channel (`transport`)
 
@@ -132,3 +133,14 @@ the open incident of that component is resolved. Every threshold is in the confi
 * The transport and the development server's keep separate copies of one wire format until the SDK holds the
   contract.
 * A model draft is not yet run in a sandbox that reproduces the before/after result.
+
+## Scenario outcomes for the server (`scenario_ingest`)
+
+`control verify` of a manifest incident compares a `before` and an `after` run (`ScenarioOutcome` 1.0). With this section on, both are also sent to
+`POST /api/ingest/scenario-outcome` of HYDRA-UMC-SERVER, which keeps them in a signed, hash-chained record. The server has this feed off (it answers
+404) until its switch `HYDRA_UMC_INGEST_SCENARIO` is `1`, and it takes the outcome from an operator or administrator account.
+
+* `server_url` and the credential are in the configuration; the credential itself is in a file: `token_file` (a token the server issued) or `username`
+  with the password in `password_file` (the agent logs in first). Nothing secret is written in the configuration, a log or a result.
+* The credential only goes over HTTPS or to this machine (`allow_plain_http` allows a bench); a redirect is never followed.
+* A server that is off, refuses the credential or cannot be reached is reported on the error stream and never changes the verdict or the exit status.

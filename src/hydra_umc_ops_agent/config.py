@@ -154,6 +154,24 @@ class MetricsConfig:
 
 
 @dataclass(frozen=True)
+class ScenarioIngestConfig:
+    """Hands the before/after ScenarioOutcome that `control verify` compares to HYDRA-UMC-SERVER (`POST /api/ingest/scenario-outcome`).
+
+    The credential is a file: the token the SERVER issued (`token_file`), or an account (`username` and the password in `password_file`).
+    The SERVER keeps this feed off (404) until its own switch HYDRA_UMC_INGEST_SCENARIO is 1.
+    """
+
+    enabled: bool = False
+    server_url: str | None = None
+    token_file: str | None = None
+    username: str | None = None
+    password_file: str | None = None
+    timeout_seconds: float = 5.0
+    # The credential only goes over HTTPS or to this machine; a bench that needs plain HTTP says so.
+    allow_plain_http: bool = False
+
+
+@dataclass(frozen=True)
 class HostChecksConfig:
     """What the machine says about itself, added to `edge collect`: free disk space, temperature, throttling (`vcgencmd` on a Raspberry Pi) and the backups on disk.
 
@@ -187,6 +205,7 @@ class AgentConfig:
     llm_propose: LlmProposeConfig = field(default_factory=LlmProposeConfig)
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
     host_checks: HostChecksConfig = field(default_factory=HostChecksConfig)
+    scenario_ingest: ScenarioIngestConfig = field(default_factory=ScenarioIngestConfig)
 
 
 # (minimum, maximum) of every number; anything outside raises.
@@ -269,7 +288,18 @@ def parse_config(raw: object) -> AgentConfig:
         llm_propose=_build("llm_propose", LlmProposeConfig, raw.get("llm_propose")),
         metrics=_build("metrics", MetricsConfig, raw.get("metrics")),
         host_checks=_check_host_checks(_build("host_checks", HostChecksConfig, raw.get("host_checks"))),
+        scenario_ingest=_check_scenario_ingest(_build("scenario_ingest", ScenarioIngestConfig, raw.get("scenario_ingest"))),
     )
+
+
+def _check_scenario_ingest(settings: ScenarioIngestConfig) -> ScenarioIngestConfig:
+    """Switched on, it needs the address of the server and a credential."""
+    if settings.enabled:
+        if not settings.server_url:
+            raise ConfigError("'scenario_ingest.server_url' is needed when 'scenario_ingest.enabled' is true")
+        if not settings.token_file and not (settings.username and settings.password_file):
+            raise ConfigError("'scenario_ingest' needs 'token_file', or 'username' and 'password_file'")
+    return settings
 
 
 def _check_host_checks(settings: HostChecksConfig) -> HostChecksConfig:

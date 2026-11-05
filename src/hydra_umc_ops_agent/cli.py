@@ -448,15 +448,24 @@ def _cmd_control_verify(args: argparse.Namespace) -> int:
     if incident is None:
         print(f"ERROR: no incident with id {args.incident_id!r} in {args.snapshot_file}", file=sys.stderr)
         return 1
+    from . import cli_extra
+
+    config = cli_extra._config(args)
+    if config is None:
+        return 1
+    sink, sent = cli_extra.scenario_outcome_sink(config)
     try:
         result = verify_incident_resolved(
             incident,
             local_node_name=args.node_name,
             http_health_url=args.health_url or os.environ.get("OPS_AGENT_HEALTH_URL"),
+            outcome_sink=sink,
         )
     except VerificationError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
+    for report in sent:
+        print(f"scenario outcome {report['phase']}: {report['detail']}", file=sys.stderr)
     payload = _dump(result.to_dict())
     if args.out:
         if not _write_output(args.out, payload):

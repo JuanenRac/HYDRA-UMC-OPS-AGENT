@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **The before and after runs of `control verify` can be handed to HYDRA-UMC-SERVER (off by default):** the `scenario_ingest` section of the configuration (`enabled`, `server_url`, `token_file` or `username` with `password_file`, `timeout_seconds`, `allow_plain_http`) sends both `ScenarioOutcome` 1.0 documents of a manifest incident to `POST /api/ingest/scenario-outcome`. The credential is a file and never appears in a log or a result; it only goes over HTTPS or to this machine; a redirect is not followed; a server that is off, refuses or is down is reported on the error stream and never changes the verdict. Tests run against a small local server and the stand-in server of the SDK.
+
 - **The build test of the repository compiles only on CI or when allowed:** for the stacks that compile (`rust`, `go`, `android`, `flutter`, `firmware-c`), `tools/build_test.py` prints `BUILD_TEST=SKIPPED` with exit status 2 on a plain PC, never a pass; `ALLOW_LOCAL_BUILD=1` allows it and a CI runner always may. The `python` and `node` stacks are not locked.
 
 - **Private-key blocks are redacted in one linear pass:** the shared redaction no longer takes quadratic time on a text with thousands of private-key BEGIN markers.

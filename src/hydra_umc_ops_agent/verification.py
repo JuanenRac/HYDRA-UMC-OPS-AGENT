@@ -34,7 +34,7 @@ a real additional guarantee.
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -125,6 +125,7 @@ def verify_incident_resolved(
     timeout_s: float = 5.0,
     local_node_name: str | None = None,
     http_health_url: str | None = None,
+    outcome_sink: "Callable[[dict[str, object]], object] | None" = None,
 ) -> VerificationResult:
     """Re-runs the real check implied by the incident's own symptom text.
     Only the two Delivery-1 check kinds that can be re-run automatically
@@ -166,7 +167,7 @@ def verify_incident_resolved(
         return VerificationResult(incident_id=incident.incident_id, verified_at=_utc_now_iso(), resolved=result.active, detail=result.detail)
 
     if incident.symptom.startswith(_MANIFEST_SYMPTOM_PREFIX):
-        return _verify_manifest_incident(incident)
+        return _verify_manifest_incident(incident, outcome_sink)
 
     raise VerificationError(f"unrecognized incident symptom shape, cannot determine how to verify it: {incident.symptom!r}")
 
@@ -179,7 +180,7 @@ def _find_base_commit(evidence_refs: tuple[str, ...]) -> str | None:
     return None
 
 
-def _verify_manifest_incident(incident: MaintenanceIncident) -> VerificationResult:
+def _verify_manifest_incident(incident: MaintenanceIncident, outcome_sink: "Callable[[dict[str, object]], object] | None" = None) -> VerificationResult:
     """Re-checks THIS exact manifest (incident.component IS its real
     path - see incident.py's own add_manifest_issue()) via
     check_project_manifest(), then - only when a real `base_commit:`
@@ -232,4 +233,11 @@ def _verify_manifest_incident(incident: MaintenanceIncident) -> VerificationResu
         comparison = compare_runs(before, after)
     except ValueError as exc:  # the SDK's ContractValidationError is a ValueError
         raise VerificationError(f"the before/after evidence of this incident is not a valid scenario outcome: {exc}") from exc
+    if outcome_sink is not None:
+        # the pair is evidence of the same verdict: handing it on never changes the verdict, and a sink that fails is not a failure of the check
+        for outcome in (before, after):
+            try:
+                outcome_sink(outcome)
+            except Exception:  # noqa: BLE001 - reporting must never break the verification
+                pass
     return VerificationResult(incident_id=incident.incident_id, verified_at=now, resolved=comparison.is_promotable, detail=comparison.reason)

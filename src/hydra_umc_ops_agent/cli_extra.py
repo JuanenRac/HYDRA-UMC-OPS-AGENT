@@ -66,6 +66,26 @@ def _config(args: argparse.Namespace) -> AgentConfig | None:
         return None
 
 
+def scenario_outcome_sink(config: AgentConfig) -> tuple[Any, list[dict[str, Any]]]:
+    """(the function that hands a ScenarioOutcome to HYDRA-UMC-SERVER, the list of what came of each one); (None, []) while the section is off."""
+    settings = config.scenario_ingest
+    sent: list[dict[str, Any]] = []
+    if not settings.enabled:
+        return None, sent
+    from .scenario_ingest import IngestSettings, post_scenario_outcome
+
+    ingest = IngestSettings(
+        server_url=settings.server_url or "", token_file=settings.token_file, username=settings.username,
+        password_file=settings.password_file, timeout_seconds=settings.timeout_seconds, allow_plain_http=settings.allow_plain_http,
+    )
+
+    def sink(outcome: dict[str, Any]) -> None:
+        result = post_scenario_outcome(outcome, ingest)
+        sent.append({"phase": outcome.get("phase"), "ok": result.ok, "detail": result.detail})
+
+    return sink, sent
+
+
 def _out(args: argparse.Namespace, value: Any) -> int:
     from . import cli
 
