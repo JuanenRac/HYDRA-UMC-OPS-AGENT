@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.2.3] - The files read can be checked against the SDK: contracts.validate (off by default, warn, strict) checks every snapshot and change proposal read from a file against the closed schemas of the SDK; strict refuses a file that does... (and 9 more changes)
+
 - **The files read can be checked against the SDK:** `contracts.validate` (`off` by default, `warn`, `strict`) checks every snapshot and change proposal read from a file against the closed schemas of the SDK; `strict` refuses a file that does not match.
 
 - **The incident that opens a proposal gets its evidence bundle:** with `evidence_bundle.with_proposal` (off by default), `control propose-from-diagnosis` writes the sealed bundle of the incident next to the proposal.
