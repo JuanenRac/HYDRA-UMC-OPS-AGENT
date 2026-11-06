@@ -179,10 +179,19 @@ class EvidenceBundleConfig:
     """
 
     enabled: bool = False
+    # true: `control propose-from-diagnosis` also writes the bundle of the incident next to the proposal (needs `enabled`).
+    with_proposal: bool = False
     # Lines kept from the end of every log file given to the command.
     max_log_lines: int = 200
     # Characters kept from every manifest given to the command.
     max_manifest_chars: int = 20000
+
+
+@dataclass(frozen=True)
+class ContractsConfig:
+    """What happens when a snapshot or a change proposal read from a file does not match the closed schema of the shared SDK: `off`, `warn` (says it and goes on) or `strict` (refuses the file)."""
+
+    validate: str = "off"
 
 
 @dataclass(frozen=True)
@@ -221,6 +230,7 @@ class AgentConfig:
     host_checks: HostChecksConfig = field(default_factory=HostChecksConfig)
     scenario_ingest: ScenarioIngestConfig = field(default_factory=ScenarioIngestConfig)
     evidence_bundle: EvidenceBundleConfig = field(default_factory=EvidenceBundleConfig)
+    contracts: ContractsConfig = field(default_factory=ContractsConfig)
 
 
 # (minimum, maximum) of every number; anything outside raises.
@@ -306,7 +316,14 @@ def parse_config(raw: object) -> AgentConfig:
         host_checks=_check_host_checks(_build("host_checks", HostChecksConfig, raw.get("host_checks"))),
         scenario_ingest=_check_scenario_ingest(_build("scenario_ingest", ScenarioIngestConfig, raw.get("scenario_ingest"))),
         evidence_bundle=_build("evidence_bundle", EvidenceBundleConfig, raw.get("evidence_bundle")),
+        contracts=_check_contracts(_build("contracts", ContractsConfig, raw.get("contracts"))),
     )
+
+
+def _check_contracts(settings: ContractsConfig) -> ContractsConfig:
+    if settings.validate not in ("off", "warn", "strict"):
+        raise ConfigError("'contracts.validate' must be off, warn or strict")
+    return settings
 
 
 def _check_scenario_ingest(settings: ScenarioIngestConfig) -> ScenarioIngestConfig:

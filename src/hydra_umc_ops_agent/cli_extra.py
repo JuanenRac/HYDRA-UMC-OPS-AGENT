@@ -364,13 +364,44 @@ def _cmd_control_propose_from_diagnosis(args: argparse.Namespace) -> int:
                       "generatedBy": draft.proposal.generated_by, "files": draft.files})
     except Exception as exc:  # noqa: BLE001 - said, not hidden
         print(f"WARNING: could not write the audit journal: {exc}", file=sys.stderr)
+    if config.evidence_bundle.enabled and config.evidence_bundle.with_proposal:
+        # the incident that opens a proposal gets its evidence bundle next to it, for the development node; a failure here never blocks the proposal
+        from .evidence_bundle import EvidenceBundleError
+
+        bundle_path = out_path.with_name(f"evidence-{incident.incident_id}.json")
+        try:
+            write_incident_bundle(config.evidence_bundle, snapshot, incident, bundle_path, actions=[f"change proposal {draft.proposal.proposal_id} drafted"])
+            print(f"Wrote the evidence bundle of the incident to {bundle_path}.")
+        except (OSError, EvidenceBundleError) as exc:
+            print(f"WARNING: could not write the evidence bundle: {exc}", file=sys.stderr)
     print(f"Wrote PENDING proposal {draft.proposal.proposal_id} to {out_path}. {translate('proposal.generated', args.language or config.notify.language, project=args.project_name)}")
     return 0
 
 
+def write_incident_bundle(settings: Any, snapshot: dict[str, Any], incident: Any, out: Path, *, logs: list[str] | None = None, manifests: list[str] | None = None,
+                          steps: list[str] | None = None, failed_tests: list[str] | None = None, actions: list[str] | None = None,
+                          validation: str | None = None, impact: str | None = None) -> dict[str, Any]:
+    """Build, seal and write the EvidenceBundle of one incident (the text given is cut to the sizes of `settings`)."""
+    from .evidence_bundle import NOT_VALIDATED, build_bundle, component_versions_of, write_bundle
+
+    bundle = build_bundle(
+        incident,
+        component_versions=component_versions_of(snapshot),
+        manifests=[text[: settings.max_manifest_chars] for text in manifests or []],
+        log_excerpts=logs or [],
+        reproduction_steps=steps or [],
+        failed_tests=failed_tests or [],
+        actions_attempted=actions or [],
+        local_validation_result=validation or NOT_VALIDATED,
+        impact=impact,
+    )
+    write_bundle(bundle, out)
+    return bundle
+
+
 def _cmd_control_evidence_bundle(args: argparse.Namespace) -> int:
     from . import cli
-    from .evidence_bundle import NOT_VALIDATED, EvidenceBundleError, build_bundle, component_versions_of, tail_lines, write_bundle
+    from .evidence_bundle import EvidenceBundleError, tail_lines
 
     config = _config(args)
     if config is None:
@@ -395,19 +426,9 @@ def _cmd_control_evidence_bundle(args: argparse.Namespace) -> int:
             logs.append("\n".join(tail_lines(Path(name).read_text(encoding="utf-8", errors="replace"), settings.max_log_lines)))
         for name in args.manifest or []:
             manifests.append(Path(name).read_text(encoding="utf-8", errors="replace")[: settings.max_manifest_chars])
-        bundle = build_bundle(
-            incident,
-            component_versions=component_versions_of(snapshot),
-            manifests=manifests,
-            log_excerpts=logs,
-            reproduction_steps=args.step or [],
-            failed_tests=args.failed_test or [],
-            actions_attempted=args.action or [],
-            local_validation_result=args.validation or NOT_VALIDATED,
-            impact=args.impact,
-        )
         out = Path(args.out or f"evidence-{incident.incident_id}.json")
-        write_bundle(bundle, out)
+        bundle = write_incident_bundle(settings, snapshot, incident, out, logs=logs, manifests=manifests, steps=args.step, failed_tests=args.failed_test,
+                                       actions=args.action, validation=args.validation, impact=args.impact)
     except (OSError, EvidenceBundleError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

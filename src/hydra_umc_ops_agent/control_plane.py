@@ -15,6 +15,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from . import contract_check
+
 
 class SnapshotLoadError(RuntimeError):
     """A real, distinct reason a snapshot file could not be loaded/rendered
@@ -34,6 +36,10 @@ def load_snapshot(path: Path) -> dict[str, object]:
         raise SnapshotLoadError(f"{path} is not valid JSON: {exc}") from exc
     if not isinstance(data, dict):
         raise SnapshotLoadError(f"{path} does not contain a JSON object")
+    try:
+        contract_check.check("NodeSnapshot", data, str(path))
+    except contract_check.ContractCheckError as exc:
+        raise SnapshotLoadError(str(exc)) from exc
     return data
 
 

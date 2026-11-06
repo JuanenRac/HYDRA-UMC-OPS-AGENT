@@ -37,7 +37,8 @@ import sys
 from datetime import timedelta
 from pathlib import Path
 
-from . import __version__
+from . import __version__, contract_check
+from .config import CONFIG_ENV, DEFAULT_CONFIG_FILE, ConfigError, load_config
 from ._atomic import atomic_write_text
 from .log_redaction import redact_json
 from .approval_signing import (
@@ -671,9 +672,20 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _set_contract_mode(args: argparse.Namespace) -> None:
+    """The `contracts.validate` setting of the configuration file, if there is a readable one; a bad file is reported by the command that needs it."""
+    explicit = getattr(args, "config", None) or os.environ.get(CONFIG_ENV)
+    path = Path(explicit) if explicit else Path(DEFAULT_CONFIG_FILE)
+    try:
+        contract_check.set_mode(load_config(path).contracts.validate)
+    except (ConfigError, OSError):
+        contract_check.set_mode("off")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    _set_contract_mode(args)
     return args.func(args)
 
 

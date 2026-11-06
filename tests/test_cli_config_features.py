@@ -95,7 +95,8 @@ class ProposeFromDiagnosisCliTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as tmp:
                 d = Path(tmp)
                 live = make_checkout(d / "projects")
-                config = write_config(d, llm_propose={"enabled": True, "model": "m", "endpoint": f"http://127.0.0.1:{server.server_address[1]}/v1/chat/completions"})
+                config = write_config(d, llm_propose={"enabled": True, "model": "m", "endpoint": f"http://127.0.0.1:{server.server_address[1]}/v1/chat/completions"},
+                                      evidence_bundle={"enabled": True, "with_proposal": True})
                 policy = d / "policy.json"
                 policy.write_text(json.dumps({"projects": {"test-project": {"build_test_commands": [python_command()]}}}), encoding="utf-8")
                 incident = {"incidentId": "i1", "sourceNode": "n", "detectedAt": "t", "severity": "warning", "component": "c", "symptom": "s",
@@ -108,6 +109,9 @@ class ProposeFromDiagnosisCliTests(unittest.TestCase):
                                             "--policy", str(policy), "--language", "es", "--out", str(out), "--audit-journal", str(d / "audit.jsonl"))
                 self.assertEqual(code, 0, err)
                 self.assertIn("no está aplicada", stdout)
+                # the incident that opened the proposal also got its sealed evidence bundle, next to the proposal
+                from hydra_umc_ops_agent.evidence_bundle import bundle_matches_checksum
+                self.assertTrue(bundle_matches_checksum(json.loads((d / "evidence-i1.json").read_text(encoding="utf-8"))))
                 proposal = load_proposal(out)
                 self.assertEqual((proposal.status, proposal.generated_by), ("pending", "llm:m"))
                 self.assertIn("GENERADO POR UN MODELO", proposal.description)

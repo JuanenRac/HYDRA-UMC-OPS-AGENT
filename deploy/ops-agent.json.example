@@ -102,8 +102,12 @@
     "timeout_seconds": 5,
     "allow_plain_http": false
   },
+  "contracts": {
+    "validate": "off"
+  },
   "evidence_bundle": {
     "enabled": false,
+    "with_proposal": false,
     "max_log_lines": 200,
     "max_manifest_chars": 20000
   }

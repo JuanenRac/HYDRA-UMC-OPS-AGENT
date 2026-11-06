@@ -4,6 +4,10 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **The files read can be checked against the SDK:** `contracts.validate` (`off` by default, `warn`, `strict`) checks every snapshot and change proposal read from a file against the closed schemas of the SDK; `strict` refuses a file that does not match.
+
+- **The incident that opens a proposal gets its evidence bundle:** with `evidence_bundle.with_proposal` (off by default), `control propose-from-diagnosis` writes the sealed bundle of the incident next to the proposal.
+
 - **The agent writes the EvidenceBundle of an incident for a development node (`evidence_bundle`, off by default):** `control evidence-bundle` puts the component versions of a snapshot, the manifests and the last lines of the logs given (every text redacted, the logs as a whole), the steps that reproduce the incident, the failed tests, the impact, what was already tried and what the validation on the node said into the closed `EvidenceBundle` contract of the shared SDK, sealed with the SHA-256 checksum the readers recompute. It only writes a file; nothing is sent. 10 tests, one of them against the validator of the SDK when it is installed.
 
 - **`control verify` hands the server the before and after of a live service too, not only of a manifest incident (with `scenario_ingest`, off by default):** an HTTP or systemd incident is verified by running its check again, and that pair is now sent as `ScenarioOutcome` documents: the incident as it was detected (symptom and time, `reproduced`) and the check just run (`not-reproduced` when healthy). A live service has no source state, so the fingerprint names what was observed (`live-http` / `live-systemd`) and `fingerprint_kind` says `live-service`; the pair is not compared with `compare_runs()` and the verdict is still the live check alone. Address and text are redacted; a sink that fails never changes the verdict. 4 tests.

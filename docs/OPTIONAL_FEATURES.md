@@ -20,6 +20,7 @@ repository.
 | `metrics` | `enabled` | Prometheus text of the incident store |
 | `scenario_ingest` | `enabled` | the before/after `ScenarioOutcome` of `control verify` handed to HYDRA-UMC-SERVER |
 | `evidence_bundle` | `enabled` | the `EvidenceBundle` of an incident written as a file for a development node |
+| `contracts` | `validate` (`off`, `warn`, `strict`) | the snapshot and proposal files read are checked against the closed schemas of the SDK |
 
 ## Authenticated channel (`transport`)
 
@@ -162,3 +163,11 @@ the failed tests, the impact, what was already tried and what the validation on 
 * The `checksum` is the SHA-256 of the canonical JSON of the bundle without it (keys sorted, no ASCII escaping), the rule the development node recomputes; the tests compare the bundle
   and the checksum with the validator of the SDK when it is installed.
 * Off until `evidence_bundle.enabled` is true; the command names the switch when it is off.
+* With `evidence_bundle.with_proposal` also true (off by default), `control propose-from-diagnosis` writes the bundle of the incident next to the proposal it drafts
+  (`evidence-<incident id>.json`); a bundle that cannot be written is reported and never blocks the proposal.
+
+## Checking the files read against the SDK (`contracts`)
+
+`contracts.validate` is `off` by default. With `warn`, a snapshot or a change proposal that does not match its closed schema in the SDK (`NodeSnapshot`, `ChangeProposal`)
+is reported on the error output and read anyway; with `strict` the file is refused. The checks need the SDK (`pip install .[sdk]`): without it `warn` says once that nothing
+is checked and `strict` refuses the file.

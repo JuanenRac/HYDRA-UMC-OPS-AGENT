@@ -29,7 +29,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
-from . import approval_signing
+from . import approval_signing, contract_check
 from ._atomic import atomic_write_text
 from .diff_policy import MAX_DIFF_BYTES, diff_looks_secret_shaped, protected_paths_in
 from .log_redaction import redact_secrets
@@ -449,6 +449,10 @@ def load_proposal(path: Path) -> ChangeProposal:
         raise ProposalLoadError(f"{path} is not valid JSON: {exc}") from exc
     if not isinstance(data, dict):
         raise ProposalLoadError(f"{path} does not contain a JSON object")
+    try:
+        contract_check.check("ChangeProposal", data, str(path))
+    except contract_check.ContractCheckError as exc:
+        raise ProposalLoadError(str(exc)) from exc
     try:
         return ChangeProposal.from_dict(data)
     except KeyError as exc:
