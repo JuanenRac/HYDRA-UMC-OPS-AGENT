@@ -271,6 +271,7 @@ configuration file. Each command below refuses, naming the switch, while its fea
   asks a local model for a diff and stores a pending, generated-marked proposal (`llm_propose.enabled`). Nothing is
   applied; `control approve` will not take `--yes` for it.
 * `control metrics --incident-store F [--audit-journal F] [--out F]` prints Prometheus text (`metrics.enabled`).
+* `control evidence-bundle SNAPSHOT --incident-id ID [--log-file F] [--manifest F] [--step T] [--failed-test T] [--action T] [--validation T] [--impact T] [--out F]` writes the redacted, sealed `EvidenceBundle` of an incident (`evidence_bundle.enabled`).
 
 `edge collect` also publishes an event for each incident that opened or closed when `notify.enabled` is on.
 

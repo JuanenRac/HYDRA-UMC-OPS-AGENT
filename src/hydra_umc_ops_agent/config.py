@@ -172,6 +172,20 @@ class ScenarioIngestConfig:
 
 
 @dataclass(frozen=True)
+class EvidenceBundleConfig:
+    """`control evidence-bundle` builds the EvidenceBundle of an incident (versions, manifests, redacted log excerpts, steps, impact, checksum) as a file for a development node.
+
+    It only writes a file; nothing is sent. Off until switched on.
+    """
+
+    enabled: bool = False
+    # Lines kept from the end of every log file given to the command.
+    max_log_lines: int = 200
+    # Characters kept from every manifest given to the command.
+    max_manifest_chars: int = 20000
+
+
+@dataclass(frozen=True)
 class HostChecksConfig:
     """What the machine says about itself, added to `edge collect`: free disk space, temperature, throttling (`vcgencmd` on a Raspberry Pi) and the backups on disk.
 
@@ -206,6 +220,7 @@ class AgentConfig:
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
     host_checks: HostChecksConfig = field(default_factory=HostChecksConfig)
     scenario_ingest: ScenarioIngestConfig = field(default_factory=ScenarioIngestConfig)
+    evidence_bundle: EvidenceBundleConfig = field(default_factory=EvidenceBundleConfig)
 
 
 # (minimum, maximum) of every number; anything outside raises.
@@ -220,6 +235,7 @@ _RANGES: dict[str, tuple[float, float]] = {
     "max_changed_lines": (1, 5000),
     "max_payload_bytes": (256, 1_048_576), "max_per_minute": (1, 6000), "max_messages": (1, 10000),
     "listen_seconds": (0.1, 86400), "max_pending": (1, 10000),
+    "max_log_lines": (1, 5000), "max_manifest_chars": (100, 1_000_000),
     "disk_warn_free_percent": (0, 100), "disk_critical_free_percent": (0, 100),
     "temperature_warn_celsius": (30, 120), "temperature_critical_celsius": (30, 120),
     "vcgencmd_timeout_seconds": (0.1, 60), "backup_min_count": (0, 10000), "backup_max_age_days": (0, 3650),
@@ -289,6 +305,7 @@ def parse_config(raw: object) -> AgentConfig:
         metrics=_build("metrics", MetricsConfig, raw.get("metrics")),
         host_checks=_check_host_checks(_build("host_checks", HostChecksConfig, raw.get("host_checks"))),
         scenario_ingest=_check_scenario_ingest(_build("scenario_ingest", ScenarioIngestConfig, raw.get("scenario_ingest"))),
+        evidence_bundle=_build("evidence_bundle", EvidenceBundleConfig, raw.get("evidence_bundle")),
     )
 
 

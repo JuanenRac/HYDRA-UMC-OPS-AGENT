@@ -101,5 +101,10 @@
     "password_file": null,
     "timeout_seconds": 5,
     "allow_plain_http": false
+  },
+  "evidence_bundle": {
+    "enabled": false,
+    "max_log_lines": 200,
+    "max_manifest_chars": 20000
   }
 }

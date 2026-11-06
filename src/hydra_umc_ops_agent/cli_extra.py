@@ -12,7 +12,8 @@ the switch, when its feature is off:
 * `control remote <operation>` - a request over the channel to an edge node (transport);
 * `control canary-rollout` - one approved proposal to several nodes, watched, undone on a failure (multinode);
 * `control propose-from-diagnosis` - a model drafts a PENDING proposal (llm_propose);
-* `control metrics` - the incident store as Prometheus text (metrics).
+* `control metrics` - the incident store as Prometheus text (metrics);
+* `control evidence-bundle` - the EvidenceBundle of an incident, as a file (evidence_bundle).
 """
 from __future__ import annotations
 
@@ -367,6 +368,53 @@ def _cmd_control_propose_from_diagnosis(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_control_evidence_bundle(args: argparse.Namespace) -> int:
+    from . import cli
+    from .evidence_bundle import NOT_VALIDATED, EvidenceBundleError, build_bundle, component_versions_of, tail_lines, write_bundle
+
+    config = _config(args)
+    if config is None:
+        return 1
+    settings = config.evidence_bundle
+    if not settings.enabled:
+        print("ERROR: 'evidence_bundle.enabled' is false in the configuration: switch it on to build an evidence bundle", file=sys.stderr)
+        return 1
+    try:
+        snapshot = load_snapshot(Path(args.snapshot_file))
+    except SnapshotLoadError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    incident = cli._find_incident(snapshot, args.incident_id)
+    if incident is None:
+        print(f"ERROR: no incident with id {args.incident_id!r} in {args.snapshot_file}", file=sys.stderr)
+        return 1
+    logs: list[str] = []
+    manifests: list[str] = []
+    try:
+        for name in args.log_file or []:
+            logs.append("\n".join(tail_lines(Path(name).read_text(encoding="utf-8", errors="replace"), settings.max_log_lines)))
+        for name in args.manifest or []:
+            manifests.append(Path(name).read_text(encoding="utf-8", errors="replace")[: settings.max_manifest_chars])
+        bundle = build_bundle(
+            incident,
+            component_versions=component_versions_of(snapshot),
+            manifests=manifests,
+            log_excerpts=logs,
+            reproduction_steps=args.step or [],
+            failed_tests=args.failed_test or [],
+            actions_attempted=args.action or [],
+            local_validation_result=args.validation or NOT_VALIDATED,
+            impact=args.impact,
+        )
+        out = Path(args.out or f"evidence-{incident.incident_id}.json")
+        write_bundle(bundle, out)
+    except (OSError, EvidenceBundleError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    print(f"Wrote the evidence bundle to {out} (checksum {bundle['checksum']}).")
+    return 0
+
+
 def _cmd_control_metrics(args: argparse.Namespace) -> int:
     from . import cli
 
@@ -458,3 +506,16 @@ def register(edge_sub: Any, control_sub: Any) -> None:
     metrics.add_argument("--audit-journal", help="Also count the records of this audit journal.")
     metrics.add_argument("--out", help="Write the text here instead of stdout.")
     metrics.set_defaults(func=_cmd_control_metrics)
+
+    bundle = control_sub.add_parser("evidence-bundle", help="Write the EvidenceBundle of an incident (redacted, with its checksum) for a development node (needs evidence_bundle.enabled).")
+    bundle.add_argument("snapshot_file", help="Snapshot JSON produced by `edge collect`.")
+    bundle.add_argument("--incident-id", required=True)
+    bundle.add_argument("--log-file", action="append", help="A log whose last lines go in, redacted (repeatable).")
+    bundle.add_argument("--manifest", action="append", help="A manifest file whose text goes in, redacted (repeatable).")
+    bundle.add_argument("--step", action="append", help="A step that reproduces the incident (repeatable; default: derived from the incident).")
+    bundle.add_argument("--failed-test", action="append", help="A test that failed (repeatable).")
+    bundle.add_argument("--action", action="append", help="What was already tried (repeatable).")
+    bundle.add_argument("--validation", help="What the validation on the node said (default: not validated).")
+    bundle.add_argument("--impact", help="What the incident stops or endangers (default: from the incident).")
+    bundle.add_argument("--out", help="Where to write the bundle (default: evidence-<incident id>.json).")
+    bundle.set_defaults(func=_cmd_control_evidence_bundle)

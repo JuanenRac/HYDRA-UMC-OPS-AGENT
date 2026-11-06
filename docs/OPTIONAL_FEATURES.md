@@ -19,6 +19,7 @@ repository.
 | `llm_propose` | `enabled` | a local model drafts a pending proposal |
 | `metrics` | `enabled` | Prometheus text of the incident store |
 | `scenario_ingest` | `enabled` | the before/after `ScenarioOutcome` of `control verify` handed to HYDRA-UMC-SERVER |
+| `evidence_bundle` | `enabled` | the `EvidenceBundle` of an incident written as a file for a development node |
 
 ## Authenticated channel (`transport`)
 
@@ -149,3 +150,15 @@ the open incident of that component is resolved. Every threshold is in the confi
   not) are sent as well, as a record of what was measured. A live service has no source state, so `base_fingerprint` is `live-<http|systemd>:<node>:<component>` (the same in both runs)
   and the outcome says `"fingerprint_kind": "live-service"`; the pair is **never** compared with `compare_runs()` (it could not tell a repair from a restart), and the verdict stays
   the result of the live check alone. The address and the text are redacted like the rest of the incident. A check that could not run measured nothing and sends nothing.
+
+## Evidence bundle for a development node (`evidence_bundle`)
+
+`control evidence-bundle SNAPSHOT --incident-id ID` writes the `EvidenceBundle` of the shared contract for one incident: the versions of the components the snapshot saw,
+the manifests given with `--manifest`, the last `max_log_lines` lines of every `--log-file`, the steps that reproduce the incident (`--step`, or two derived from the incident),
+the failed tests, the impact, what was already tried and what the validation on the node said (`not validated` unless `--validation` says otherwise). It only writes a file
+(`--out`, default `evidence-<incident id>.json`); nothing is sent.
+
+* Every text goes through the redaction of the agent before it is put in; the logs are redacted as a whole, so a secret that spans lines is still found.
+* The `checksum` is the SHA-256 of the canonical JSON of the bundle without it (keys sorted, no ASCII escaping), the rule the development node recomputes; the tests compare the bundle
+  and the checksum with the validator of the SDK when it is installed.
+* Off until `evidence_bundle.enabled` is true; the command names the switch when it is off.
