@@ -144,3 +144,8 @@ the open incident of that component is resolved. Every threshold is in the confi
   with the password in `password_file` (the agent logs in first). Nothing secret is written in the configuration, a log or a result.
 * The credential only goes over HTTPS or to this machine (`allow_plain_http` allows a bench); a redirect is never followed.
 * A server that is off, refuses the credential or cannot be reached is reported on the error stream and never changes the verdict or the exit status.
+* **A check of a live service is handed over too.** An incident of an HTTP endpoint or of a systemd unit is verified by running the same check again; with this section on, the
+  `before` (the incident as it was detected: its symptom and its time, `reproduced`) and the `after` (the check just run: `not-reproduced` if the service is healthy, `reproduced` if
+  not) are sent as well, as a record of what was measured. A live service has no source state, so `base_fingerprint` is `live-<http|systemd>:<node>:<component>` (the same in both runs)
+  and the outcome says `"fingerprint_kind": "live-service"`; the pair is **never** compared with `compare_runs()` (it could not tell a repair from a restart), and the verdict stays
+  the result of the live check alone. The address and the text are redacted like the rest of the incident. A check that could not run measured nothing and sends nothing.

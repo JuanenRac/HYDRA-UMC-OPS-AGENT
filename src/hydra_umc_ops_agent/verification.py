@@ -41,6 +41,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .incident import EVIDENCE_BASE_COMMIT_PREFIX, MaintenanceIncident
+from .log_redaction import redact_secrets
 from .inventory import (
     ManifestScanIssue,
     SystemdUnavailableError,
@@ -155,7 +156,9 @@ def verify_incident_resolved(
                 "pass the real URL with --health-url (or through the environment variable the CLI reads)"
             )
         result: Any = check_http_health(url, timeout_s=timeout_s)
-        return VerificationResult(incident_id=incident.incident_id, verified_at=_utc_now_iso(), resolved=result.reachable, detail=result.detail)
+        verified_at = _utc_now_iso()
+        _emit_live_outcomes(outcome_sink, incident, "http", result.reachable, result.detail, verified_at)
+        return VerificationResult(incident_id=incident.incident_id, verified_at=verified_at, resolved=result.reachable, detail=result.detail)
 
     if incident.symptom.startswith(_SYSTEMD_SYMPTOM_PREFIX):
         try:
@@ -164,12 +167,45 @@ def verify_incident_resolved(
             raise VerificationError(f"cannot verify a systemd-unit incident on this host: {exc}") from exc
         except ValueError as exc:
             raise VerificationError(f"cannot verify this systemd-unit incident: {exc}") from exc
-        return VerificationResult(incident_id=incident.incident_id, verified_at=_utc_now_iso(), resolved=result.active, detail=result.detail)
+        verified_at = _utc_now_iso()
+        _emit_live_outcomes(outcome_sink, incident, "systemd", result.active, result.detail, verified_at)
+        return VerificationResult(incident_id=incident.incident_id, verified_at=verified_at, resolved=result.active, detail=result.detail)
 
     if incident.symptom.startswith(_MANIFEST_SYMPTOM_PREFIX):
         return _verify_manifest_incident(incident, outcome_sink)
 
     raise VerificationError(f"unrecognized incident symptom shape, cannot determine how to verify it: {incident.symptom!r}")
+
+
+def _hand_on(outcome_sink: "Callable[[Any], object] | None", outcomes: tuple[dict[str, Any], ...]) -> None:
+    """The pair is evidence of the same verdict: handing it on never changes the verdict, and a sink that fails is not a failure of the check."""
+    if outcome_sink is None:
+        return
+    for outcome in outcomes:
+        try:
+            outcome_sink(outcome)
+        except Exception:  # noqa: BLE001 - reporting must never break the verification
+            pass
+
+
+def _emit_live_outcomes(outcome_sink: "Callable[[Any], object] | None", incident: MaintenanceIncident, kind: str, healthy: bool, detail: str, now: str) -> None:
+    """Hands the SERVER the before and after of a check of a live service (an HTTP endpoint or a systemd unit), as a record of what was measured.
+
+    Only what this code measured is in it: the incident as it was detected (the symptom text and its time) and the same check run again now. A
+    live service has no source state to fingerprint, so `base_fingerprint` names the thing that was observed, not a version of it, and
+    `fingerprint_kind` says so: the pair is NEVER compared with `compare_runs()` (it could not tell a fix from a restart) and the verdict is
+    the live check alone, as before."""
+    if outcome_sink is None:
+        return
+    component = redact_secrets(incident.component)
+    fingerprint = f"live-{kind}:{incident.source_node}:{component}"
+    common = {"schema_version": "1.0", "scenario_id": incident.incident_id, "base_fingerprint": fingerprint, "repro_case": component,
+              "fingerprint_kind": "live-service", "check_kind": kind}
+    before = dict(common, run_id=f"{incident.incident_id}:before", phase="before", timestamp_utc=incident.detected_at,
+                  observed={"outcome": "reproduced", "evidence": redact_secrets(incident.symptom)[:500]})
+    after = dict(common, run_id=f"{incident.incident_id}:after", phase="after", timestamp_utc=now,
+                 observed={"outcome": "not-reproduced" if healthy else "reproduced", "evidence": redact_secrets(detail)[:500]})
+    _hand_on(outcome_sink, (before, after))
 
 
 def _find_base_commit(evidence_refs: tuple[str, ...]) -> str | None:
@@ -233,11 +269,5 @@ def _verify_manifest_incident(incident: MaintenanceIncident, outcome_sink: "Call
         comparison = compare_runs(before, after)
     except ValueError as exc:  # the SDK's ContractValidationError is a ValueError
         raise VerificationError(f"the before/after evidence of this incident is not a valid scenario outcome: {exc}") from exc
-    if outcome_sink is not None:
-        # the pair is evidence of the same verdict: handing it on never changes the verdict, and a sink that fails is not a failure of the check
-        for outcome in (before, after):
-            try:
-                outcome_sink(outcome)
-            except Exception:  # noqa: BLE001 - reporting must never break the verification
-                pass
+    _hand_on(outcome_sink, (before, after))
     return VerificationResult(incident_id=incident.incident_id, verified_at=now, resolved=comparison.is_promotable, detail=comparison.reason)

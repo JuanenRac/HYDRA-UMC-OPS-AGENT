@@ -155,7 +155,7 @@ class MetricsConfig:
 
 @dataclass(frozen=True)
 class ScenarioIngestConfig:
-    """Hands the before/after ScenarioOutcome that `control verify` compares to HYDRA-UMC-SERVER (`POST /api/ingest/scenario-outcome`).
+    """Hands the before/after ScenarioOutcome of `control verify` (a manifest incident compared by commit, or the check of a live HTTP/systemd service) to HYDRA-UMC-SERVER (`POST /api/ingest/scenario-outcome`).
 
     The credential is a file: the token the SERVER issued (`token_file`), or an account (`username` and the password in `password_file`).
     The SERVER keeps this feed off (404) until its own switch HYDRA_UMC_INGEST_SCENARIO is 1.

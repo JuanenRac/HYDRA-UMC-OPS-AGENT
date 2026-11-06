@@ -76,6 +76,63 @@ class VerifyHttpIncidentTests(unittest.TestCase):
         self.assertFalse(result.resolved)
 
 
+class LiveOutcomeTests(unittest.TestCase):
+    """A check of a live service hands its before and after to the sink as a record of what was measured, without changing the verdict."""
+
+    _serve = VerifyHttpIncidentTests._serve
+
+    def _verify(self, url, **kwargs):
+        from hydra_umc_ops_agent.scenario_ingest import outcome_problem
+
+        seen = []
+        incident = _make_incident(url, "health endpoint check failed: unreachable: earlier failure")
+        result = verify_incident_resolved(incident, outcome_sink=seen.append, **kwargs)
+        for outcome in seen:
+            self.assertIsNone(outcome_problem(outcome))  # the shape the server takes
+        return result, seen
+
+    def test_a_healthy_service_gives_a_before_that_reproduced_and_an_after_that_did_not(self):
+        port = self._serve(_OkHandler)
+        result, seen = self._verify(f"http://127.0.0.1:{port}/health")
+        self.assertTrue(result.resolved)
+        self.assertEqual([o["phase"] for o in seen], ["before", "after"])
+        self.assertEqual([o["observed"]["outcome"] for o in seen], ["reproduced", "not-reproduced"])
+        before, after = seen
+        self.assertEqual(before["timestamp_utc"], "2026-09-06T12:00:00+00:00")
+        self.assertEqual(before["scenario_id"], after["scenario_id"])
+        self.assertEqual(before["observed"]["evidence"], "health endpoint check failed: unreachable: earlier failure")
+        # a live service has no source state: the fingerprint names what was observed and says so
+        self.assertEqual({o["fingerprint_kind"] for o in seen}, {"live-service"})
+        self.assertTrue(before["base_fingerprint"].startswith("live-http:cm5-cell-3:http://127.0.0.1:"))
+
+    def test_a_service_that_is_still_down_gives_two_runs_that_reproduced(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+        sock.close()
+        result, seen = self._verify(f"http://127.0.0.1:{port}/health", timeout_s=1.0)
+        self.assertFalse(result.resolved)
+        self.assertEqual([o["observed"]["outcome"] for o in seen], ["reproduced", "reproduced"])
+
+    def test_a_secret_in_the_address_does_not_leave_with_the_outcome(self):
+        port = self._serve(_OkHandler)
+        incident = _make_incident(f"http://user:hunter2@127.0.0.1:{port}/health", "health endpoint check failed: unreachable: password=hunter2")
+        seen = []
+        verify_incident_resolved(incident, outcome_sink=seen.append)
+        self.assertTrue(seen)
+        self.assertNotIn("hunter2", json.dumps(seen))
+
+    def test_a_sink_that_fails_never_changes_the_verdict_and_no_sink_sends_nothing(self):
+        port = self._serve(_OkHandler)
+        incident = _make_incident(f"http://127.0.0.1:{port}/health", "health endpoint check failed: unreachable: earlier failure")
+
+        def broken(outcome):
+            raise OSError("server down")
+
+        self.assertTrue(verify_incident_resolved(incident, outcome_sink=broken).resolved)
+        self.assertTrue(verify_incident_resolved(incident).resolved)
+
+
 class VerifySystemdIncidentTests(unittest.TestCase):
     def test_honest_error_when_systemctl_is_not_on_this_host(self):
         if shutil.which("systemctl") is not None:
