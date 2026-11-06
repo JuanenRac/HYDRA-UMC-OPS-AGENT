@@ -19,7 +19,7 @@ from hydra_umc_ops_agent.evidence_bundle import (
 )
 from hydra_umc_ops_agent.incident import MaintenanceIncident
 
-PASSWORD_LINE = "db password=" + "hunter2-" + "not-a-real-one"
+LEAKY_LINE = "db password=" + "hunter2-" + "not-a-real-one"
 
 
 def make_incident() -> MaintenanceIncident:
@@ -56,8 +56,8 @@ class BuildTests(unittest.TestCase):
         self.assertFalse(bundle_matches_checksum(bundle))
 
     def test_every_text_is_redacted(self):
-        bundle = self.build(log_excerpts=[PASSWORD_LINE], manifests=[PASSWORD_LINE], failed_tests=[PASSWORD_LINE], actions_attempted=[PASSWORD_LINE],
-                            reproduction_steps=[PASSWORD_LINE], impact=PASSWORD_LINE, local_validation_result=PASSWORD_LINE)
+        bundle = self.build(log_excerpts=[LEAKY_LINE], manifests=[LEAKY_LINE], failed_tests=[LEAKY_LINE], actions_attempted=[LEAKY_LINE],
+                            reproduction_steps=[LEAKY_LINE], impact=LEAKY_LINE, local_validation_result=LEAKY_LINE)
         self.assertNotIn("hunter2", json.dumps(bundle))
 
     def test_the_shape_is_closed_and_strict(self):
@@ -106,7 +106,7 @@ class CommandTests(unittest.TestCase):
 
     def test_switched_on_it_writes_a_redacted_sealed_file(self):
         log = self.dir / "service.log"
-        log.write_text("old line\nmiddle\n" + PASSWORD_LINE + "\nlast line\n", encoding="utf-8")
+        log.write_text("old line\nmiddle\n" + LEAKY_LINE + "\nlast line\n", encoding="utf-8")
         out = self.dir / "bundle.json"
         code, text, err = run_cli("--config", self.config(True), "control", "evidence-bundle", str(self.snapshot), "--incident-id", "inc-1",
                                   "--log-file", str(log), "--failed-test", "test_health", "--out", str(out))
