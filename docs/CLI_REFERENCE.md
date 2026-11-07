@@ -142,6 +142,14 @@ registry**, a JSON file of public keys given to the machine that deploys:
 {"approvers": {"ana": "<base64 of her 32-byte public key>"}}
 ```
 
+The file can instead be the trust store of the dev server, with the keys written as `ed25519-public:<64 hex digits>` and the revoked aliases listed:
+
+```
+{"trusted_keys": {"ana": "ed25519-public:<64 hex digits>"}, "revoked": []}
+```
+
+Only public keys are accepted: an entry that is a private key, a malformed key or a bad alias (1 to 40 letters, digits, spaces or `._@-`) refuses the whole file, naming the alias and never the value. A revoked alias is left out, so it can no longer approve, and a store where every alias is revoked is refused.
+
 ## `control approve <proposal_file> --approved-by <name> --key <private key> (--live-root <path> | --any-commit)`
 
 Delivery 3. Prints the proposal, the SHA-256 of the diff and the diff

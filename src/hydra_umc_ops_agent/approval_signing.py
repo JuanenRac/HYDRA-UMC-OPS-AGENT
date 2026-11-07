@@ -28,10 +28,17 @@ import base64
 import binascii
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any, Mapping
 
 ENVELOPE_VERSION = 1
+
+# The trust store of HYDRA-UMC-DEV-SERVER (alias -> `ed25519-public:<64 hex>`, plus revoked aliases) is read as well as the registry above.
+TRUST_PUBLIC_PREFIX = "ed25519-public:"
+TRUST_SEED_PREFIX = "ed25519-seed:"
+_TRUST_ALIAS = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._@-]{0,39}$")
+_TRUST_PUBLIC = re.compile(r"^" + re.escape(TRUST_PUBLIC_PREFIX) + r"[0-9a-f]{64}$")
 
 
 class ApprovalSigningError(RuntimeError):
@@ -121,6 +128,8 @@ def load_approvers(path: Path) -> dict[str, Any]:
         raise KeyLoadError(f"could not read the approver registry {path}: {exc}") from exc
     except json.JSONDecodeError as exc:
         raise KeyLoadError(f"{path} is not valid JSON: {exc}") from exc
+    if isinstance(data, dict) and "trusted_keys" in data and "approvers" not in data:
+        return _approvers_from_trust_store(Path(path), data, ed25519)
     entries = data.get("approvers") if isinstance(data, dict) else None
     if not isinstance(entries, dict) or not entries:
         raise KeyLoadError(f"{path} must hold a non-empty object under \"approvers\"")
@@ -133,6 +142,34 @@ def load_approvers(path: Path) -> dict[str, Any]:
             approvers[name] = ed25519.Ed25519PublicKey.from_public_bytes(raw)
         except (binascii.Error, ValueError) as exc:
             raise KeyLoadError(f"{path}: the public key of {name!r} is not a valid Ed25519 key: {exc}") from exc
+    return approvers
+
+
+def _approvers_from_trust_store(path: Path, data: dict[str, Any], ed25519: Any) -> dict[str, Any]:
+    """The approvers of a trust store of the dev server: public keys only. A private seed, a malformed key or a bad alias refuses the
+    whole file (naming the alias, never the value), and a revoked alias is left out, so a revoked approver can no longer approve."""
+    entries = data.get("trusted_keys")
+    revoked = data.get("revoked", [])
+    if not isinstance(entries, dict) or not entries:
+        raise KeyLoadError(f"{path} must hold a non-empty object under \"trusted_keys\"")
+    if not isinstance(revoked, list) or not all(isinstance(item, str) for item in revoked):
+        raise KeyLoadError(f"{path}: \"revoked\" must be a list of aliases")
+    approvers: dict[str, Any] = {}
+    for alias, value in entries.items():
+        if not isinstance(alias, str) or not _TRUST_ALIAS.match(alias):
+            raise KeyLoadError(f"{path}: an alias must be 1 to 40 letters, digits, spaces or ._@-")
+        if isinstance(value, str) and value.strip().startswith(TRUST_SEED_PREFIX):
+            raise KeyLoadError(f"{path}: the entry of {alias!r} is a private key; the store holds public keys only")
+        if not isinstance(value, str) or not _TRUST_PUBLIC.match(value.strip()):
+            raise KeyLoadError(f"{path}: the key of {alias!r} is not '{TRUST_PUBLIC_PREFIX}<64 hex digits>'")
+        if alias in revoked:
+            continue
+        try:
+            approvers[alias] = ed25519.Ed25519PublicKey.from_public_bytes(bytes.fromhex(value.strip()[len(TRUST_PUBLIC_PREFIX):]))
+        except ValueError as exc:
+            raise KeyLoadError(f"{path}: the public key of {alias!r} is not a valid Ed25519 key: {exc}") from exc
+    if not approvers:
+        raise KeyLoadError(f"{path}: every alias is revoked, so nobody can approve")
     return approvers
 
 
