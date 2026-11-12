@@ -4,6 +4,7 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **README: the platform statement:** the description says what this project serves today (the CM5 pilot bench) and that the target platform of HYDRA-UMC, an NVIDIA Jetson Orin NX 16 GB, is a design that has not been built or tested.
 - **The registry of approvers can be the trust store of the dev server:** a file with `trusted_keys` (`ed25519-public:<hex>`) and `revoked` is read as the registry; public keys only (a private key, a malformed key or a bad alias refuses the file without echoing the value), revoked aliases cannot approve, and a store where all are revoked is refused. `tests/test_trust_store_registry.py` covers it.
 ## [0.2.3] - The files read can be checked against the SDK: contracts.validate (off by default, warn, strict) checks every snapshot and change proposal read from a file against the closed schemas of the SDK; strict refuses a file that does... (and 9 more changes)
 

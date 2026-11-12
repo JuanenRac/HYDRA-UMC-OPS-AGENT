@@ -163,7 +163,7 @@ command surface.
 
 ## 🧩 Role in HYDRA-UMC
 
-**HYDRA-UMC-OPS-AGENT** is the maintenance-incident coordinator of the ecosystem. It owns one lifecycle (evidence, diagnosis, human-approved change, canary deploy through `HYDRA-UMC-UPDATER`, verification) and reimplements neither inference, updates nor the safety logic of the controllers.
+**HYDRA-UMC-OPS-AGENT** is the maintenance-incident coordinator of the ecosystem. It owns one lifecycle (evidence, diagnosis, human-approved change, canary deploy through `HYDRA-UMC-UPDATER`, verification) and reimplements neither inference, updates nor the safety logic of the controllers. Its deploys go through the updater of the CM5 pilot bench today; the NVIDIA Jetson Orin NX 16 GB target platform is a design that has not been built or tested.
 
 ## 🏛️ Architecture
 

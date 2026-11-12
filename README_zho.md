@@ -122,7 +122,7 @@ $ hydra-umc-ops-agent control verify snapshot.json --incident-id 7c2c1e4a-... --
 
 ## 🧩 在 HYDRA-UMC 中的角色
 
-**HYDRA-UMC-OPS-AGENT** 是生态系统的维护事件协调者。它负责唯一的生命周期（证据、诊断、人工批准的变更、通过 `HYDRA-UMC-UPDATER` 的金丝雀部署、验证），不重新实现推理、更新或控制器的安全逻辑。
+**HYDRA-UMC-OPS-AGENT** 是生态系统的维护事件协调者。它负责唯一的生命周期（证据、诊断、人工批准的变更、通过 `HYDRA-UMC-UPDATER` 的金丝雀部署、验证），不重新实现推理、更新或控制器的安全逻辑。目前它的部署通过 CM5 试验台的更新器进行；目标平台 NVIDIA Jetson Orin NX 16 GB 仍是设计，没有制造或测试过。
 
 ## 🏛️ 架构
 

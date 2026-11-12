@@ -165,7 +165,7 @@ echte Befehlsoberfläche.
 
 ## 🧩 Rolle in HYDRA-UMC
 
-**HYDRA-UMC-OPS-AGENT** ist der Koordinator für Wartungsvorfälle im Ökosystem. Er besitzt genau einen Lebenszyklus (Belege, Diagnose, von Menschen genehmigte Änderung, Canary-Auslieferung über `HYDRA-UMC-UPDATER`, Verifikation) und implementiert weder Inferenz noch Updates noch die Sicherheitslogik der Steuerungen neu.
+**HYDRA-UMC-OPS-AGENT** ist der Koordinator für Wartungsvorfälle im Ökosystem. Er besitzt genau einen Lebenszyklus (Belege, Diagnose, von Menschen genehmigte Änderung, Canary-Auslieferung über `HYDRA-UMC-UPDATER`, Verifikation) und implementiert weder Inferenz noch Updates noch die Sicherheitslogik der Steuerungen neu. Seine Rollouts laufen heute über den Updater des CM5-Pilotprüfstands; die Zielplattform NVIDIA Jetson Orin NX 16 GB ist ein Entwurf, der weder gebaut noch getestet wurde.
 
 ## 🏛️ Architektur
 

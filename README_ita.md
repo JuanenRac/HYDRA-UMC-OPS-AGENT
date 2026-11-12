@@ -166,7 +166,7 @@ comandi completa e reale.
 
 ## 🧩 Ruolo in HYDRA-UMC
 
-**HYDRA-UMC-OPS-AGENT** è il coordinatore degli incidenti di manutenzione dell'ecosistema. Possiede un solo ciclo di vita (prove, diagnosi, modifica approvata da una persona, rilascio canary tramite `HYDRA-UMC-UPDATER`, verifica) e non reimplementa né l'inferenza, né gli aggiornamenti, né la logica di sicurezza dei controllori.
+**HYDRA-UMC-OPS-AGENT** è il coordinatore degli incidenti di manutenzione dell'ecosistema. Possiede un solo ciclo di vita (prove, diagnosi, modifica approvata da una persona, rilascio canary tramite `HYDRA-UMC-UPDATER`, verifica) e non reimplementa né l'inferenza, né gli aggiornamenti, né la logica di sicurezza dei controllori. I suoi rilasci passano oggi dall'updater del banco pilota CM5; la piattaforma di destinazione NVIDIA Jetson Orin NX da 16 GB è un progetto non costruito né provato.
 
 ## 🏛️ Architettura
 
