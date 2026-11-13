@@ -1,0 +1,59 @@
+# =============================================================================
+# HYDRA-UMC-OPS-AGENT - Simulation bench and coverage floor
+# Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
+# GPL-3.0-or-later - see LICENSE
+#
+# Runs the real canary and incident chain against simulated nodes with injected faults (nodes that refuse, answer nothing,
+# turn unhealthy or cannot roll back), a simulated clock and a fixed seed: no node, no network, no hardware. A second job
+# measures the coverage of the test suite and fails under a floor that must not go down.
+# =============================================================================
+name: Simulation bench
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 5 * * 3"
+
+permissions:
+  contents: read
+
+jobs:
+  simulation:
+    name: Run the simulated fleets with injected faults
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - name: Install the agent with the test extras
+        run: python -m pip install ".[dev,sdk]"
+      - name: Run the simulated fleets, the multi-node canary and the full incident chain
+        run: PYTHONPATH=src python -m pytest tests/test_simulation_fleet.py tests/test_multinode_canary.py tests/test_full_incident_lifecycle.py tests/test_edge_agent.py -q
+
+  coverage:
+    name: Measure coverage and keep the floor
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - name: Install the agent with the test extras and coverage
+        run: python -m pip install ".[dev,sdk]" coverage
+      - name: Run the tests under coverage (statements and branches)
+        run: PYTHONPATH=src python -m coverage run --branch --source=src/hydra_umc_ops_agent -m pytest tests -q
+      - name: Report the coverage and fail under the floor
+        run: python -m coverage report -m --fail-under=85
