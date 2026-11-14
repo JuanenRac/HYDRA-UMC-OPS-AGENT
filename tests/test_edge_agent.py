@@ -28,11 +28,10 @@ class CollectSnapshotTests(unittest.TestCase):
 
     def test_a_clean_root_with_no_checks_requested_yields_an_empty_but_valid_snapshot(self):
         # (P2):
-        # systemd_available used to default to True and this test
-        # asserted exactly that stale default as if it were correct -
-        # but "no unit was ever configured" is a genuinely different,
-        # unknown state from "systemd was actually asked and answered
-        # True". None is the real, honest answer here.
+        # systemd_available defaults to None, not True: "no unit was ever
+        # configured" is a genuinely different, unknown state from
+        # "systemd was actually asked and answered True". None is the real,
+        # honest answer here.
         snapshot = collect_snapshot("cm5-test", self.root)
         self.assertEqual(snapshot.source_node, "cm5-test")
         self.assertEqual(snapshot.projects, ())

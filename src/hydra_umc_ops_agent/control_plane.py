@@ -129,7 +129,7 @@ def render_snapshot_report(snapshot: dict[str, object]) -> str:
     lines.append(f"Incidents: {len(incidents)}{_format_skipped(skipped)}")
     # `inc.get("severity")` is real, publicly-loaded data - an
     # unhashable value (a real `severity: []`/`severity: {}` in the
-    # snapshot) used to raise TypeError straight out of dict.get()
+    # snapshot) would raise TypeError straight out of dict.get()
     # (unhashable types can't even be looked up), crashing the whole
     # report instead of just sorting that one malformed incident last.
     def _severity_rank(inc: dict[str, object]) -> int:

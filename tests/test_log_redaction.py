@@ -76,8 +76,8 @@ class RedactSecretsTests(unittest.TestCase):
         self.assertIn("https://audit:[REDACTED]@example.invalid/path", result)
 
     def test_pem_block_split_across_multiple_log_lines_is_still_redacted(self):
-        # The real gap: redact_lines() used to redact each list entry in
-        # isolation, so a PEM whose BEGIN/END markers land in different
+        # redact_lines() must not redact each list entry in
+        # isolation, or a PEM whose BEGIN/END markers land in different
         # entries of a bounded log-line list never matched as one shape.
         lines = [
             "before",
@@ -95,9 +95,9 @@ class RedactSecretsTests(unittest.TestCase):
 
     def test_a_secret_nested_one_level_deeper_as_a_json_object_is_redacted(self):
         # (P1, residual outside this project's own three original examples): the
-        # secret's own value used to be required to be an immediate
+        # secret's own value is not required to be an immediate
         # quoted string/scalar - a real "password": {"value": "FAKE"}
-        # shape (a nested object) let FAKE slip through untouched.
+        # shape (a nested object) must not let FAKE slip through untouched.
         result = redact_secrets('{"password": {"value": "FAKE", "algo": "plain"}}')
         self.assertNotIn("FAKE", result)
         self.assertIn("[REDACTED]", result)
@@ -111,7 +111,7 @@ class RedactSecretsTests(unittest.TestCase):
         # a real log excerpt cut off mid-key (a bounded log
         # tail, a crash right after the BEGIN line) has no END marker
         # at all - _PEM_BLOCK_RE's own BEGIN...END match requires both,
-        # so the entire block, key material included, used to pass
+        # so the entire block, key material included, would pass
         # through completely unredacted.
         text = "before\n-----BEGIN RSA PRIVATE KEY-----\nMIIEpQIBAAKCAQEA1234567890abcdef\n"
         result = redact_secrets(text)
