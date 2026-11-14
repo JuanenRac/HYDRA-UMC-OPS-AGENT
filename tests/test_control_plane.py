@@ -93,7 +93,7 @@ class RenderSnapshotReportTests(unittest.TestCase):
 
     def test_an_unhashable_severity_never_crashes_the_sort(self):
         # (P2, residual of ): `severity` is real, publicly-loaded
-        # data - a real `[]`/`{}` used to raise TypeError straight out
+        # data - a real `[]`/`{}` would raise TypeError straight out
         # of the sort key's own dict.get() (unhashable types can't be
         # looked up in a dict at all), crashing the entire report.
         snapshot = {

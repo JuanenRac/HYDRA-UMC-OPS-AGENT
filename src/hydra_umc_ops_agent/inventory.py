@@ -336,5 +336,5 @@ def check_http_health(url: str, *, timeout_s: float = 5.0) -> HttpHealthResult:
     except (urllib.error.URLError, http.client.HTTPException, OSError, ValueError) as exc:
         # http.client.HTTPException (a status line that is not HTTP, a
         # truncated body) is not an OSError, so urllib lets it through raw -
-        # one odd endpoint used to crash the whole `edge collect`.
+        # one odd endpoint would crash the whole `edge collect`.
         return HttpHealthResult(url=url, reachable=False, status_code=None, detail=f"unreachable: {exc}")

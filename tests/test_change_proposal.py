@@ -92,7 +92,7 @@ class ApproveRejectTests(unittest.TestCase):
         # review pass's own exact reproduction - a saved, approved proposal
         # file is real, mutable JSON on disk. Editing its diff (or
         # project) after approval while leaving status: "approved"
-        # untouched used to let deploy_canary() apply completely
+        # untouched would let deploy_canary() apply completely
         # different content than what was actually reviewed.
         from dataclasses import replace as _replace
         approved = approve_change(_make_proposal(), approved_by="Juan Enrique", signing_key=SIGNING_KEY)
@@ -145,15 +145,13 @@ class SerializationTests(unittest.TestCase):
         self.assertEqual(restored, proposal)
 
     def test_a_secret_shape_in_the_diff_is_refused_at_proposal_time(self):
-        # this
-        # test used to assert that to_dict() REDACTED a secret-shaped
-        # diff on serialization - but that redaction is exactly the bug:
+        # A secret-shaped diff is refused at proposal time, not redacted on
+        # serialization: a redaction would be exactly the bug.
         # save_proposal()/load_proposal() round-trip through to_dict(),
         # and canary_deploy.py's own _apply_diff() later runs `git
         # apply` on whatever `.diff` comes back out, so a "redacted"
-        # save silently changed the bytes of an already-reviewed patch.
-        # The diff must now be refused at proposal time instead, before
-        # anything is ever stored under that (wrong) assumption.
+        # save would silently change the bytes of an already-reviewed patch.
+        # The refusal comes before anything is ever stored.
         with self.assertRaises(SecretShapedDiffError):
             _make_proposal(diff=_REAL_DIFF + '+DB_PASSWORD = "9f8a7c6b5d4e3f2a1b0c9d8e"\n')
 

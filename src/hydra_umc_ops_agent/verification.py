@@ -96,11 +96,11 @@ class VerificationResult:
         # This
         # is a real public loading boundary (whatever produced `data`
         # need not be this module's own to_dict()) - `bool(data["resolved"])`
-        # used to coerce ANY non-empty value, including the literal
+        # would coerce ANY non-empty value, including the literal
         # string "false", to True (Python's own `bool("false") is True`
         # - a non-empty string is always truthy). A publicly-loaded
-        # 'false' silently became a resolved incident. Every field here
-        # is now required to already be its real declared type - no
+        # 'false' would silently become a resolved incident. Every field here
+        # is required to already be its real declared type - no
         # coercion, ever - matching the same "confirm_arm is not True"/
         # "_is_real_number" style already used for exactly this class of
         # bug elsewhere in the ecosystem (HYDRA-UMC-BRIDGE-UAV's own
