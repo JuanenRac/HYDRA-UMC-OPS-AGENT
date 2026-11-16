@@ -52,6 +52,40 @@ PROTECTED_PATH_PATTERNS: tuple[str, ...] = (
 
 _DIFF_GIT_RE = re.compile(r"^diff --git a/(?P<a>.+?) b/(?P<b>.+)$")
 _FILE_HEADER_RE = re.compile(r"^(?P<kind>--- |\+\+\+ )(?P<path>[^\t\r\n]+)")
+# `git apply` takes the real names of a rename or a copy from these lines, whatever the `diff --git` line says
+_MOVE_HEADER_RE = re.compile(r"^(?:rename|copy) (?:from|to) (?P<path>.+)$")
+_C_ESCAPES = {"a": 7, "b": 8, "f": 12, "n": 10, "r": 13, "t": 9, "v": 11, "\\": 92, '"': 34}
+
+
+def _unquote_c(path: str) -> str:
+    """The name `git apply` reads from a name in double quotes: the C escapes (a backslash and a letter, a quote, a backslash or up to three octal digits)
+    are decoded, so a name written with an octal escape for one letter is the plain name. A name that is not wholly in quotes is returned as it is."""
+    if len(path) < 2 or not (path.startswith('"') and path.endswith('"')):
+        return path
+    body = path[1:-1]
+    out = bytearray()
+    index = 0
+    while index < len(body):
+        char = body[index]
+        if char != "\\" or index + 1 >= len(body):
+            out.extend(char.encode("utf-8"))
+            index += 1
+            continue
+        following = body[index + 1]
+        if following in "01234567":
+            digits = following
+            index += 2
+            while index < len(body) and len(digits) < 3 and body[index] in "01234567":
+                digits += body[index]
+                index += 1
+            out.append(int(digits, 8) & 0xFF)
+        elif following in _C_ESCAPES:
+            out.append(_C_ESCAPES[following])
+            index += 2
+        else:
+            out.extend(("\\" + following).encode("utf-8"))
+            index += 2
+    return out.decode("utf-8", errors="replace")
 
 _PLACEHOLDER_MARKERS = (
     "changeme", "change-me", "example", "placeholder", "your", "xxxx", "****", "<", "${", "{{",
@@ -96,18 +130,19 @@ def diff_looks_secret_shaped(diff_text: str) -> bool:
 
 
 def touched_paths(diff_text: str) -> list[str]:
-    """Every file path named in the headers of a unified diff, without the
-    `a/` and `b/` prefixes and without `/dev/null`, in order of appearance."""
+    """Every file path named in the headers of a unified diff (the `diff --git`, `---` and `+++` lines and the `rename` and `copy` lines, names in quotes
+    decoded the way `git apply` decodes them), without the `a/` and `b/` prefixes and without `/dev/null`, in order of appearance."""
     paths: list[str] = []
 
-    def add(path: str) -> None:
-        path = path.strip().strip('"')
+    def add(path: str, *, prefixed: bool = True) -> None:
+        path = _unquote_c(path.strip())
         if path in ("", "/dev/null"):
             return
-        for prefix in ("a/", "b/"):
-            if path.startswith(prefix):
-                path = path[len(prefix):]
-                break
+        if prefixed:
+            for prefix in ("a/", "b/"):
+                if path.startswith(prefix):
+                    path = path[len(prefix):]
+                    break
         if path not in paths:
             paths.append(path)
 
@@ -116,6 +151,10 @@ def touched_paths(diff_text: str) -> list[str]:
         if git:
             add(git.group("a"))
             add(git.group("b"))
+            continue
+        move = _MOVE_HEADER_RE.match(line)
+        if move:
+            add(move.group("path"), prefixed=False)  # the names of a rename or a copy carry no a/ or b/
             continue
         header = _FILE_HEADER_RE.match(line)
         if header:
@@ -135,6 +174,11 @@ def _is_protected(path: str) -> bool:
         elif fnmatch.fnmatch(normalized, pattern) or fnmatch.fnmatch(last, pattern):
             return True
     return False
+
+
+def is_protected_path(path: str) -> bool:
+    """True for a path that decides how a change is verified or run (the check `protected_paths_in` applies to every path of a diff)."""
+    return _is_protected(path)
 
 
 def protected_paths_in(diff_text: str) -> list[str]:
