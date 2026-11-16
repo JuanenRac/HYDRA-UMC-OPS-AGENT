@@ -90,7 +90,7 @@ _BEARER_RE = re.compile(r"\bBearer\s+\S+", re.IGNORECASE)
 # human recognize which credential was in play); only the password half is
 # replaced.
 _URL_CREDENTIALS_RE = re.compile(
-    r"(?<![A-Za-z0-9+.-])(?P<scheme>[A-Za-z][A-Za-z0-9+.-]{0,39}://)(?P<user>[^\s:/@]{1,256}):(?P<password>[^\s@]{1,1024})@"
+    r"(?<![A-Za-z0-9+.-])(?P<scheme>[A-Za-z][A-Za-z0-9+.-]{0,39}://)(?P<user>[^\s:/@]{1,256}):(?P<password>[^\s/]{1,1024})@"
 )
 
 # A real PEM-format private key block (SSH, TLS, GPG all share this real
