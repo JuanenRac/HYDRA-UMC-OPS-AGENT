@@ -82,7 +82,7 @@ from typing import Any, Mapping, Sequence
 from .audit_journal import AuditJournalError, append_event
 from .change_proposal import STATUS_APPROVED, ChangeProposal, ChangeProposalError
 from .deploy_policy import DeployPolicy, DeployPolicyError
-from .diff_policy import protected_paths_in, touched_paths as diff_touched_paths
+from .diff_policy import is_protected_path, protected_paths_in, touched_paths as diff_touched_paths
 from .inventory import check_http_health, read_git_commit_hash, validate_unit_name
 from .log_redaction import redact_secrets
 
@@ -953,6 +953,19 @@ def _deploy_canary(
     try:
         touched_paths = _apply_diff(staging_path, proposal.diff)
         stage_reached = "diff_applied"
+        # What the apply really changed goes through the same barriers as what the headers said: a header that `git apply` reads in another way than
+        # the text check does must not let a protected or unlisted file through.
+        really_protected = [path for path in touched_paths if is_protected_path(path)]
+        if really_protected and not proposal.allow_protected_paths:
+            raise ProtectedPathsError(
+                "applying the diff changed files that decide how a change is checked or run "
+                f"({', '.join(really_protected[:5])}) and the signed approval does not allow that"
+            )
+        if policy is not None:
+            try:
+                policy.check(proposal.project_name, build_test_command, touched_paths)
+            except DeployPolicyError as exc:
+                raise DeployPolicyDeniedError(str(exc)) from exc
         # The diff first, then the live checkout's own local data: a file the
         # diff adds or changes is the diff's, and a local file of the same name
         # no longer makes `git apply` fail on "already exists".
