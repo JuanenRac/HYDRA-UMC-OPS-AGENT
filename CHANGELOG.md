@@ -4,11 +4,16 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.2.4]
+
 - **The path checks of a diff read the names the way `git apply` reads them:** the protected-path check, the deploy policy and the check that a draft only touches what the model was shown read only the `diff --git`, `---` and `+++` lines, so a `rename to` or `copy to` line (or a name in quotes with an octal escape) could name a protected file such as `build-test.sh` while the other lines named an innocent one. The `rename` and `copy` lines are read now, names in quotes are decoded, and after the diff is applied in the staging copy the paths it really changed go through the protected-path check and the deploy policy again. Tests cover a rename, a copy, an escaped name and a gap in the text check.
 - **The SDK pin and the shared tools are up to date:** the SDK dependency names the newest release tag, and the shared tools are the canonical copies again.
 - **Simulated fleets with injected faults, tests with doubles of the model packages, and a coverage floor:** the `Simulation bench` workflow runs the real multi-node canary against 200 seeded fleets of simulated nodes (nodes that refuse, answer nothing, turn unhealthy or cannot roll back) on a simulated clock and checks that a promoted rollout reached every node, that a rolled-back one put back exactly the nodes that took the change, and that a node whose answer was lost is never rolled back blindly. New tests run the Anthropic and OpenAI providers and the contract check against doubles of the packages they import, so the success and failure paths run without network or optional packages. The coverage job measures statements and branches and fails under a floor that must not go down.
 - **README: the platform statement:** the description says what this project serves today (the CM5 pilot bench) and that the target platform of HYDRA-UMC, an NVIDIA Jetson Orin NX 16 GB, is a design that has not been built or tested.
 - **The registry of approvers can be the trust store of the dev server:** a file with `trusted_keys` (`ed25519-public:<hex>`) and `revoked` is read as the registry; public keys only (a private key, a malformed key or a bad alias refuses the file without echoing the value), revoked aliases cannot approve, and a store where all are revoked is refused. `tests/test_trust_store_registry.py` covers it.
+
+- Build version synchronized with `hydra-umc.project.json` and the repository-native version source.
+
 ## [0.2.3] - The files read can be checked against the SDK: contracts.validate (off by default, warn, strict) checks every snapshot and change proposal read from a file against the closed schemas of the SDK; strict refuses a file that does... (and 9 more changes)
 
 - **The files read can be checked against the SDK:** `contracts.validate` (`off` by default, `warn`, `strict`) checks every snapshot and change proposal read from a file against the closed schemas of the SDK; `strict` refuses a file that does not match.
