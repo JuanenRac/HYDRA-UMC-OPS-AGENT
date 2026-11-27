@@ -174,7 +174,7 @@ non-empty reason. Same rules as `approve` otherwise (no key needed).
 
 ## `control deploy-canary <proposal_file> --live-root <path> --build-test-command "..." --approvers <registry> --policy <file>`
 
-The policy file (`--policy`, else `OPS_AGENT_POLICY`, else `/etc/hydra-umc/ops-agent-policy.json`) lists, per project, the build-test commands that may run and, optionally, the paths a diff may touch (`allowed_paths`); whatever is not listed is denied, and a missing or malformed file denies everything. See `deploy/ops-agent-policy.json.example`.
+The policy file (`--policy`, else `OPS_AGENT_POLICY`, else `/etc/hydra-umc/ops-agent-policy.json`) lists, per project, the build-test commands that may run and, optionally, the paths a diff may touch (`allowed_paths`) and more paths that decide how a change is judged (`protected_paths`, added to the fixed list: a diff that touches one needs the approval that allows protected paths); whatever is not listed is denied, and a missing or malformed file denies everything. See `deploy/ops-agent-policy.json.example`.
 
 Delivery 4. Refuses to run unless the proposal carries a valid signed
 approval (`ChangeNotApprovedError` / `ApprovalInvalidError`). See

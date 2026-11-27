@@ -48,6 +48,8 @@ PROTECTED_PATH_PATTERNS: tuple[str, ...] = (
     "*.service",
     "*.timer",
     "Makefile",
+    "makefile",
+    "GNUmakefile",  # make reads it before Makefile
 )
 
 _DIFF_GIT_RE = re.compile(r"^diff --git a/(?P<a>.+?) b/(?P<b>.+)$")
@@ -162,12 +164,12 @@ def touched_paths(diff_text: str) -> list[str]:
     return paths
 
 
-def _is_protected(path: str) -> bool:
+def _is_protected(path: str, extra: tuple[str, ...] = ()) -> bool:
     normalized = path.replace("\\", "/")
     while normalized.startswith("./"):
         normalized = normalized[2:]
     last = normalized.rsplit("/", 1)[-1]
-    for pattern in PROTECTED_PATH_PATTERNS:
+    for pattern in (*PROTECTED_PATH_PATTERNS, *extra):
         if pattern.endswith("/"):
             if normalized.startswith(pattern) or f"/{pattern}" in normalized:
                 return True
@@ -176,11 +178,11 @@ def _is_protected(path: str) -> bool:
     return False
 
 
-def is_protected_path(path: str) -> bool:
+def is_protected_path(path: str, extra: tuple[str, ...] = ()) -> bool:
     """True for a path that decides how a change is verified or run (the check `protected_paths_in` applies to every path of a diff)."""
-    return _is_protected(path)
+    return _is_protected(path, extra)
 
 
-def protected_paths_in(diff_text: str) -> list[str]:
-    """The paths of `diff_text` that decide how a change is verified or run."""
-    return [path for path in touched_paths(diff_text) if _is_protected(path)]
+def protected_paths_in(diff_text: str, extra: tuple[str, ...] = ()) -> list[str]:
+    """The paths of `diff_text` that decide how a change is verified or run: the fixed list and `extra`, the `protected_paths` of the project."""
+    return [path for path in touched_paths(diff_text) if _is_protected(path, extra)]

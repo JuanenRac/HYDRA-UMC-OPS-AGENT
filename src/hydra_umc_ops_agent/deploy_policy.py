@@ -46,11 +46,16 @@ class DeployPolicyError(Exception):
 class ProjectPolicy:
     build_test_commands: tuple[tuple[str, ...], ...]
     allowed_paths: tuple[str, ...] | None = None
+    protected_paths: tuple[str, ...] = ()  # added to the fixed list of diff_policy.py, never instead of it
 
 
 @dataclass(frozen=True)
 class DeployPolicy:
     projects: dict[str, ProjectPolicy] = field(default_factory=dict)
+
+    def protected_for(self, project_name: str) -> tuple[str, ...]:
+        project = self.projects.get(project_name)
+        return project.protected_paths if project is not None else ()
 
     def check(self, project_name: str, build_test_command: Sequence[str], touched_paths: Sequence[str] = ()) -> None:
         """Raises DeployPolicyError unless the project is listed, the command is one of its commands and every path is allowed."""
@@ -91,7 +96,10 @@ def parse_policy(raw: object) -> DeployPolicy:
             if not isinstance(paths_raw, list) or not all(isinstance(part, str) and part for part in paths_raw):
                 raise DeployPolicyError(f"{name}: allowed_paths must be a list of non-empty strings")
             allowed = tuple(paths_raw)
-        projects[name] = ProjectPolicy(build_test_commands=tuple(commands), allowed_paths=allowed)
+        extra_raw = entry.get("protected_paths", [])
+        if not isinstance(extra_raw, list) or not all(isinstance(part, str) and part for part in extra_raw):
+            raise DeployPolicyError(f"{name}: protected_paths must be a list of non-empty strings")
+        projects[name] = ProjectPolicy(build_test_commands=tuple(commands), allowed_paths=allowed, protected_paths=tuple(extra_raw))
     return DeployPolicy(projects=projects)
 
 
