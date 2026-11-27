@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **A project can name its own protected paths, and `GNUmakefile` and `makefile` are protected:** `protected_paths` in the deploy policy adds to the fixed list of files that decide how a change is checked or run; the canary deploy and the drafting by a local model honour it.
+
 - **Token and password files saved with a byte order mark are read:** a file written by an editor of Windows as "UTF-8 with BOM" kept the mark in front of the secret, so the credential was refused or could not be sent in a header. The mark is dropped now; a file in another encoding (UTF-16) is refused with a clear message.
 - **A canary is not deployed to a checkout that does not say what it is:** without a readable `hydra-umc.project.json` naming a project, `control deploy-canary` refuses (before, the project check was skipped). `--allow-unreadable-manifest` restores the old behaviour for a project without a manifest. A Python warning about an escape sequence is also gone. Tests.
 ## [0.2.4]

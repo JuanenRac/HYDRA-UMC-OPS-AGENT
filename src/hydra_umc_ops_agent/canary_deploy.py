@@ -906,7 +906,8 @@ def _deploy_canary(
             f"proposal {proposal.proposal_id} was approved for project {proposal.project_name!r}, "
             f"but {live_root} is really {live_project_name!r} - refusing to deploy a change to the wrong project"
         )
-    protected = protected_paths_in(proposal.diff)
+    extra_protected = policy.protected_for(proposal.project_name) if policy is not None else ()
+    protected = protected_paths_in(proposal.diff, extra_protected) if extra_protected else protected_paths_in(proposal.diff)
     if protected and not proposal.allow_protected_paths:
         raise ProtectedPathsError(
             "the diff touches files that decide how a change is checked or run "
@@ -965,7 +966,7 @@ def _deploy_canary(
         stage_reached = "diff_applied"
         # What the apply really changed goes through the same barriers as what the headers said: a header that `git apply` reads in another way than
         # the text check does must not let a protected or unlisted file through.
-        really_protected = [path for path in touched_paths if is_protected_path(path)]
+        really_protected = [path for path in touched_paths if is_protected_path(path, extra_protected)]
         if really_protected and not proposal.allow_protected_paths:
             raise ProtectedPathsError(
                 "applying the diff changed files that decide how a change is checked or run "

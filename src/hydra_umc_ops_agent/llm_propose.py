@@ -48,7 +48,7 @@ from .diagnosis import (
     ProviderRequestError,
     ProviderResponseError,
 )
-from .diff_policy import protected_paths_in, touched_paths
+from .diff_policy import is_protected_path, protected_paths_in, touched_paths
 from .incident import MaintenanceIncident
 from .log_redaction import redact_secrets
 from .messages import translate
@@ -127,7 +127,8 @@ def collect_context(live_root: Path, paths: list[str], policy: DeployPolicy | No
         target = (root / normalized).resolve()
         if root not in target.parents or not target.is_file():
             raise ProposalGenerationError(f"{relative!r} is not a file inside the checkout")
-        if protected_paths_in(f"--- a/{normalized}\n+++ b/{normalized}\n"):
+        extra = policy.protected_for(project_name) if policy and project_name else ()
+        if protected_paths_in(f"--- a/{normalized}\n+++ b/{normalized}\n", extra):
             raise ProposalGenerationError(f"{relative!r} decides how a change is checked or run; the model does not draft changes to it")
         if allowed is not None:
             import fnmatch
@@ -195,6 +196,9 @@ def validate_draft(diff: str, config: LlmProposeConfig, context: dict[str, str],
         project = policy.projects.get(project_name)
         if project is None:
             raise ProposalGenerationError(f"the deploy policy does not list {project_name!r}; nothing can be proposed for it")
+        protected = [path for path in paths if is_protected_path(path, project.protected_paths)]
+        if protected:
+            raise ProposalGenerationError(f"{protected[0]!r} decides how a change is checked or run; the model does not draft changes to it")
         if project.allowed_paths is not None:
             try:
                 policy.check(project_name, project.build_test_commands[0], paths)
