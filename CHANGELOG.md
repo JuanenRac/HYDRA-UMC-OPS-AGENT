@@ -4,6 +4,7 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **A canary is not deployed to a checkout that does not say what it is:** without a readable `hydra-umc.project.json` naming a project, `control deploy-canary` refuses (before, the project check was skipped). `--allow-unreadable-manifest` restores the old behaviour for a project without a manifest. A Python warning about an escape sequence is also gone. Tests.
 ## [0.2.4]
 
 - **The path checks of a diff read the names the way `git apply` reads them:** the protected-path check, the deploy policy and the check that a draft only touches what the model was shown read only the `diff --git`, `---` and `+++` lines, so a `rename to` or `copy to` line (or a name in quotes with an octal escape) could name a protected file such as `build-test.sh` while the other lines named an innocent one. The `rename` and `copy` lines are read now, names in quotes are decoded, and after the diff is applied in the staging copy the paths it really changed go through the protected-path check and the deploy policy again. Tests cover a rename, a copy, an escaped name and a gap in the text check.

@@ -181,6 +181,11 @@ approval (`ChangeNotApprovedError` / `ApprovalInvalidError`). See
 [CHANGE_LIFECYCLE.md](CHANGE_LIFECYCLE.md) for the full real
 stage/apply/verify/promote sequence and its safety guarantees.
 
+The checkout must say what it is: without a readable `hydra-umc.project.json`
+that names a project, the deploy is refused, because nothing shows it is the
+project the approval was given for. `--allow-unreadable-manifest` deploys to
+such a checkout all the same (a project that carries no manifest).
+
 ```
 hydra-umc-ops-agent control deploy-canary proposal.json \
     --live-root /home/pi/HYDRA-UMC/HYDRA-UMC-SERVER \
@@ -191,6 +196,7 @@ hydra-umc-ops-agent control deploy-canary proposal.json \
     [--health-url http://127.0.0.1:3000/health] [--health-timeout 30] \
     [--build-env-allow NAME]... \
     [--build-timeout 600] [--audit-journal FILE] [--keep-local-commit] \
+    [--allow-unreadable-manifest] \
     [--out deploy-result.json]
 ```
 

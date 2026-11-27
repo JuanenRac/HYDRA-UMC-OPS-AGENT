@@ -126,8 +126,8 @@ class TargetProjectMismatchError(CanaryDeployError):
 def _read_live_project_name(live_root: Path) -> str | None:
     """The real, current name of the project actually checked out at
     `live_root`, read straight from its own manifest - `None` if that
-    manifest is missing or unreadable (an honest "can't tell", not a
-    silent pass)."""
+    manifest is missing or unreadable (an honest "can't tell"; the deploy
+    refuses it unless `allow_unreadable_manifest` is given)."""
     manifest_path = live_root / "hydra-umc.project.json"
     try:
         data = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -589,7 +589,7 @@ def pending_canary(live_root: Path) -> dict[str, Any] | None:
 
 _EXCLUDE_BEGIN = "# ops-agent canary begin"
 _EXCLUDE_END = "# ops-agent canary end"
-_GITIGNORE_SPECIAL = set("\[]*?!#")
+_GITIGNORE_SPECIAL = set("\\[]*?!#")
 
 
 def _exclude_line(name: str) -> str:
@@ -828,6 +828,7 @@ def deploy_canary(
     journal_path: Path | None = None,
     keep_local_commit: bool = False,
     policy: DeployPolicy | None = None,
+    allow_unreadable_manifest: bool = False,
 ) -> CanaryDeployResult:
     """Applies an approved proposal to a staged clone, verifies it and promotes
     it. By default the promoted checkout carries the change WITHOUT a local commit (the commit is only used inside
@@ -837,7 +838,9 @@ def deploy_canary(
     deploy refuses. The outcome is always written to the audit journal
     (`audit_path`, by default a hidden file next to the checkout). With a `policy` (see deploy_policy.py) the deploy runs only a
     build-test command that the policy lists for the project, and only on the paths it allows; the command line of this
-    program always passes one, so the library caller that passes none is the one who answers for the command."""
+    program always passes one, so the library caller that passes none is the one who answers for the command.
+    A checkout whose `hydra-umc.project.json` is missing or does not name a project is refused: nothing then
+    proves it is the project the approval was given for. `allow_unreadable_manifest` deploys it all the same."""
     audit_path = audit_path or live_root.parent / _AUDIT_JOURNAL_NAME
     try:
         return _deploy_canary(
@@ -845,6 +848,7 @@ def deploy_canary(
             staging_parent=staging_parent, build_timeout_s=build_timeout_s, build_env_allow=build_env_allow,
             service_unit=service_unit, health_url=health_url, health_timeout_s=health_timeout_s,
             audit_path=audit_path, journal_path=journal_path, keep_local_commit=keep_local_commit, policy=policy,
+            allow_unreadable_manifest=allow_unreadable_manifest,
         )
     except CanaryDeployError as exc:
         try:
@@ -873,6 +877,7 @@ def _deploy_canary(
     journal_path: Path | None,
     keep_local_commit: bool = False,
     policy: DeployPolicy | None = None,
+    allow_unreadable_manifest: bool = False,
 ) -> CanaryDeployResult:
     if proposal.status != STATUS_APPROVED:
         raise ChangeNotApprovedError(
@@ -891,6 +896,11 @@ def _deploy_canary(
     except ChangeProposalError as exc:
         raise ApprovalInvalidError(str(exc)) from exc
     live_project_name = _read_live_project_name(live_root)
+    if live_project_name is None and not allow_unreadable_manifest:
+        raise TargetProjectMismatchError(
+            f"{live_root} has no readable hydra-umc.project.json naming a project, so nothing shows it is {proposal.project_name!r}, "
+            "the project the proposal was approved for - refusing to deploy (--allow-unreadable-manifest deploys it all the same)"
+        )
     if live_project_name is not None and live_project_name != proposal.project_name:
         raise TargetProjectMismatchError(
             f"proposal {proposal.proposal_id} was approved for project {proposal.project_name!r}, "

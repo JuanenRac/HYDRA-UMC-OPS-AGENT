@@ -78,6 +78,9 @@ _CHECK_SCRIPT = (
 )
 
 
+_MANIFEST = '{"name": "test-project"}\n'
+
+
 def _run(args, cwd):
     subprocess.run(args, cwd=str(cwd), check=True, capture_output=True, text=True)
 
@@ -87,6 +90,7 @@ def _make_live_repo(tmp_path: Path) -> Path:
     live_root.mkdir()
     (live_root / "config.json").write_text('{\n  "retries": 0\n}\n', encoding="utf-8")
     (live_root / "check.py").write_text(_CHECK_SCRIPT, encoding="utf-8")
+    (live_root / "hydra-umc.project.json").write_text(_MANIFEST, encoding="utf-8")
     _run(["git", "init", "-q"], live_root)
     _run(["git", "config", "user.email", "test@example.com"], live_root)
     _run(["git", "config", "user.name", "Test"], live_root)
@@ -107,6 +111,7 @@ def _make_live_repo_with_real_upstream(tmp_path: Path) -> tuple[Path, Path]:
     _run(["git", "clone", "-q", str(remote), str(seed)], tmp_path)
     (seed / "config.json").write_text('{\n  "retries": 0\n}\n', encoding="utf-8")
     (seed / "check.py").write_text(_CHECK_SCRIPT, encoding="utf-8")
+    (seed / "hydra-umc.project.json").write_text(_MANIFEST, encoding="utf-8")
     _run(["git", "config", "user.email", "test@example.com"], seed)
     _run(["git", "config", "user.name", "Test"], seed)
     _run(["git", "add", "."], seed)
@@ -390,15 +395,24 @@ class DeployCanaryApprovalBindingTests(unittest.TestCase):
             self.assertIn('"retries": 0', (live_root / "config.json").read_text(encoding="utf-8"))
             self.assertEqual(list(tmp_path.glob("live-project.backup-*")), [])
 
-    def test_deploying_to_a_checkout_with_no_manifest_at_all_is_not_blocked_by_this_check(self):
-        # An honest "can't tell" (no manifest present) must never itself
-        # block a deploy - that would be a real, separate regression.
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = Path(tmp)
-            live_root = _make_live_repo(tmp_path)
-            proposal = _make_approved_proposal(_GOOD_DIFF)
-            result = deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
-            self.assertTrue(result.promoted, result.detail)
+    def test_a_checkout_that_does_not_say_what_it_is_is_refused_unless_asked(self):
+        for content in (None, "{not json", '{"version": "1.0.0"}', '["test-project"]'):
+            with self.subTest(content=content), tempfile.TemporaryDirectory() as tmp:
+                tmp_path = Path(tmp)
+                live_root = _make_live_repo(tmp_path)
+                manifest = live_root / "hydra-umc.project.json"
+                if content is None:
+                    manifest.unlink()
+                else:
+                    manifest.write_text(content, encoding="utf-8")
+                _run(["git", "add", "-A"], live_root)
+                _run(["git", "commit", "-q", "-m", "manifest"], live_root)
+                proposal = _make_approved_proposal(_GOOD_DIFF)
+                with self.assertRaises(TargetProjectMismatchError):
+                    deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"])
+                self.assertIn('"retries": 0', (live_root / "config.json").read_text(encoding="utf-8"))
+                result = deploy_canary(proposal, live_root=live_root, approvers=APPROVERS, build_test_command=[sys.executable, "check.py"], allow_unreadable_manifest=True)
+                self.assertTrue(result.promoted, result.detail)
 
 
 class DeployCanarySafetyGateTests(unittest.TestCase):
@@ -428,6 +442,7 @@ class DeployCanarySafetyGateTests(unittest.TestCase):
             live_root.mkdir()
             (live_root / "config.json").write_text('{\n  "retries": 0\n}\n', encoding="utf-8")
             (live_root / "check.py").write_text(_CHECK_SCRIPT, encoding="utf-8")
+            (live_root / "hydra-umc.project.json").write_text(_MANIFEST, encoding="utf-8")
             proposal = _make_approved_proposal(_GOOD_DIFF)
 
             with self.assertRaises(DirtyCheckError):
