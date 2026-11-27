@@ -414,6 +414,7 @@ def _cmd_control_deploy_canary(args: argparse.Namespace) -> int:
     try:
         result = deploy_canary(
             proposal,
+            allow_unreadable_manifest=args.allow_unreadable_manifest,
             live_root=live_root,
             build_test_command=command,
             approvers=approvers,
@@ -630,6 +631,7 @@ def build_parser() -> argparse.ArgumentParser:
     deploy_canary_parser.add_argument("--health-timeout", type=float, default=30.0, help="Seconds to wait for the health check (default: 30).")
     deploy_canary_parser.add_argument("--audit-journal", help="Audit journal file (default: a hidden file next to the checkout).")
     deploy_canary_parser.add_argument("--keep-local-commit", action="store_true", help="Leave the change in the checkout as a local commit (default: no commit; the change is kept as a patch file and the checkout can still fast-forward).")
+    deploy_canary_parser.add_argument("--allow-unreadable-manifest", action="store_true", help="Deploy to a checkout whose hydra-umc.project.json is missing or names no project (default: refused).")
     deploy_canary_parser.add_argument("--out", help="Write the deploy result JSON here instead of stdout.")
     deploy_canary_parser.set_defaults(func=_cmd_control_deploy_canary)
 

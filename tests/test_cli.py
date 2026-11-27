@@ -271,6 +271,7 @@ class Delivery345CliTests(unittest.TestCase):
             "sys.exit(0 if data.get('retries', 0) >= 3 else 1)\n",
             encoding="utf-8",
         )
+        (live_root / "hydra-umc.project.json").write_text('{"name": "test-project"}', encoding="utf-8")
         for args in (["git", "init", "-q"], ["git", "config", "user.email", "t@example.com"],
                      ["git", "config", "user.name", "T"], ["git", "add", "."], ["git", "commit", "-q", "-m", "x"]):
             subprocess.run(args, cwd=str(live_root), check=True, capture_output=True, text=True)

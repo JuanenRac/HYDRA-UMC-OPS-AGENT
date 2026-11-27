@@ -45,6 +45,7 @@ def make_checkout(projects_root: Path, name: str = "test-project") -> Path:
     live.mkdir(parents=True)
     (live / "config.json").write_text('{\n  "retries": 0\n}\n', encoding="utf-8")
     (live / "check.py").write_text(CHECK_SCRIPT, encoding="utf-8")
+    (live / "hydra-umc.project.json").write_text(f'{{"name": "{name}"}}', encoding="utf-8")
     _git(["init", "-q"], live)
     _git(["config", "user.email", "test@example.com"], live)
     _git(["config", "user.name", "Test"], live)
