@@ -12,7 +12,7 @@ from pathlib import Path
 
 from hydra_umc_ops_agent.scenario_ingest import _read_secret
 
-SECRET = "s3cret-0123456789-abcdefghij-0123456789"
+SAMPLE = "sample-0123456789-abcdefghij-0123456789"
 
 
 class SecretFileEncodingTests(unittest.TestCase):
@@ -20,12 +20,12 @@ class SecretFileEncodingTests(unittest.TestCase):
         folder = tempfile.TemporaryDirectory()
         self.addCleanup(folder.cleanup)
         self.bom = Path(folder.name, "bom.token")
-        self.bom.write_bytes(b"\xef\xbb\xbf" + SECRET.encode("ascii") + b"\r\n")  # what Notepad calls "UTF-8 with BOM"
+        self.bom.write_bytes(b"\xef\xbb\xbf" + SAMPLE.encode("ascii") + b"\r\n")  # what Notepad calls "UTF-8 with BOM"
         self.utf16 = Path(folder.name, "utf16.token")
-        self.utf16.write_bytes((SECRET + "\r\n").encode("utf-16"))  # what `>` of Windows PowerShell writes
+        self.utf16.write_bytes((SAMPLE + "\r\n").encode("utf-16"))  # what `>` of Windows PowerShell writes
 
     def test_an_ingest_secret_ignores_a_byte_order_mark(self) -> None:
-        self.assertEqual(_read_secret(str(self.bom)), SECRET)
+        self.assertEqual(_read_secret(str(self.bom)), SAMPLE)
 
     def test_an_ingest_secret_does_not_use_another_encoding(self) -> None:
         self.assertEqual(_read_secret(str(self.utf16)), None)
