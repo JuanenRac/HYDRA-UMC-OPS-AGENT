@@ -85,8 +85,8 @@ def _read_secret(path: str | None) -> str | None:
     if not path:
         return None
     try:
-        text = Path(path).read_text(encoding="utf-8").strip()
-    except OSError:
+        text = Path(path).read_text(encoding="utf-8-sig").strip()  # a byte order mark is not part of the secret
+    except (OSError, UnicodeDecodeError):
         return None
     return text or None
 
